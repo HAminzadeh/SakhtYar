@@ -1,29 +1,165 @@
 # SakhtYar
 
-SakhtYar is currently in its initial setup stage.
+پلتفرم هوشمند مشارکت در ساخت — Server-oriented Foundation.
 
-## Project structure
+این نسخه برای اجرا روی یک سرور لینوکسی اختصاصی طراحی شده، نه یک PC محدود.
+
+## Target server
+
+Baseline پیشنهادی:
+
+- Ubuntu Server 24.04 LTS
+- 8 vCPU
+- 32 GB RAM
+- 500 GB+ NVMe
+- Docker Engine + Docker Compose
+- Public domain + HTTPS
+
+برای Local AI یا پردازش سنگین‌تر:
+- 16 vCPU
+- 64 GB RAM
+- GPU در صورت نیاز
+
+## Runtime topology
 
 ```text
-SakhtYar/
-├── src/        # Application source code
-├── tests/      # Automated tests
-├── docs/       # Project documentation
-├── .gitignore
-└── README.md
+Internet
+   |
+   v
+Caddy / HTTPS
+   |
+   +--> React frontend
+   |
+   +--> Spring Boot API
+           |
+           +--> PostgreSQL + PostGIS + pgvector
+           +--> Redis
+           +--> MinIO
+           +--> Worker processes
+           +--> Agent runtime
+           +--> Collector runtime
+           +--> External integrations
 ```
 
-## Getting started
+## Architectural direction
 
-The technical stack and setup instructions will be added as the project evolves.
+SakhtYar در فاز اول یک Modular Monolith است، اما runtime آن server-oriented است:
+
+- API process
+- Background worker process
+- Collector process
+- Agent process
+- PostgreSQL
+- Redis
+- MinIO
+- Reverse proxy
+- Observability
+
+این جداسازی اجازه می‌دهد در آینده هر process را بدون بازنویسی domain جدا کنیم.
+
+## Stack
+
+### Backend
+- Java 21
+- Spring Boot 4.1.1
+- Spring Web
+- Spring Security
+- Spring Data JPA
+- Spring Validation
+- Flyway
+- PostgreSQL 17
+- PostGIS
+- pgvector
+- Redis
+- MinIO
+- JWT cookie authentication
+
+### Frontend
+- React 19
+- TypeScript
+- Vite
+- Material UI
+- TanStack Query
+- React Hook Form
+- Zod
+- RTL / Persian-first
+
+### Server infrastructure
+- Docker Compose
+- Caddy
+- PostgreSQL
+- Redis
+- MinIO
+- Prometheus
+- Grafana
+- Node Exporter
+- optional Ollama profile
+
+## Services
+
+```text
+sakhtyar-proxy
+sakhtyar-frontend
+sakhtyar-api
+sakhtyar-worker
+sakhtyar-collector
+sakhtyar-agent
+sakhtyar-db
+sakhtyar-redis
+sakhtyar-minio
+sakhtyar-prometheus
+sakhtyar-grafana
+```
+
+در Phase 0 فقط API business featureهای اصلی را پیاده‌سازی می‌کند.
+Worker/Collector/Agent processها foundation مستقل دارند تا در Phaseهای بعدی منطق روی آن‌ها قرار بگیرد.
+
+## Production startup
+
+```bash
+cp .env.server.example .env
+docker compose -f docker-compose.server.yml up -d --build
+```
+
+Observability:
+
+```bash
+docker compose -f docker-compose.server.yml --profile observability up -d
+```
+
+Local AI:
+
+```bash
+docker compose -f docker-compose.server.yml --profile ai up -d
+```
 
 ## Development
 
-1. Create a feature branch from `main`.
-2. Keep changes focused and small.
-3. Add or update tests alongside code changes.
-4. Open a pull request for review before merging.
+برای development همچنان می‌توان از:
 
-## Status
+```bash
+docker compose up -d db redis minio
+```
 
-Initial repository scaffold created.
+استفاده کرد.
+
+## Phase 0 functionality
+
+- login/logout/current user
+- bootstrap admin
+- Case API
+- document upload/download
+- audit log
+- PostGIS / pgvector
+- Redis
+- MinIO
+- health endpoints
+- React RTL shell
+- CI
+- production reverse proxy
+- observability profile
+- separate background runtime foundations
+
+## Product reference
+
+مرجع محصول همچنان «طراحی جامع مشارکت ساخت 02» است.

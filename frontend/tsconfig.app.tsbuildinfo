@@ -1,0 +1,1 @@
+{"root":["./src/App.tsx","./src/main.tsx","./src/api/client.ts","./src/api/types.ts","./src/app/AppShell.tsx","./src/auth/AuthProvider.tsx","./src/auth/ProtectedRoute.tsx","./src/pages/CaseDetailPage.tsx","./src/pages/CasesPage.tsx","./src/pages/LoginPage.tsx"],"errors":true,"version":"5.8.3"}

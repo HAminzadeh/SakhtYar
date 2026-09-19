@@ -2,24 +2,34 @@
 .DS_Store
 Thumbs.db
 
-# Editors / IDEs
-.vscode/
+# IDE
 .idea/
+.vscode/
+*.iml
 
-# Environment / secrets
+# Secrets
 .env
 .env.*
 !.env.example
 
+# Java
+backend/target/
+*.class
+*.jar
+*.war
+
+# Node
+frontend/node_modules/
+frontend/dist/
+frontend/.vite/
+
 # Logs
 *.log
 
-# Temporary files
+# Coverage
+coverage/
+
+# Temp
 *.tmp
 *.temp
 .cache/
-
-# Build / coverage artifacts
-dist/
-build/
-coverage/

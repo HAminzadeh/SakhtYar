@@ -1,0 +1,345 @@
+services:
+  proxy:
+    image: caddy:2-alpine
+    container_name: sakhtyar-proxy
+    restart: unless-stopped
+    environment:
+      SAKHTYAR_DOMAIN: ${SAKHTYAR_DOMAIN}
+      ACME_EMAIL: ${ACME_EMAIL}
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./deploy/caddy/Caddyfile:/etc/caddy/Caddyfile:ro
+      - sakhtyar_caddy_data:/data
+      - sakhtyar_caddy_config:/config
+    depends_on:
+      - frontend
+      - api
+    networks:
+      - edge
+      - app
+
+  frontend:
+    build:
+      context: ./frontend
+    container_name: sakhtyar-frontend
+    restart: unless-stopped
+    expose:
+      - "80"
+    networks:
+      - app
+
+  api:
+    build:
+      context: ./backend
+    container_name: sakhtyar-api
+    restart: unless-stopped
+    environment:
+      SPRING_PROFILES_ACTIVE: server,api
+      JAVA_TOOL_OPTIONS: ${JAVA_API_OPTS}
+
+      DB_URL: jdbc:postgresql://db:5432/${POSTGRES_DB}
+      DB_USERNAME: ${POSTGRES_USER}
+      DB_PASSWORD: ${POSTGRES_PASSWORD}
+
+      REDIS_HOST: redis
+      REDIS_PORT: 6379
+      REDIS_PASSWORD: ${REDIS_PASSWORD}
+
+      MINIO_ENDPOINT: http://minio:9000
+      MINIO_ACCESS_KEY: ${MINIO_ROOT_USER}
+      MINIO_SECRET_KEY: ${MINIO_ROOT_PASSWORD}
+      MINIO_BUCKET: ${MINIO_BUCKET}
+
+      APP_BOOTSTRAP_ADMIN_USERNAME: ${APP_BOOTSTRAP_ADMIN_USERNAME}
+      APP_BOOTSTRAP_ADMIN_PASSWORD: ${APP_BOOTSTRAP_ADMIN_PASSWORD}
+      APP_BOOTSTRAP_ADMIN_DISPLAY_NAME: ${APP_BOOTSTRAP_ADMIN_DISPLAY_NAME}
+
+      APP_JWT_SECRET: ${APP_JWT_SECRET}
+      APP_JWT_EXPIRATION_MINUTES: ${APP_JWT_EXPIRATION_MINUTES}
+
+      CORS_ALLOWED_ORIGINS: https://${SAKHTYAR_DOMAIN}
+    expose:
+      - "8080"
+    depends_on:
+      db:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      minio:
+        condition: service_healthy
+    networks:
+      - app
+      - data
+
+  worker:
+    build:
+      context: ./backend
+    container_name: sakhtyar-worker
+    restart: unless-stopped
+    command:
+      - java
+      - -jar
+      - /app/app.jar
+      - --spring.profiles.active=server,worker
+      - --server.port=8081
+    environment:
+      JAVA_TOOL_OPTIONS: ${JAVA_WORKER_OPTS}
+
+      DB_URL: jdbc:postgresql://db:5432/${POSTGRES_DB}
+      DB_USERNAME: ${POSTGRES_USER}
+      DB_PASSWORD: ${POSTGRES_PASSWORD}
+
+      REDIS_HOST: redis
+      REDIS_PORT: 6379
+      REDIS_PASSWORD: ${REDIS_PASSWORD}
+
+      MINIO_ENDPOINT: http://minio:9000
+      MINIO_ACCESS_KEY: ${MINIO_ROOT_USER}
+      MINIO_SECRET_KEY: ${MINIO_ROOT_PASSWORD}
+      MINIO_BUCKET: ${MINIO_BUCKET}
+
+      APP_BOOTSTRAP_ADMIN_USERNAME: ${APP_BOOTSTRAP_ADMIN_USERNAME}
+      APP_BOOTSTRAP_ADMIN_PASSWORD: ${APP_BOOTSTRAP_ADMIN_PASSWORD}
+      APP_BOOTSTRAP_ADMIN_DISPLAY_NAME: ${APP_BOOTSTRAP_ADMIN_DISPLAY_NAME}
+      APP_JWT_SECRET: ${APP_JWT_SECRET}
+    depends_on:
+      db:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    networks:
+      - data
+
+  collector:
+    build:
+      context: ./backend
+    container_name: sakhtyar-collector
+    restart: unless-stopped
+    command:
+      - java
+      - -jar
+      - /app/app.jar
+      - --spring.profiles.active=server,collector
+      - --server.port=8082
+    environment:
+      JAVA_TOOL_OPTIONS: ${JAVA_COLLECTOR_OPTS}
+
+      DB_URL: jdbc:postgresql://db:5432/${POSTGRES_DB}
+      DB_USERNAME: ${POSTGRES_USER}
+      DB_PASSWORD: ${POSTGRES_PASSWORD}
+
+      REDIS_HOST: redis
+      REDIS_PORT: 6379
+      REDIS_PASSWORD: ${REDIS_PASSWORD}
+
+      MINIO_ENDPOINT: http://minio:9000
+      MINIO_ACCESS_KEY: ${MINIO_ROOT_USER}
+      MINIO_SECRET_KEY: ${MINIO_ROOT_PASSWORD}
+      MINIO_BUCKET: ${MINIO_BUCKET}
+
+      APP_BOOTSTRAP_ADMIN_USERNAME: ${APP_BOOTSTRAP_ADMIN_USERNAME}
+      APP_BOOTSTRAP_ADMIN_PASSWORD: ${APP_BOOTSTRAP_ADMIN_PASSWORD}
+      APP_BOOTSTRAP_ADMIN_DISPLAY_NAME: ${APP_BOOTSTRAP_ADMIN_DISPLAY_NAME}
+      APP_JWT_SECRET: ${APP_JWT_SECRET}
+    depends_on:
+      db:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    networks:
+      - data
+
+  agent:
+    build:
+      context: ./backend
+    container_name: sakhtyar-agent
+    restart: unless-stopped
+    command:
+      - java
+      - -jar
+      - /app/app.jar
+      - --spring.profiles.active=server,agent
+      - --server.port=8083
+    environment:
+      JAVA_TOOL_OPTIONS: ${JAVA_AGENT_OPTS}
+
+      DB_URL: jdbc:postgresql://db:5432/${POSTGRES_DB}
+      DB_USERNAME: ${POSTGRES_USER}
+      DB_PASSWORD: ${POSTGRES_PASSWORD}
+
+      REDIS_HOST: redis
+      REDIS_PORT: 6379
+      REDIS_PASSWORD: ${REDIS_PASSWORD}
+
+      MINIO_ENDPOINT: http://minio:9000
+      MINIO_ACCESS_KEY: ${MINIO_ROOT_USER}
+      MINIO_SECRET_KEY: ${MINIO_ROOT_PASSWORD}
+      MINIO_BUCKET: ${MINIO_BUCKET}
+
+      APP_BOOTSTRAP_ADMIN_USERNAME: ${APP_BOOTSTRAP_ADMIN_USERNAME}
+      APP_BOOTSTRAP_ADMIN_PASSWORD: ${APP_BOOTSTRAP_ADMIN_PASSWORD}
+      APP_BOOTSTRAP_ADMIN_DISPLAY_NAME: ${APP_BOOTSTRAP_ADMIN_DISPLAY_NAME}
+      APP_JWT_SECRET: ${APP_JWT_SECRET}
+
+      OLLAMA_BASE_URL: http://ollama:11434
+    depends_on:
+      db:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    networks:
+      - data
+      - ai
+
+  db:
+    build:
+      context: ./deploy/postgres
+    container_name: sakhtyar-db
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB}
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+    volumes:
+      - sakhtyar_pg_data:/var/lib/postgresql/data
+    shm_size: 1gb
+    command:
+      - postgres
+      - -c
+      - shared_buffers=4GB
+      - -c
+      - effective_cache_size=12GB
+      - -c
+      - work_mem=32MB
+      - -c
+      - maintenance_work_mem=1GB
+      - -c
+      - max_connections=200
+      - -c
+      - checkpoint_completion_target=0.9
+      - -c
+      - wal_compression=on
+    healthcheck:
+      test:
+        [
+          "CMD-SHELL",
+          "pg_isready -U ${POSTGRES_USER} -d ${POSTGRES_DB}"
+        ]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+    networks:
+      - data
+
+  redis:
+    image: redis:7.4-alpine
+    container_name: sakhtyar-redis
+    restart: unless-stopped
+    command:
+      [
+        "redis-server",
+        "--appendonly",
+        "yes",
+        "--requirepass",
+        "${REDIS_PASSWORD}",
+        "--maxmemory",
+        "2gb",
+        "--maxmemory-policy",
+        "allkeys-lru"
+      ]
+    volumes:
+      - sakhtyar_redis_data:/data
+    healthcheck:
+      test: ["CMD-SHELL", "redis-cli -a ${REDIS_PASSWORD} ping | grep PONG"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+    networks:
+      - data
+
+  minio:
+    image: minio/minio:latest
+    container_name: sakhtyar-minio
+    restart: unless-stopped
+    environment:
+      MINIO_ROOT_USER: ${MINIO_ROOT_USER}
+      MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD}
+    command: server /data --console-address ":9001"
+    volumes:
+      - sakhtyar_minio_data:/data
+    healthcheck:
+      test: ["CMD", "mc", "ready", "local"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+    networks:
+      - data
+
+  ollama:
+    image: ollama/ollama:latest
+    container_name: sakhtyar-ollama
+    restart: unless-stopped
+    profiles: ["ai"]
+    volumes:
+      - sakhtyar_ollama_data:/root/.ollama
+    networks:
+      - ai
+
+  prometheus:
+    image: prom/prometheus:latest
+    container_name: sakhtyar-prometheus
+    restart: unless-stopped
+    profiles: ["observability"]
+    volumes:
+      - ./deploy/prometheus/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - sakhtyar_prometheus_data:/prometheus
+    networks:
+      - app
+      - monitor
+
+  grafana:
+    image: grafana/grafana-oss:latest
+    container_name: sakhtyar-grafana
+    restart: unless-stopped
+    profiles: ["observability"]
+    environment:
+      GF_SECURITY_ADMIN_USER: ${GRAFANA_ADMIN_USER}
+      GF_SECURITY_ADMIN_PASSWORD: ${GRAFANA_ADMIN_PASSWORD}
+    volumes:
+      - sakhtyar_grafana_data:/var/lib/grafana
+    networks:
+      - monitor
+
+  node-exporter:
+    image: prom/node-exporter:latest
+    container_name: sakhtyar-node-exporter
+    restart: unless-stopped
+    profiles: ["observability"]
+    network_mode: host
+    pid: host
+    command:
+      - --path.rootfs=/host
+    volumes:
+      - /:/host:ro,rslave
+
+networks:
+  edge:
+  app:
+  data:
+    internal: true
+  ai:
+    internal: true
+  monitor:
+    internal: true
+
+volumes:
+  sakhtyar_pg_data:
+  sakhtyar_redis_data:
+  sakhtyar_minio_data:
+  sakhtyar_caddy_data:
+  sakhtyar_caddy_config:
+  sakhtyar_ollama_data:
+  sakhtyar_prometheus_data:
+  sakhtyar_grafana_data:

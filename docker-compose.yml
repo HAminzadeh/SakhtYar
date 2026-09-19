@@ -1,0 +1,107 @@
+services:
+  db:
+    build:
+      context: ./deploy/postgres
+    container_name: sakhtyar-db
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-sakhtyar}
+      POSTGRES_USER: ${POSTGRES_USER:-sakhtyar}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-change-me-postgres}
+    ports:
+      - "${POSTGRES_PORT:-5432}:5432"
+    volumes:
+      - sakhtyar_pg_data:/var/lib/postgresql/data
+    healthcheck:
+      test:
+        [
+          "CMD-SHELL",
+          "pg_isready -U ${POSTGRES_USER:-sakhtyar} -d ${POSTGRES_DB:-sakhtyar}"
+        ]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+
+  redis:
+    image: redis:7.4-alpine
+    container_name: sakhtyar-redis
+    restart: unless-stopped
+    ports:
+      - "${REDIS_PORT:-6379}:6379"
+    command: ["redis-server", "--appendonly", "yes"]
+    volumes:
+      - sakhtyar_redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+
+  minio:
+    image: minio/minio:latest
+    container_name: sakhtyar-minio
+    restart: unless-stopped
+    environment:
+      MINIO_ROOT_USER: ${MINIO_ROOT_USER:-sakhtyar}
+      MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD:-change-me-minio}
+    command: server /data --console-address ":9001"
+    ports:
+      - "${MINIO_API_PORT:-9000}:9000"
+      - "${MINIO_CONSOLE_PORT:-9001}:9001"
+    volumes:
+      - sakhtyar_minio_data:/data
+    healthcheck:
+      test: ["CMD", "mc", "ready", "local"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+
+  backend:
+    build:
+      context: ./backend
+    container_name: sakhtyar-backend
+    restart: unless-stopped
+    environment:
+      DB_URL: jdbc:postgresql://db:5432/${POSTGRES_DB:-sakhtyar}
+      DB_USERNAME: ${POSTGRES_USER:-sakhtyar}
+      DB_PASSWORD: ${POSTGRES_PASSWORD:-change-me-postgres}
+
+      REDIS_HOST: redis
+      REDIS_PORT: 6379
+
+      MINIO_ENDPOINT: http://minio:9000
+      MINIO_ACCESS_KEY: ${MINIO_ROOT_USER:-sakhtyar}
+      MINIO_SECRET_KEY: ${MINIO_ROOT_PASSWORD:-change-me-minio}
+      MINIO_BUCKET: ${MINIO_BUCKET:-sakhtyar-documents}
+
+      APP_BOOTSTRAP_ADMIN_USERNAME: ${APP_BOOTSTRAP_ADMIN_USERNAME:-admin}
+      APP_BOOTSTRAP_ADMIN_PASSWORD: ${APP_BOOTSTRAP_ADMIN_PASSWORD:-ChangeMeNow_123!}
+      APP_BOOTSTRAP_ADMIN_DISPLAY_NAME: ${APP_BOOTSTRAP_ADMIN_DISPLAY_NAME:-مدیر سیستم}
+
+      APP_JWT_SECRET: ${APP_JWT_SECRET:-change-this-development-jwt-secret-to-a-long-random-value-1234567890}
+      APP_JWT_EXPIRATION_MINUTES: ${APP_JWT_EXPIRATION_MINUTES:-480}
+      CORS_ALLOWED_ORIGINS: ${CORS_ALLOWED_ORIGINS:-http://localhost:5173,http://localhost:3000}
+    ports:
+      - "${BACKEND_PORT:-8080}:8080"
+    depends_on:
+      db:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      minio:
+        condition: service_healthy
+
+  frontend:
+    build:
+      context: ./frontend
+    container_name: sakhtyar-frontend
+    restart: unless-stopped
+    ports:
+      - "${FRONTEND_PORT:-3000}:80"
+    depends_on:
+      - backend
+
+volumes:
+  sakhtyar_pg_data:
+  sakhtyar_redis_data:
+  sakhtyar_minio_data:
