@@ -28,16 +28,28 @@ export async function api<T>(
 
   if (!response.ok) {
     let message = `خطای ${response.status}`
+
     try {
-      const body = (await response.json()) as { message?: string }
-      message = body.message ?? message
+      const body = (await response.json()) as {
+        message?: string
+        detail?: string
+        title?: string
+      }
+
+      message =
+        body.message ??
+        body.detail ??
+        body.title ??
+        message
     } catch {
       // Keep fallback message.
     }
+
     throw new ApiError(message, response.status)
   }
 
   const contentType = response.headers.get('content-type') ?? ''
+
   if (!contentType.includes('application/json')) {
     return response as T
   }

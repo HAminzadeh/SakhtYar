@@ -1,6 +1,11 @@
 package com.sakhtyar.casefile.domain;
 
-import jakarta.persistence.*;
+import jakarta.persistence.Column;
+import jakarta.persistence.Entity;
+import jakarta.persistence.EnumType;
+import jakarta.persistence.Enumerated;
+import jakarta.persistence.Id;
+import jakarta.persistence.Table;
 import java.math.BigDecimal;
 import java.time.Instant;
 import java.util.UUID;
@@ -91,15 +96,68 @@ public class CaseEntity {
         this.updatedAt = Instant.now();
     }
 
-    public UUID getId() { return id; }
-    public String getTitle() { return title; }
-    public CaseStatus getStatus() { return status; }
-    public String getDescription() { return description; }
-    public String getCity() { return city; }
-    public String getDistrict() { return district; }
-    public String getAddress() { return address; }
-    public BigDecimal getLandAreaM2() { return landAreaM2; }
-    public String getCreatedBy() { return createdBy; }
-    public Instant getCreatedAt() { return createdAt; }
-    public Instant getUpdatedAt() { return updatedAt; }
+    /**
+     * Temporary Phase 1 compatibility bridge.
+     *
+     * Property is becoming the source of truth for location and land data,
+     * but the existing Phase 0 UI still reads these summary fields from
+     * construction_case. Keep them synchronized until the UI migration is
+     * complete.
+     */
+    public void syncPropertySnapshot(
+            String city,
+            String district,
+            String address,
+            BigDecimal landAreaM2
+    ) {
+        this.city = city;
+        this.district = district;
+        this.address = address;
+        this.landAreaM2 = landAreaM2;
+        this.updatedAt = Instant.now();
+    }
+
+    public UUID getId() {
+        return id;
+    }
+
+    public String getTitle() {
+        return title;
+    }
+
+    public CaseStatus getStatus() {
+        return status;
+    }
+
+    public String getDescription() {
+        return description;
+    }
+
+    public String getCity() {
+        return city;
+    }
+
+    public String getDistrict() {
+        return district;
+    }
+
+    public String getAddress() {
+        return address;
+    }
+
+    public BigDecimal getLandAreaM2() {
+        return landAreaM2;
+    }
+
+    public String getCreatedBy() {
+        return createdBy;
+    }
+
+    public Instant getCreatedAt() {
+        return createdAt;
+    }
+
+    public Instant getUpdatedAt() {
+        return updatedAt;
+    }
 }

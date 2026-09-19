@@ -30,3 +30,36 @@ export type DocumentItem = {
   uploadedBy: string
   uploadedAt: string
 }
+
+export type PropertyItem = {
+  id: string
+  caseId: string
+  province?: string | null
+  city?: string | null
+  district?: string | null
+  neighborhood?: string | null
+  address?: string | null
+  landAreaM2?: number | null
+  registryMainNo?: string | null
+  registrySubNo?: string | null
+  registrySection?: string | null
+  postalCode?: string | null
+  latitude?: number | null
+  longitude?: number | null
+  createdAt: string
+  updatedAt: string
+}
+
+export type OwnerItem = {
+  id: string
+  propertyId: string
+  firstName: string
+  lastName: string
+  nationalId?: string | null
+  mobile?: string | null
+  ownershipNumerator: number
+  ownershipDenominator: number
+  primaryContact: boolean
+  createdAt: string
+  updatedAt: string
+}
