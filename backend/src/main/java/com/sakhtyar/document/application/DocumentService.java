@@ -77,7 +77,7 @@ public class DocumentService {
                         PutObjectArgs.builder()
                                 .bucket(storage.bucket())
                                 .object(key)
-                                .stream(input, file.getSize(), -1)
+                                .stream(input, file.getSize(), -1L)
                                 .contentType(file.getContentType())
                                 .build()
                 );
@@ -202,3 +202,4 @@ public class DocumentService {
     ) {
     }
 }
+
