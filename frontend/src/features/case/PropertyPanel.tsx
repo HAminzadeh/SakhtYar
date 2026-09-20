@@ -1,10 +1,12 @@
 import SaveRoundedIcon from '@mui/icons-material/SaveRounded'
 import {
   Alert,
+  Box,
   Button,
   Card,
   CardContent,
   Grid,
+  MenuItem,
   Stack,
   TextField,
   Typography,
@@ -21,12 +23,112 @@ type PropertyForm = {
   neighborhood: string
   address: string
   landAreaM2: string
+  frontageM: string
+  passageWidthM: string
+  buildingAreaM2: string
+  constructionYear: string
+  existingFloors: string
+  existingUnits: string
+  orientation: string
+  propertyType: string
+  buildingCondition: string
+  deedType: string
+  ownershipStatus: string
+  cornerPosition: string
+  landUse: string
   registryMainNo: string
   registrySubNo: string
   registrySection: string
   postalCode: string
   latitude: string
   longitude: string
+}
+
+const ORIENTATIONS = [
+  ['', 'نامشخص'],
+  ['NORTH', 'شمالی'],
+  ['SOUTH', 'جنوبی'],
+  ['EAST', 'شرقی'],
+  ['WEST', 'غربی'],
+  ['NORTH_EAST', 'شمال شرقی'],
+  ['NORTH_WEST', 'شمال غربی'],
+  ['SOUTH_EAST', 'جنوب شرقی'],
+  ['SOUTH_WEST', 'جنوب غربی'],
+] as const
+
+const PROPERTY_TYPES = [
+  ['', 'انتخاب کنید'],
+  ['LAND', 'زمین'],
+  ['OLD_BUILDING', 'کلنگی'],
+  ['RESIDENTIAL_BUILDING', 'ساختمان مسکونی'],
+  ['APARTMENT', 'آپارتمان'],
+  ['VILLA', 'ویلایی'],
+  ['COMMERCIAL', 'تجاری'],
+  ['OFFICE', 'اداری'],
+  ['MIXED_USE', 'مختلط'],
+  ['INDUSTRIAL', 'صنعتی'],
+  ['GARDEN', 'باغ / باغچه'],
+  ['OTHER', 'سایر'],
+] as const
+
+const BUILDING_CONDITIONS = [
+  ['', 'انتخاب کنید'],
+  ['VACANT_LAND', 'زمین خالی'],
+  ['DEMOLITION_CANDIDATE', 'کلنگی / مناسب تخریب'],
+  ['NEEDS_RENOVATION', 'نیازمند بازسازی'],
+  ['HABITABLE', 'قابل سکونت'],
+  ['RENOVATED', 'بازسازی‌شده'],
+  ['NEW_BUILD', 'نوساز'],
+  ['UNDER_CONSTRUCTION', 'در حال ساخت'],
+  ['OTHER', 'سایر'],
+] as const
+
+const DEED_TYPES = [
+  ['', 'انتخاب کنید'],
+  ['SINGLE_PAGE', 'سند تک‌برگ'],
+  ['BOOKLET', 'سند دفترچه‌ای / منگوله‌دار'],
+  ['AGREEMENT', 'قولنامه‌ای'],
+  ['POWER_OF_ATTORNEY', 'وکالتی'],
+  ['ENDOWMENT', 'اوقافی'],
+  ['COOPERATIVE', 'تعاونی'],
+  ['OTHER', 'سایر'],
+] as const
+
+const OWNERSHIP_STATUSES = [
+  ['', 'انتخاب کنید'],
+  ['SIX_DANG', 'شش‌دانگ'],
+  ['SHARED', 'مشاع'],
+  ['PARTIAL', 'سهمی / دانگی'],
+  ['OTHER', 'سایر'],
+] as const
+
+const CORNER_POSITIONS = [
+  ['', 'انتخاب کنید'],
+  ['MID_BLOCK', 'میان‌قطعه / یک‌بر'],
+  ['CORNER', 'نبش / دوبر'],
+  ['THREE_FRONT', 'سه‌بر'],
+  ['FOUR_FRONT', 'چهاربر'],
+  ['OTHER', 'سایر'],
+] as const
+
+const LAND_USES = [
+  ['', 'انتخاب کنید'],
+  ['RESIDENTIAL', 'مسکونی'],
+  ['COMMERCIAL', 'تجاری'],
+  ['OFFICE', 'اداری'],
+  ['MIXED', 'مختلط'],
+  ['INDUSTRIAL', 'صنعتی'],
+  ['GARDEN', 'باغ / فضای سبز'],
+  ['WAREHOUSE', 'انبار'],
+  ['OTHER', 'سایر'],
+] as const
+
+function attributeString(
+  item: PropertyItem | null | undefined,
+  key: string,
+) {
+  const value = item?.attributes?.[key]
+  return typeof value === 'string' ? value : ''
 }
 
 function fromCase(item: CaseItem): PropertyForm {
@@ -36,8 +138,20 @@ function fromCase(item: CaseItem): PropertyForm {
     district: item.district ?? '',
     neighborhood: '',
     address: item.address ?? '',
-    landAreaM2:
-      item.landAreaM2 == null ? '' : String(item.landAreaM2),
+    landAreaM2: item.landAreaM2 == null ? '' : String(item.landAreaM2),
+    frontageM: '',
+    passageWidthM: '',
+    buildingAreaM2: '',
+    constructionYear: '',
+    existingFloors: '',
+    existingUnits: '',
+    orientation: '',
+    propertyType: '',
+    buildingCondition: '',
+    deedType: '',
+    ownershipStatus: '',
+    cornerPosition: '',
+    landUse: '',
     registryMainNo: '',
     registrySubNo: '',
     registrySection: '',
@@ -54,8 +168,25 @@ function fromProperty(item: PropertyItem): PropertyForm {
     district: item.district ?? '',
     neighborhood: item.neighborhood ?? '',
     address: item.address ?? '',
-    landAreaM2:
-      item.landAreaM2 == null ? '' : String(item.landAreaM2),
+    landAreaM2: item.landAreaM2 == null ? '' : String(item.landAreaM2),
+    frontageM: item.frontageM == null ? '' : String(item.frontageM),
+    passageWidthM:
+      item.passageWidthM == null ? '' : String(item.passageWidthM),
+    buildingAreaM2:
+      item.buildingAreaM2 == null ? '' : String(item.buildingAreaM2),
+    constructionYear:
+      item.constructionYear == null ? '' : String(item.constructionYear),
+    existingFloors:
+      item.existingFloors == null ? '' : String(item.existingFloors),
+    existingUnits:
+      item.existingUnits == null ? '' : String(item.existingUnits),
+    orientation: item.orientation ?? '',
+    propertyType: item.propertyType ?? '',
+    buildingCondition: item.buildingCondition ?? '',
+    deedType: attributeString(item, 'deedType'),
+    ownershipStatus: attributeString(item, 'ownershipStatus'),
+    cornerPosition: attributeString(item, 'cornerPosition'),
+    landUse: attributeString(item, 'landUse'),
     registryMainNo: item.registryMainNo ?? '',
     registrySubNo: item.registrySubNo ?? '',
     registrySection: item.registrySection ?? '',
@@ -68,6 +199,42 @@ function fromProperty(item: PropertyItem): PropertyForm {
 function nullableNumber(value: string) {
   const trimmed = value.trim()
   return trimmed === '' ? null : Number(trimmed)
+}
+
+function nullableInteger(value: string) {
+  const number = nullableNumber(value)
+  return number == null ? null : Math.trunc(number)
+}
+
+function SelectField({
+  label,
+  value,
+  onChange,
+  options,
+}: {
+  label: string
+  value: string
+  onChange: (value: string) => void
+  options: readonly (readonly [string, string])[]
+}) {
+  return (
+    <TextField
+      select
+      fullWidth
+      label={label}
+      value={value}
+      onChange={(event) => onChange(event.target.value)}
+    >
+      {options.map(([optionValue, optionLabel]) => (
+        <MenuItem
+          key={optionValue || `${label}-empty`}
+          value={optionValue}
+        >
+          {optionLabel}
+        </MenuItem>
+      ))}
+    </TextField>
+  )
 }
 
 export function PropertyPanel({
@@ -85,13 +252,9 @@ export function PropertyPanel({
     queryKey: ['property', caseId],
     queryFn: async (): Promise<PropertyItem | null> => {
       try {
-        return await api<PropertyItem>(
-          `/api/v1/cases/${caseId}/property`,
-        )
+        return await api<PropertyItem>(`/api/v1/cases/${caseId}/property`)
       } catch (error) {
-        if (error instanceof ApiError && error.status === 404) {
-          return null
-        }
+        if (error instanceof ApiError && error.status === 404) return null
         throw error
       }
     },
@@ -117,12 +280,27 @@ export function PropertyPanel({
           neighborhood: form.neighborhood.trim() || null,
           address: form.address.trim() || null,
           landAreaM2: nullableNumber(form.landAreaM2),
+          frontageM: nullableNumber(form.frontageM),
+          passageWidthM: nullableNumber(form.passageWidthM),
+          buildingAreaM2: nullableNumber(form.buildingAreaM2),
+          constructionYear: nullableInteger(form.constructionYear),
+          existingFloors: nullableInteger(form.existingFloors),
+          existingUnits: nullableInteger(form.existingUnits),
+          orientation: form.orientation || null,
+          propertyType: form.propertyType || null,
+          buildingCondition: form.buildingCondition || null,
           registryMainNo: form.registryMainNo.trim() || null,
           registrySubNo: form.registrySubNo.trim() || null,
           registrySection: form.registrySection.trim() || null,
           postalCode: form.postalCode.trim() || null,
           latitude: nullableNumber(form.latitude),
           longitude: nullableNumber(form.longitude),
+          attributes: {
+            deedType: form.deedType || null,
+            ownershipStatus: form.ownershipStatus || null,
+            cornerPosition: form.cornerPosition || null,
+            landUse: form.landUse || null,
+          },
         }),
       }),
     onSuccess: (savedProperty) => {
@@ -142,212 +320,357 @@ export function PropertyPanel({
   }
 
   const landArea = nullableNumber(form.landAreaM2)
+  const frontage = nullableNumber(form.frontageM)
+  const passageWidth = nullableNumber(form.passageWidthM)
+  const buildingArea = nullableNumber(form.buildingAreaM2)
+  const year = nullableInteger(form.constructionYear)
+  const floors = nullableInteger(form.existingFloors)
+  const units = nullableInteger(form.existingUnits)
   const latitude = nullableNumber(form.latitude)
   const longitude = nullableNumber(form.longitude)
 
   const invalidNumbers =
     (landArea != null && (!Number.isFinite(landArea) || landArea <= 0)) ||
+    (frontage != null && (!Number.isFinite(frontage) || frontage <= 0)) ||
+    (passageWidth != null &&
+      (!Number.isFinite(passageWidth) || passageWidth <= 0)) ||
+    (buildingArea != null &&
+      (!Number.isFinite(buildingArea) || buildingArea <= 0)) ||
+    (year != null && (year < 1000 || year > 2500)) ||
+    (floors != null && (floors < 0 || floors > 200)) ||
+    (units != null && (units < 0 || units > 10000)) ||
     (latitude != null &&
       (!Number.isFinite(latitude) || latitude < -90 || latitude > 90)) ||
     (longitude != null &&
       (!Number.isFinite(longitude) || longitude < -180 || longitude > 180))
 
   return (
-    <Card variant="outlined">
-      <CardContent>
-        <Stack spacing={3}>
-          <div>
-            <Typography variant="h6" fontWeight={700}>
-              مشخصات ملک
-            </Typography>
-            <Typography color="text.secondary" variant="body2">
-              اطلاعات ثبتی، موقعیت و مشخصات پایه ملک این پرونده
-            </Typography>
-          </div>
+    <Stack spacing={2}>
+      <Card variant="outlined">
+        <CardContent>
+          <Stack spacing={3}>
+            <div>
+              <Typography variant="h6" fontWeight={700}>
+                مشخصات ملک
+              </Typography>
+              <Typography color="text.secondary" variant="body2">
+                اطلاعات پایه و فیلدهای استاندارد مورد استفاده Agentها و تحلیل‌های ساختمانی
+              </Typography>
+            </div>
 
-          {property.isError && (
-            <Alert severity="error">
-              دریافت مشخصات ملک ناموفق بود.
-            </Alert>
-          )}
+            {property.isError && (
+              <Alert severity="error">دریافت مشخصات ملک ناموفق بود.</Alert>
+            )}
 
-          {property.data === null && (
-            <Alert severity="info">
-              برای این پرونده هنوز رکورد ملک ایجاد نشده است. با ذخیره فرم،
-              ملک ایجاد می‌شود.
-            </Alert>
-          )}
+            {property.data === null && (
+              <Alert severity="info">
+                برای این پرونده هنوز رکورد ملک ایجاد نشده است.
+              </Alert>
+            )}
 
-          {saved && (
-            <Alert severity="success">
-              مشخصات ملک با موفقیت ذخیره شد.
-            </Alert>
-          )}
+            {saved && (
+              <Alert severity="success">
+                مشخصات ملک با موفقیت ذخیره شد.
+              </Alert>
+            )}
 
-          {save.isError && (
-            <Alert severity="error">
-              {save.error instanceof Error
-                ? save.error.message
-                : 'ذخیره مشخصات ملک ناموفق بود.'}
-            </Alert>
-          )}
+            {save.isError && (
+              <Alert severity="error">
+                {save.error instanceof Error
+                  ? save.error.message
+                  : 'ذخیره مشخصات ملک ناموفق بود.'}
+              </Alert>
+            )}
 
-          <Grid container spacing={2}>
-            <Grid size={{ xs: 12, sm: 6, md: 4 }}>
-              <TextField
-                fullWidth
-                label="استان"
-                value={form.province}
-                onChange={(e) => setField('province', e.target.value)}
-              />
+            <Grid container spacing={2}>
+              <Grid size={{ xs: 12, sm: 6, md: 4 }}>
+                <TextField
+                  fullWidth
+                  label="استان"
+                  value={form.province}
+                  onChange={(e) => setField('province', e.target.value)}
+                />
+              </Grid>
+
+              <Grid size={{ xs: 12, sm: 6, md: 4 }}>
+                <TextField
+                  fullWidth
+                  label="شهر"
+                  value={form.city}
+                  onChange={(e) => setField('city', e.target.value)}
+                />
+              </Grid>
+
+              <Grid size={{ xs: 12, sm: 6, md: 4 }}>
+                <TextField
+                  fullWidth
+                  label="منطقه"
+                  value={form.district}
+                  onChange={(e) => setField('district', e.target.value)}
+                />
+              </Grid>
+
+              <Grid size={{ xs: 12, sm: 6, md: 4 }}>
+                <TextField
+                  fullWidth
+                  label="محله"
+                  value={form.neighborhood}
+                  onChange={(e) => setField('neighborhood', e.target.value)}
+                />
+              </Grid>
+
+              <Grid size={{ xs: 12, sm: 6, md: 4 }}>
+                <TextField
+                  fullWidth
+                  type="number"
+                  label="مساحت زمین (متر مربع)"
+                  value={form.landAreaM2}
+                  onChange={(e) => setField('landAreaM2', e.target.value)}
+                />
+              </Grid>
+
+              <Grid size={{ xs: 12, sm: 6, md: 4 }}>
+                <TextField
+                  fullWidth
+                  type="number"
+                  label="بر ملک (متر)"
+                  value={form.frontageM}
+                  onChange={(e) => setField('frontageM', e.target.value)}
+                />
+              </Grid>
+
+              <Grid size={{ xs: 12, sm: 6, md: 4 }}>
+                <TextField
+                  fullWidth
+                  type="number"
+                  label="عرض گذر (متر)"
+                  value={form.passageWidthM}
+                  onChange={(e) => setField('passageWidthM', e.target.value)}
+                />
+              </Grid>
+
+              <Grid size={{ xs: 12, sm: 6, md: 4 }}>
+                <TextField
+                  fullWidth
+                  type="number"
+                  label="زیربنای موجود (متر مربع)"
+                  value={form.buildingAreaM2}
+                  onChange={(e) => setField('buildingAreaM2', e.target.value)}
+                />
+              </Grid>
+
+              <Grid size={{ xs: 12, sm: 6, md: 4 }}>
+                <TextField
+                  fullWidth
+                  type="number"
+                  label="سال ساخت"
+                  value={form.constructionYear}
+                  onChange={(e) => setField('constructionYear', e.target.value)}
+                />
+              </Grid>
+
+              <Grid size={{ xs: 12, sm: 6, md: 4 }}>
+                <TextField
+                  fullWidth
+                  type="number"
+                  label="تعداد طبقات موجود"
+                  value={form.existingFloors}
+                  onChange={(e) => setField('existingFloors', e.target.value)}
+                />
+              </Grid>
+
+              <Grid size={{ xs: 12, sm: 6, md: 4 }}>
+                <TextField
+                  fullWidth
+                  type="number"
+                  label="تعداد واحدهای موجود"
+                  value={form.existingUnits}
+                  onChange={(e) => setField('existingUnits', e.target.value)}
+                />
+              </Grid>
+
+              <Grid size={{ xs: 12, sm: 6, md: 4 }}>
+                <SelectField
+                  label="جهت ملک"
+                  value={form.orientation}
+                  onChange={(value) => setField('orientation', value)}
+                  options={ORIENTATIONS}
+                />
+              </Grid>
+
+              <Grid size={{ xs: 12, sm: 6, md: 4 }}>
+                <SelectField
+                  label="نوع ملک"
+                  value={form.propertyType}
+                  onChange={(value) => setField('propertyType', value)}
+                  options={PROPERTY_TYPES}
+                />
+              </Grid>
+
+              <Grid size={{ xs: 12, sm: 6, md: 4 }}>
+                <SelectField
+                  label="وضعیت بنا"
+                  value={form.buildingCondition}
+                  onChange={(value) => setField('buildingCondition', value)}
+                  options={BUILDING_CONDITIONS}
+                />
+              </Grid>
+
+              <Grid size={{ xs: 12, sm: 6, md: 4 }}>
+                <SelectField
+                  label="نوع سند"
+                  value={form.deedType}
+                  onChange={(value) => setField('deedType', value)}
+                  options={DEED_TYPES}
+                />
+              </Grid>
+
+              <Grid size={{ xs: 12, sm: 6, md: 4 }}>
+                <SelectField
+                  label="وضعیت مالکیت"
+                  value={form.ownershipStatus}
+                  onChange={(value) => setField('ownershipStatus', value)}
+                  options={OWNERSHIP_STATUSES}
+                />
+              </Grid>
+
+              <Grid size={{ xs: 12, sm: 6, md: 4 }}>
+                <SelectField
+                  label="موقعیت ملک"
+                  value={form.cornerPosition}
+                  onChange={(value) => setField('cornerPosition', value)}
+                  options={CORNER_POSITIONS}
+                />
+              </Grid>
+
+              <Grid size={{ xs: 12, sm: 6, md: 4 }}>
+                <SelectField
+                  label="کاربری"
+                  value={form.landUse}
+                  onChange={(value) => setField('landUse', value)}
+                  options={LAND_USES}
+                />
+              </Grid>
+
+              <Grid size={{ xs: 12, sm: 6, md: 4 }}>
+                <TextField
+                  fullWidth
+                  label="کد پستی"
+                  value={form.postalCode}
+                  onChange={(e) => setField('postalCode', e.target.value)}
+                />
+              </Grid>
+
+              <Grid size={{ xs: 12, sm: 6, md: 4 }}>
+                <TextField
+                  fullWidth
+                  label="پلاک اصلی"
+                  value={form.registryMainNo}
+                  onChange={(e) => setField('registryMainNo', e.target.value)}
+                />
+              </Grid>
+
+              <Grid size={{ xs: 12, sm: 6, md: 4 }}>
+                <TextField
+                  fullWidth
+                  label="پلاک فرعی"
+                  value={form.registrySubNo}
+                  onChange={(e) => setField('registrySubNo', e.target.value)}
+                />
+              </Grid>
+
+              <Grid size={{ xs: 12, sm: 6, md: 4 }}>
+                <TextField
+                  fullWidth
+                  label="بخش ثبتی"
+                  value={form.registrySection}
+                  onChange={(e) => setField('registrySection', e.target.value)}
+                />
+              </Grid>
+
+              <Grid size={{ xs: 12, md: 6 }}>
+                <TextField
+                  fullWidth
+                  label="عرض جغرافیایی"
+                  type="number"
+                  value={form.latitude}
+                  onChange={(e) => setField('latitude', e.target.value)}
+                />
+              </Grid>
+
+              <Grid size={{ xs: 12, md: 6 }}>
+                <TextField
+                  fullWidth
+                  label="طول جغرافیایی"
+                  type="number"
+                  value={form.longitude}
+                  onChange={(e) => setField('longitude', e.target.value)}
+                />
+              </Grid>
+
+              <Grid size={12}>
+                <TextField
+                  fullWidth
+                  label="آدرس کامل"
+                  multiline
+                  minRows={3}
+                  value={form.address}
+                  onChange={(e) => setField('address', e.target.value)}
+                />
+              </Grid>
             </Grid>
 
-            <Grid size={{ xs: 12, sm: 6, md: 4 }}>
-              <TextField
-                fullWidth
-                label="شهر"
-                value={form.city}
-                onChange={(e) => setField('city', e.target.value)}
-              />
-            </Grid>
+            {invalidNumbers && (
+              <Alert severity="warning">
+                یکی از مقادیر عددی واردشده معتبر نیست.
+              </Alert>
+            )}
 
-            <Grid size={{ xs: 12, sm: 6, md: 4 }}>
-              <TextField
-                fullWidth
-                label="منطقه"
-                value={form.district}
-                onChange={(e) => setField('district', e.target.value)}
-              />
-            </Grid>
-
-            <Grid size={{ xs: 12, sm: 6, md: 4 }}>
-              <TextField
-                fullWidth
-                label="محله"
-                value={form.neighborhood}
-                onChange={(e) =>
-                  setField('neighborhood', e.target.value)
-                }
-              />
-            </Grid>
-
-            <Grid size={{ xs: 12, sm: 6, md: 4 }}>
-              <TextField
-                fullWidth
-                label="مساحت زمین (متر مربع)"
-                type="number"
-                value={form.landAreaM2}
-                onChange={(e) =>
-                  setField('landAreaM2', e.target.value)
-                }
-                slotProps={{
-                  htmlInput: { min: 0.01, step: 0.01 },
-                }}
-              />
-            </Grid>
-
-            <Grid size={{ xs: 12, sm: 6, md: 4 }}>
-              <TextField
-                fullWidth
-                label="کد پستی"
-                value={form.postalCode}
-                onChange={(e) => setField('postalCode', e.target.value)}
-              />
-            </Grid>
-
-            <Grid size={{ xs: 12, sm: 6, md: 4 }}>
-              <TextField
-                fullWidth
-                label="پلاک اصلی"
-                value={form.registryMainNo}
-                onChange={(e) =>
-                  setField('registryMainNo', e.target.value)
-                }
-              />
-            </Grid>
-
-            <Grid size={{ xs: 12, sm: 6, md: 4 }}>
-              <TextField
-                fullWidth
-                label="پلاک فرعی"
-                value={form.registrySubNo}
-                onChange={(e) =>
-                  setField('registrySubNo', e.target.value)
-                }
-              />
-            </Grid>
-
-            <Grid size={{ xs: 12, sm: 6, md: 4 }}>
-              <TextField
-                fullWidth
-                label="بخش ثبتی"
-                value={form.registrySection}
-                onChange={(e) =>
-                  setField('registrySection', e.target.value)
-                }
-              />
-            </Grid>
-
-            <Grid size={{ xs: 12, md: 6 }}>
-              <TextField
-                fullWidth
-                label="عرض جغرافیایی"
-                type="number"
-                value={form.latitude}
-                onChange={(e) => setField('latitude', e.target.value)}
-                helperText="فعلاً اختیاری؛ در مرحله نقشه به صورت خودکار پر می‌شود."
-                slotProps={{
-                  htmlInput: { min: -90, max: 90, step: 0.0000001 },
-                }}
-              />
-            </Grid>
-
-            <Grid size={{ xs: 12, md: 6 }}>
-              <TextField
-                fullWidth
-                label="طول جغرافیایی"
-                type="number"
-                value={form.longitude}
-                onChange={(e) => setField('longitude', e.target.value)}
-                helperText="فعلاً اختیاری؛ در مرحله نقشه به صورت خودکار پر می‌شود."
-                slotProps={{
-                  htmlInput: { min: -180, max: 180, step: 0.0000001 },
-                }}
-              />
-            </Grid>
-
-            <Grid size={12}>
-              <TextField
-                fullWidth
-                label="آدرس کامل"
-                multiline
-                minRows={3}
-                value={form.address}
-                onChange={(e) => setField('address', e.target.value)}
-              />
-            </Grid>
-          </Grid>
-
-          {invalidNumbers && (
-            <Alert severity="warning">
-              مقدار مساحت یا مختصات جغرافیایی معتبر نیست.
-            </Alert>
-          )}
-
-          <Stack direction="row" justifyContent="flex-end">
-            <Button
-              variant="contained"
-              startIcon={<SaveRoundedIcon />}
-              onClick={() => save.mutate()}
-              disabled={save.isPending || invalidNumbers}
-            >
-              {save.isPending
-                ? 'در حال ذخیره...'
-                : 'ذخیره مشخصات ملک'}
-            </Button>
+            <Stack direction="row" justifyContent="flex-end">
+              <Button
+                variant="contained"
+                startIcon={<SaveRoundedIcon />}
+                onClick={() => save.mutate()}
+                disabled={save.isPending || invalidNumbers}
+              >
+                {save.isPending ? 'در حال ذخیره...' : 'ذخیره مشخصات ملک'}
+              </Button>
+            </Stack>
           </Stack>
-        </Stack>
-      </CardContent>
-    </Card>
+        </CardContent>
+      </Card>
+
+      {property.data &&
+        Object.keys(property.data.attributes ?? {}).length > 0 && (
+          <Card variant="outlined">
+            <CardContent>
+              <Stack spacing={1.5}>
+                <Typography variant="h6" fontWeight={700}>
+                  اطلاعات تکمیلی انعطاف‌پذیر
+                </Typography>
+                <Typography variant="body2" color="text.secondary">
+                  فیلدهای بدون ستون اختصاصی در JSONB ذخیره می‌شوند. نسخه ساختار:{' '}
+                  {property.data.attributesSchemaVersion}
+                </Typography>
+
+                <Box
+                  component="pre"
+                  dir="ltr"
+                  sx={{
+                    m: 0,
+                    p: 2,
+                    borderRadius: 1,
+                    bgcolor: 'action.hover',
+                    overflow: 'auto',
+                    fontSize: 13,
+                  }}
+                >
+                  {JSON.stringify(property.data.attributes, null, 2)}
+                </Box>
+              </Stack>
+            </CardContent>
+          </Card>
+        )}
+    </Stack>
   )
 }

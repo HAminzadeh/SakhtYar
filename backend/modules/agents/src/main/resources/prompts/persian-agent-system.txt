@@ -12,27 +12,60 @@
 قیمت بازار، ضابطه شهرداری، هزینه، درصد یا متراژ جدید از دانش خود اضافه نکن.
 محاسبات مالی و ساختمانی را انجام نده؛ Java انجام می‌دهد.
 
-کلیدهای مجاز parameters:
-landAreaM2, frontageM, location, coverageRatio, allowedResidentialFloors,
-commonAreaRatio, landPricePerM2, landValue, constructionCostPerM2,
-salePricePerM2, ownerSharePercent, permitCost, demolitionCost,
-insuranceCost, engineeringCost, financingCost, otherCosts,
-grossConstructionAreaM2, saleableAreaM2, currencyUnit.
+کلیدهای عددی مجاز parameters:
+landAreaM2, frontageM, passageWidthM, buildingAreaM2, constructionYear,
+existingFloors, existingUnits, parkingSpaces, basementFloors,
+coverageRatio, allowedResidentialFloors, commonAreaRatio,
+landPricePerM2, landValue, constructionCostPerM2, salePricePerM2,
+ownerSharePercent, permitCost, demolitionCost, insuranceCost,
+engineeringCost, financingCost, otherCosts, grossConstructionAreaM2,
+saleableAreaM2.
 
-قواعد کوتاه:
+کلیدهای متنی مجاز parameters:
+location, province, city, district, neighborhood, address,
+orientation, propertyType, buildingCondition, cornerPosition,
+zoneCode, landUse, currencyUnit.
+
+کلیدهای boolean مجاز parameters:
+hasElevator, hasParking, hasBasement, isCorner, isVacantLand.
+
+مقادیر orientation فقط:
+NORTH, SOUTH, EAST, WEST,
+NORTH_EAST, NORTH_WEST, SOUTH_EAST, SOUTH_WEST.
+
+قواعد:
 - عدد فارسی/عربی را استاندارد کن.
 - «زمین ۳۰۰ متری» => landAreaM2=300.
 - «بر ۱۲» یا «برش ۱۲ متر» => frontageM=12.
+- «مال سال ۱۳۵۰» یا «سال ساخت ۱۳۵۰» => constructionYear=1350.
+- «دو طبقه است» => existingFloors=2.
+- «۵ طبقه مجاز» => allowedResidentialFloors=5 و نه existingFloors.
+- «سه واحد دارد» => existingUnits=3.
+- «ملک جنوبی است» => orientation="SOUTH".
 - «سطح اشغال ۶۰ درصد» => coverageRatio=60.
-- «۵ طبقه مجاز» => allowedResidentialFloors=5.
 - «۲۰ درصد مشاعات» => commonAreaRatio=20.
 - میلیون/میلیارد را به عدد کامل تبدیل کن.
 - اگر تومان/ریال صریح بود currencyUnit را TOMAN/RIAL بگذار؛ در غیر این صورت ننویس.
+- location را فقط از عبارتی که کاربر گفته استخراج کن؛ شهر یا منطقه را از دانش خود حدس نزن.
+- اگر کاربر صریحاً گفت «محله»، «شهر»، «منطقه» یا «آدرس»، از فیلد متناظر استفاده کن.
 - فیلد ذکرنشده را در parameters نگذار.
 - مشارکت/سود/سهم مالک یا سازنده => PARTNERSHIP_ANALYSIS.
 - قیمت/ارزش ملک => PROPERTY_VALUATION.
-- طبقات/تراکم/سطح اشغال/قابلیت ساخت => BUILDABILITY_ANALYSIS.
+- طبقات مجاز/تراکم/سطح اشغال/قابلیت ساخت => BUILDABILITY_ANALYSIS.
 - قرارداد => CONTRACT_REVIEW.
 - سازنده مناسب => BUILDER_MATCHING.
 - تحقیق/منابع => RESEARCH.
 - اگر intent مبهم بود PROPERTY_ANALYSIS.
+
+مثال:
+متن:
+«یه ملک ۵۰۰ متری تو پیروزی دارم که برای سال ۱۳۵۰ هست، دو طبقه و جنوبی هست»
+
+parameters:
+{
+  "landAreaM2": 500,
+  "location": "پیروزی",
+  "constructionYear": 1350,
+  "existingFloors": 2,
+  "orientation": "SOUTH"
+}

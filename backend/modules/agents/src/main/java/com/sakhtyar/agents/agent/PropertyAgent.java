@@ -12,10 +12,46 @@ import com.sakhtyar.property.application.PropertyService;
 import java.time.Instant;
 import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Set;
 import org.springframework.stereotype.Component;
 
 @Component
 public class PropertyAgent implements SakhtyarAgent {
+
+    private static final Set<String> PROPERTY_REQUEST_KEYS = Set.of(
+            "landAreaM2",
+            "frontageM",
+            "passageWidthM",
+            "buildingAreaM2",
+            "constructionYear",
+            "existingFloors",
+            "existingUnits",
+            "orientation",
+            "propertyType",
+            "buildingCondition",
+            "province",
+            "city",
+            "district",
+            "neighborhood",
+            "address",
+            "location",
+            "latitude",
+            "longitude",
+            "registryMainNo",
+            "registrySubNo",
+            "registrySection",
+            "postalCode",
+            "parkingSpaces",
+            "basementFloors",
+            "hasElevator",
+            "hasParking",
+            "hasBasement",
+            "isCorner",
+            "isVacantLand",
+            "cornerPosition",
+            "zoneCode",
+            "landUse"
+    );
 
     private final PropertyService propertyService;
 
@@ -34,18 +70,25 @@ public class PropertyAgent implements SakhtyarAgent {
     }
 
     @Override
-    public AgentResult execute(AgentRequest request, AgentExecutionContext context) {
-        LinkedHashMap<String, Object> data = new LinkedHashMap<>();
+    public AgentResult execute(
+            AgentRequest request,
+            AgentExecutionContext context
+    ) {
+        LinkedHashMap<String, Object> data =
+                new LinkedHashMap<>();
         boolean loadedFromDatabase = false;
         String loadWarning = null;
 
         if (request.caseId() != null) {
             try {
-                PropertyResponse property = propertyService.get(request.caseId());
+                PropertyResponse property =
+                        propertyService.get(request.caseId());
                 putProperty(data, property);
                 loadedFromDatabase = true;
             } catch (RuntimeException ex) {
-                loadWarning = "پرونده ملک از دیتابیس قابل دریافت نبود: " + ex.getMessage();
+                loadWarning =
+                        "پرونده ملک از دیتابیس قابل دریافت نبود: "
+                                + ex.getMessage();
             }
         }
 
@@ -61,15 +104,21 @@ public class PropertyAgent implements SakhtyarAgent {
                     AgentStatus.NEEDS_INPUT,
                     "برای تحلیل ملک، پرونده یا مشخصات اولیه ملک لازم است.",
                     data,
-                    loadWarning == null ? List.of() : List.of(loadWarning),
+                    loadWarning == null
+                            ? List.of()
+                            : List.of(loadWarning),
                     List.of("caseId یا landAreaM2/location"),
                     0.0d,
                     Instant.now()
             );
         }
 
-        boolean missingArea = AgentValues.decimal(data, "landAreaM2") == null;
-        AgentStatus status = missingArea ? AgentStatus.PARTIAL : AgentStatus.SUCCESS;
+        boolean missingArea =
+                AgentValues.decimal(data, "landAreaM2") == null;
+        AgentStatus status = missingArea
+                ? AgentStatus.PARTIAL
+                : AgentStatus.SUCCESS;
+
         return new AgentResult(
                 type(),
                 status,
@@ -77,36 +126,103 @@ public class PropertyAgent implements SakhtyarAgent {
                         ? "اطلاعات ملک از پرونده پروژه دریافت شد."
                         : "اطلاعات ملک از پارامترهای درخواست تشکیل شد.",
                 data,
-                loadWarning == null ? List.of() : List.of(loadWarning),
-                missingArea ? List.of("landAreaM2") : List.of(),
+                loadWarning == null
+                        ? List.of()
+                        : List.of(loadWarning),
+                missingArea
+                        ? List.of("landAreaM2")
+                        : List.of(),
                 loadedFromDatabase ? 1.0d : 0.75d,
                 Instant.now()
         );
     }
 
-    private void putProperty(LinkedHashMap<String, Object> data, PropertyResponse property) {
-        AgentValues.putIfPresent(data, "propertyId", property.id());
-        AgentValues.putIfPresent(data, "caseId", property.caseId());
-        AgentValues.putIfPresent(data, "province", property.province());
-        AgentValues.putIfPresent(data, "city", property.city());
-        AgentValues.putIfPresent(data, "district", property.district());
-        AgentValues.putIfPresent(data, "neighborhood", property.neighborhood());
-        AgentValues.putIfPresent(data, "address", property.address());
-        AgentValues.putIfPresent(data, "landAreaM2", property.landAreaM2());
-        AgentValues.putIfPresent(data, "registryMainNo", property.registryMainNo());
-        AgentValues.putIfPresent(data, "registrySubNo", property.registrySubNo());
-        AgentValues.putIfPresent(data, "registrySection", property.registrySection());
-        AgentValues.putIfPresent(data, "postalCode", property.postalCode());
-        AgentValues.putIfPresent(data, "latitude", property.latitude());
-        AgentValues.putIfPresent(data, "longitude", property.longitude());
+    private void putProperty(
+            LinkedHashMap<String, Object> data,
+            PropertyResponse property
+    ) {
+        AgentValues.putIfPresent(
+                data, "propertyId", property.id()
+        );
+        AgentValues.putIfPresent(
+                data, "caseId", property.caseId()
+        );
+        AgentValues.putIfPresent(
+                data, "province", property.province()
+        );
+        AgentValues.putIfPresent(
+                data, "city", property.city()
+        );
+        AgentValues.putIfPresent(
+                data, "district", property.district()
+        );
+        AgentValues.putIfPresent(
+                data, "neighborhood", property.neighborhood()
+        );
+        AgentValues.putIfPresent(
+                data, "address", property.address()
+        );
+        AgentValues.putIfPresent(
+                data, "landAreaM2", property.landAreaM2()
+        );
+        AgentValues.putIfPresent(
+                data, "frontageM", property.frontageM()
+        );
+        AgentValues.putIfPresent(
+                data, "passageWidthM", property.passageWidthM()
+        );
+        AgentValues.putIfPresent(
+                data, "buildingAreaM2", property.buildingAreaM2()
+        );
+        AgentValues.putIfPresent(
+                data, "constructionYear", property.constructionYear()
+        );
+        AgentValues.putIfPresent(
+                data, "existingFloors", property.existingFloors()
+        );
+        AgentValues.putIfPresent(
+                data, "existingUnits", property.existingUnits()
+        );
+        AgentValues.putIfPresent(
+                data, "orientation", property.orientation()
+        );
+        AgentValues.putIfPresent(
+                data, "propertyType", property.propertyType()
+        );
+        AgentValues.putIfPresent(
+                data,
+                "buildingCondition",
+                property.buildingCondition()
+        );
+        AgentValues.putIfPresent(
+                data, "registryMainNo", property.registryMainNo()
+        );
+        AgentValues.putIfPresent(
+                data, "registrySubNo", property.registrySubNo()
+        );
+        AgentValues.putIfPresent(
+                data,
+                "registrySection",
+                property.registrySection()
+        );
+        AgentValues.putIfPresent(
+                data, "postalCode", property.postalCode()
+        );
+        AgentValues.putIfPresent(
+                data, "latitude", property.latitude()
+        );
+        AgentValues.putIfPresent(
+                data, "longitude", property.longitude()
+        );
+
+        property.attributes().forEach((key, value) -> {
+            if (key != null && value != null) {
+                data.putIfAbsent(key, value);
+            }
+        });
     }
 
     private boolean isPropertyParameter(String key) {
-        return switch (key) {
-            case "landAreaM2", "frontageM", "province", "city", "district",
-                    "neighborhood", "address", "location", "latitude", "longitude",
-                    "registryMainNo", "registrySubNo", "registrySection", "postalCode" -> true;
-            default -> false;
-        };
+        return PROPERTY_REQUEST_KEYS.contains(key);
     }
 }

@@ -1,11 +1,13 @@
 package com.sakhtyar.property.api;
 
+import com.sakhtyar.property.api.PropertyDtos.MergePropertyFactsRequest;
 import com.sakhtyar.property.api.PropertyDtos.PropertyResponse;
 import com.sakhtyar.property.api.PropertyDtos.UpsertPropertyRequest;
 import com.sakhtyar.property.application.PropertyService;
 import jakarta.validation.Valid;
 import java.util.UUID;
 import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PatchMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
@@ -33,5 +35,13 @@ public class PropertyController {
             @Valid @RequestBody UpsertPropertyRequest request
     ) {
         return service.upsert(caseId, request);
+    }
+
+    @PatchMapping("/facts")
+    public PropertyResponse mergeFacts(
+            @PathVariable UUID caseId,
+            @RequestBody MergePropertyFactsRequest request
+    ) {
+        return service.mergeFacts(caseId, request);
     }
 }

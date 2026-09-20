@@ -15,6 +15,7 @@ import type { ReactNode } from 'react'
 import { useParams } from 'react-router-dom'
 import { api } from '../api/client'
 import type { CaseItem } from '../api/types'
+import { AssistantPanel } from '../features/case/AssistantPanel'
 import { CaseOverview } from '../features/case/CaseOverview'
 import { DocumentsPanel } from '../features/case/DocumentsPanel'
 import { OwnersPanel } from '../features/case/OwnersPanel'
@@ -27,6 +28,7 @@ type CaseTab =
   | 'owners'
   | 'map'
   | 'documents'
+  | 'assistant'
 
 function statusLabel(status: CaseItem['status']) {
   switch (status) {
@@ -49,7 +51,6 @@ function TabPanel({
   children: ReactNode
 }) {
   if (value !== current) return null
-
   return <Box sx={{ pt: 3 }}>{children}</Box>
 }
 
@@ -132,6 +133,7 @@ export function CaseDetailPage() {
           <Tab value="owners" label="مالکین" />
           <Tab value="map" label="نقشه" />
           <Tab value="documents" label="مدارک" />
+          <Tab value="assistant" label="دستیار هوشمند" />
         </Tabs>
       </Card>
 
@@ -153,6 +155,10 @@ export function CaseDetailPage() {
 
       <TabPanel value="documents" current={tab}>
         <DocumentsPanel caseId={id} />
+      </TabPanel>
+
+      <TabPanel value="assistant" current={tab}>
+        <AssistantPanel caseId={id} />
       </TabPanel>
     </Stack>
   )

@@ -1,6 +1,7 @@
 package com.sakhtyar.agents.orchestrator;
 
 import com.sakhtyar.agents.core.AgentBus;
+import com.sakhtyar.agents.core.AgentContracts;
 import com.sakhtyar.agents.core.AgentExecutionContext;
 import com.sakhtyar.agents.core.AgentIntent;
 import com.sakhtyar.agents.core.AgentRequest;
@@ -28,24 +29,45 @@ public class AgentOrchestrator {
         AgentExecutionContext context = bus.newExecutionContext();
         LinkedHashMap<String, AgentResult> results = new LinkedHashMap<>();
 
-        AgentResult persian = bus.invoke(AgentType.PERSIAN, request, context);
+        AgentResult persian = context.call(AgentType.PERSIAN, request);
         results.put(AgentType.PERSIAN.name(), persian);
 
         AgentIntent intent = AgentIntent.from(
                 Objects.toString(persian.data().get("intent"), null)
         );
         AgentWorkflowType workflow = AgentWorkflowType.fromIntent(intent);
-
         Map<String, Object> normalized = AgentValues.map(
                 persian.data().get("normalizedParameters")
         );
-
-        // AI extraction can fill missing values, but explicit structured input from
-        // the caller must always win.
+        // Explicit structured caller input always wins over AI extraction.
         AgentRequest effectiveRequest = request.mergeMissingParameters(normalized);
 
+        if (persian.status() == AgentStatus.NEEDS_INPUT
+                || persian.status() == AgentStatus.FAILED) {
+            return new AgentWorkflowResult(
+                    AgentContracts.SCHEMA_VERSION,
+                    request.requestId(),
+                    request.conversationId(),
+                    request.caseId(),
+                    intent,
+                    workflow,
+                    persian.status(),
+                    persian.message(),
+                    effectiveRequest.parameters(),
+                    assumptions(results),
+                    results,
+                    persian.missingFields()
+            );
+        }
+
         for (AgentType type : steps(workflow)) {
-            AgentResult result = bus.invoke(type, effectiveRequest, context);
+            // Property may have been loaded before AI extraction only to provide
+            // case context to PersianAgent. Re-run it with the effective request
+            // so newly extracted fields are not lost. Other Agent results can be reused.
+            AgentResult result = type == AgentType.PROPERTY
+                    ? context.call(type, effectiveRequest)
+                    : context.resultOf(type)
+                            .orElseGet(() -> context.call(type, effectiveRequest));
             results.put(type.name(), result);
         }
 
@@ -55,17 +77,29 @@ public class AgentOrchestrator {
                 .distinct()
                 .toList();
 
-        String message = buildMessage(workflow, status, missing);
         return new AgentWorkflowResult(
+                AgentContracts.SCHEMA_VERSION,
                 request.requestId(),
                 request.conversationId(),
+                request.caseId(),
                 intent,
                 workflow,
                 status,
-                message,
+                buildMessage(workflow, status, missing),
+                effectiveRequest.parameters(),
+                assumptions(results),
                 results,
                 missing
         );
+    }
+
+    private List<String> assumptions(Map<String, AgentResult> results) {
+        return results.values().stream()
+                .flatMap(result -> AgentValues.stringList(
+                        result.data().get("assumptions")
+                ).stream())
+                .distinct()
+                .toList();
     }
 
     private List<AgentType> steps(AgentWorkflowType workflow) {
@@ -100,18 +134,12 @@ public class AgentOrchestrator {
         long failed = results.stream()
                 .filter(result -> result.status() == AgentStatus.FAILED)
                 .count();
-        if (failed == results.size()) {
-            return AgentStatus.FAILED;
-        }
-        if (failed > 0) {
-            return AgentStatus.PARTIAL;
-        }
-        if (results.stream().anyMatch(result ->
-                result.status() == AgentStatus.NEEDS_INPUT)) {
+        if (failed == results.size()) return AgentStatus.FAILED;
+        if (failed > 0) return AgentStatus.PARTIAL;
+        if (results.stream().anyMatch(result -> result.status() == AgentStatus.NEEDS_INPUT)) {
             return AgentStatus.NEEDS_INPUT;
         }
-        if (results.stream().anyMatch(result ->
-                result.status() == AgentStatus.PARTIAL)) {
+        if (results.stream().anyMatch(result -> result.status() == AgentStatus.PARTIAL)) {
             return AgentStatus.PARTIAL;
         }
         return AgentStatus.SUCCESS;
@@ -123,15 +151,15 @@ public class AgentOrchestrator {
             List<String> missing
     ) {
         if (status == AgentStatus.NEEDS_INPUT && !missing.isEmpty()) {
-            return "\u062A\u062D\u0644\u06CC\u0644 \u00AB" + workflow + "\u00BB \u0634\u0631\u0648\u0639 \u0634\u062F\u060C \u0627\u0645\u0627 \u0628\u0631\u0627\u06CC \u0627\u062F\u0627\u0645\u0647 \u0627\u06CC\u0646 \u0627\u0637\u0644\u0627\u0639\u0627\u062A \u0644\u0627\u0632\u0645 \u0627\u0633\u062A: "
-                    + String.join("\u060C ", missing);
+            return "تحلیل «" + workflow + "» شروع شد، اما برای ادامه این اطلاعات لازم است: "
+                    + String.join("، ", missing);
         }
         if (status == AgentStatus.FAILED) {
-            return "\u0627\u062C\u0631\u0627\u06CC \u062C\u0631\u06CC\u0627\u0646 \u00AB" + workflow + "\u00BB \u0646\u0627\u0645\u0648\u0641\u0642 \u0628\u0648\u062F. \u062C\u0632\u0626\u06CC\u0627\u062A \u062F\u0631 \u0646\u062A\u06CC\u062C\u0647 Agent\u0647\u0627 \u0645\u0648\u062C\u0648\u062F \u0627\u0633\u062A.";
+            return "اجرای جریان «" + workflow + "» ناموفق بود. جزئیات در نتیجه Agentها موجود است.";
         }
         if (status == AgentStatus.PARTIAL) {
-            return "\u062C\u0631\u06CC\u0627\u0646 \u00AB" + workflow + "\u00BB \u0628\u0647\u200C\u0635\u0648\u0631\u062A \u0628\u062E\u0634\u06CC \u0627\u062C\u0631\u0627 \u0634\u062F. \u0647\u0634\u062F\u0627\u0631\u0647\u0627 \u0648 \u062F\u0627\u062F\u0647\u200C\u0647\u0627\u06CC \u0646\u0627\u0642\u0635 \u0631\u0627 \u0628\u0631\u0631\u0633\u06CC \u06A9\u0646\u06CC\u062F.";
+            return "جریان «" + workflow + "» به‌صورت بخشی اجرا شد. هشدارها و داده‌های ناقص را بررسی کنید.";
         }
-        return "\u062C\u0631\u06CC\u0627\u0646 \u00AB" + workflow + "\u00BB \u0628\u0627 \u0645\u0648\u0641\u0642\u06CC\u062A \u0627\u062C\u0631\u0627 \u0634\u062F.";
+        return "جریان «" + workflow + "» با موفقیت اجرا شد.";
     }
 }

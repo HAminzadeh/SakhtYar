@@ -17,24 +17,13 @@ import {
 } from '@mui/material'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { useMemo, useState } from 'react'
-import { ApiError, api } from '../../api/client'
+import { api } from '../../api/client'
 import type {
   AgentMessage,
   AgentWorkflowResult,
   GlossaryEntry,
   PropertyItem,
 } from '../../api/types'
-
-const PROPERTY_FIELDS = [
-  'province',
-  'city',
-  'district',
-  'neighborhood',
-  'address',
-  'landAreaM2',
-] as const
-
-type PropertyField = (typeof PROPERTY_FIELDS)[number]
 
 function conversationIdFor(caseId: string) {
   const key = `sakhtyar-agent-conversation:${caseId}`
@@ -152,52 +141,20 @@ export function AssistantPanel({ caseId }: { caseId: string }) {
   const normalizedParameters = record(persianData.normalizedParameters)
   const unknownTerms = stringArray(persianData.unknownTerms)
 
-  const applicableParameters = useMemo(() => {
-    const result: Partial<Record<PropertyField, string | number>> = {}
-    for (const key of PROPERTY_FIELDS) {
-      const value = normalizedParameters[key]
-      if (typeof value === 'string' || typeof value === 'number') {
-        result[key] = value
-      }
-    }
-    return result
-  }, [normalizedParameters])
-
   const applyToProperty = useMutation({
-    mutationFn: async () => {
-      let current: PropertyItem | null = null
-      try {
-        current = await api<PropertyItem>(`/api/v1/cases/${caseId}/property`)
-      } catch (error) {
-        if (!(error instanceof ApiError && error.status === 404)) throw error
-      }
-
-      const payload = {
-        province: current?.province ?? null,
-        city: current?.city ?? null,
-        district: current?.district ?? null,
-        neighborhood: current?.neighborhood ?? null,
-        address: current?.address ?? null,
-        landAreaM2: current?.landAreaM2 ?? null,
-        registryMainNo: current?.registryMainNo ?? null,
-        registrySubNo: current?.registrySubNo ?? null,
-        registrySection: current?.registrySection ?? null,
-        postalCode: current?.postalCode ?? null,
-        latitude: current?.latitude ?? null,
-        longitude: current?.longitude ?? null,
-        ...applicableParameters,
-      }
-
-      return api<PropertyItem>(`/api/v1/cases/${caseId}/property`, {
-        method: 'PUT',
-        body: JSON.stringify(payload),
-      })
-    },
+    mutationFn: () =>
+      api<PropertyItem>(`/api/v1/cases/${caseId}/property/facts`, {
+        method: 'PATCH',
+        body: JSON.stringify({
+          facts: normalizedParameters,
+        }),
+      }),
     onSuccess: (saved) => {
       setPropertyApplied(true)
       queryClient.setQueryData(['property', caseId], saved)
       queryClient.invalidateQueries({ queryKey: ['case', caseId] })
       queryClient.invalidateQueries({ queryKey: ['cases'] })
+      queryClient.invalidateQueries({ queryKey: ['owners', caseId] })
     },
   })
 
@@ -219,7 +176,7 @@ export function AssistantPanel({ caseId }: { caseId: string }) {
                   دستیار هوشمند پرونده
                 </Typography>
                 <Typography variant="body2" color="text.secondary">
-                  Persian Agent ورودی شما را به JSON نسخه‌دار تبدیل می‌کند و Orchestrator فقط Agentهای لازم را اجرا می‌کند.
+                  Persian Agent اطلاعات صریح کاربر را استخراج می‌کند؛ ذخیره روی پرونده فقط با تأیید شما انجام می‌شود.
                 </Typography>
               </Box>
             </Stack>
@@ -245,7 +202,7 @@ export function AssistantPanel({ caseId }: { caseId: string }) {
               multiline
               minRows={3}
               label="پیام فارسی"
-              placeholder="مثلاً: این زمین ۲۵۰ متره، برش ۱۲ متره، منطقه ۵ تهرانه؛ ببین برای تحلیل ساخت چه چیزهایی کم داریم."
+              placeholder="مثلاً: ملک ۵۰۰ متره، بر ۱۲ متر، سال ساخت ۱۳۵۰، دو طبقه، جنوبی و آسانسور نداره."
               value={message}
               onChange={(event) => setMessage(event.target.value)}
               onKeyDown={(event) => {
@@ -259,7 +216,11 @@ export function AssistantPanel({ caseId }: { caseId: string }) {
             <Stack direction="row" justifyContent="flex-end">
               <Button
                 variant="contained"
-                endIcon={chat.isPending ? <CircularProgress size={18} /> : <SendRoundedIcon />}
+                endIcon={
+                  chat.isPending
+                    ? <CircularProgress size={18} />
+                    : <SendRoundedIcon />
+                }
                 onClick={submit}
                 disabled={!message.trim() || chat.isPending}
               >
@@ -269,7 +230,9 @@ export function AssistantPanel({ caseId }: { caseId: string }) {
 
             {chat.isError && (
               <Alert severity="error">
-                {chat.error instanceof Error ? chat.error.message : 'اجرای Agent ناموفق بود.'}
+                {chat.error instanceof Error
+                  ? chat.error.message
+                  : 'اجرای Agent ناموفق بود.'}
               </Alert>
             )}
           </Stack>
@@ -281,11 +244,13 @@ export function AssistantPanel({ caseId }: { caseId: string }) {
           <Stack spacing={2}>
             <Typography fontWeight={700}>گفتگو</Typography>
             {history.isLoading && <CircularProgress size={24} />}
+
             {!history.isLoading && (history.data?.length ?? 0) === 0 && (
               <Typography color="text.secondary" variant="body2">
                 هنوز پیامی در این گفتگو ثبت نشده است.
               </Typography>
             )}
+
             {(history.data ?? []).map((item) => (
               <Stack
                 key={item.id}
@@ -297,7 +262,10 @@ export function AssistantPanel({ caseId }: { caseId: string }) {
                     px: 2,
                     py: 1.25,
                     borderRadius: 2,
-                    bgcolor: item.role === 'USER' ? 'action.hover' : 'action.selected',
+                    bgcolor:
+                      item.role === 'USER'
+                        ? 'action.hover'
+                        : 'action.selected',
                     border: '1px solid',
                     borderColor: 'divider',
                   }}
@@ -322,9 +290,11 @@ export function AssistantPanel({ caseId }: { caseId: string }) {
                 <Box>
                   <Typography fontWeight={800}>نتیجه ساخت‌یافته</Typography>
                   <Typography variant="body2" color="text.secondary">
-                    قرارداد {effectiveResult.schemaVersion} · {effectiveResult.intent} · {effectiveResult.workflow}
+                    قرارداد {effectiveResult.schemaVersion} ·{' '}
+                    {effectiveResult.intent} · {effectiveResult.workflow}
                   </Typography>
                 </Box>
+
                 <Chip
                   label={effectiveResult.status}
                   color={statusColor(effectiveResult.status)}
@@ -336,13 +306,13 @@ export function AssistantPanel({ caseId }: { caseId: string }) {
                 {effectiveResult.message}
               </Alert>
 
-              {effectiveResult.assumptions.length > 0 && (
+              {(effectiveResult.assumptions ?? []).length > 0 && (
                 <Alert severity="warning">
                   فرضیات فعال: {effectiveResult.assumptions.join('، ')}
                 </Alert>
               )}
 
-              {effectiveResult.missingFields.length > 0 && (
+              {(effectiveResult.missingFields ?? []).length > 0 && (
                 <Box>
                   <Typography fontWeight={700} variant="body2" mb={1}>
                     اطلاعات مورد نیاز
@@ -358,6 +328,7 @@ export function AssistantPanel({ caseId }: { caseId: string }) {
               {Object.keys(normalizedParameters).length > 0 && (
                 <>
                   <Divider />
+
                   <Box>
                     <Typography fontWeight={700} variant="body2" mb={1}>
                       فیلدهای استخراج‌شده
@@ -378,21 +349,33 @@ export function AssistantPanel({ caseId }: { caseId: string }) {
                     </Box>
                   </Box>
 
-                  {Object.keys(applicableParameters).length > 0 && (
-                    <Stack direction="row" gap={1} alignItems="center" flexWrap="wrap">
-                      <Button
-                        variant="outlined"
-                        startIcon={<SaveRoundedIcon />}
-                        disabled={applyToProperty.isPending}
-                        onClick={() => applyToProperty.mutate()}
-                      >
-                        اعمال فیلدهای قابل ذخیره روی ملک
-                      </Button>
-                      {propertyApplied && (
-                        <Chip color="success" icon={<CheckRoundedIcon />} label="اعمال شد" />
-                      )}
-                    </Stack>
-                  )}
+                  <Stack
+                    direction="row"
+                    gap={1}
+                    alignItems="center"
+                    flexWrap="wrap"
+                  >
+                    <Button
+                      variant="outlined"
+                      startIcon={<SaveRoundedIcon />}
+                      disabled={applyToProperty.isPending}
+                      onClick={() => applyToProperty.mutate()}
+                    >
+                      اعمال همه اطلاعات استخراج‌شده روی ملک
+                    </Button>
+
+                    {propertyApplied && (
+                      <Chip
+                        color="success"
+                        icon={<CheckRoundedIcon />}
+                        label="در پرونده ذخیره شد"
+                      />
+                    )}
+                  </Stack>
+
+                  <Typography variant="caption" color="text.secondary">
+                    فیلدهای استاندارد در ستون‌های Property و سایر اطلاعات در JSONB ذخیره و Merge می‌شوند.
+                  </Typography>
 
                   {applyToProperty.isError && (
                     <Alert severity="error">
@@ -408,15 +391,19 @@ export function AssistantPanel({ caseId }: { caseId: string }) {
                 <>
                   <Divider />
                   <Stack spacing={2}>
-                    <Typography fontWeight={800}>رفع ابهام واژه‌نامه</Typography>
+                    <Typography fontWeight={800}>
+                      رفع ابهام واژه‌نامه
+                    </Typography>
                     <Alert severity="warning">
                       Agent معنی این اصطلاح‌ها را حدس نزده است. تعریف را ثبت و سپس تأیید کنید؛ بعد درخواست را دوباره ارسال کنید.
                     </Alert>
+
                     {unknownTerms.map((term) => {
                       const draft = drafts[term]
                       return (
                         <Stack key={term} spacing={1}>
                           <Typography fontWeight={700}>{term}</Typography>
+
                           <TextField
                             size="small"
                             label="معنی این اصطلاح"
@@ -429,12 +416,16 @@ export function AssistantPanel({ caseId }: { caseId: string }) {
                             }
                             disabled={draft?.status === 'APPROVED'}
                           />
+
                           <Stack direction="row" gap={1}>
                             {!draft && (
                               <Button
                                 size="small"
                                 variant="outlined"
-                                disabled={!definitions[term]?.trim() || createDraft.isPending}
+                                disabled={
+                                  !definitions[term]?.trim() ||
+                                  createDraft.isPending
+                                }
                                 onClick={() =>
                                   createDraft.mutate({
                                     term,
@@ -445,6 +436,7 @@ export function AssistantPanel({ caseId }: { caseId: string }) {
                                 ثبت پیش‌نویس
                               </Button>
                             )}
+
                             {draft?.status === 'DRAFT' && (
                               <Button
                                 size="small"
@@ -456,8 +448,13 @@ export function AssistantPanel({ caseId }: { caseId: string }) {
                                 تأیید انسانی واژه
                               </Button>
                             )}
+
                             {draft?.status === 'APPROVED' && (
-                              <Chip color="success" label="تأیید شد" size="small" />
+                              <Chip
+                                color="success"
+                                label="تأیید شد"
+                                size="small"
+                              />
                             )}
                           </Stack>
                         </Stack>

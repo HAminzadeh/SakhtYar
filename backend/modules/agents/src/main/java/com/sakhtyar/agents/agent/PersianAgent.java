@@ -17,6 +17,7 @@ import java.time.Instant;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
@@ -28,19 +29,47 @@ import org.springframework.stereotype.Component;
 public class PersianAgent implements SakhtyarAgent {
 
     private static final Pattern AREA_PATTERN = Pattern.compile(
-            "(?:(?:\u0632\u0645\u06CC\u0646|\u0645\u0644\u06A9)\\s*)?(\\d+(?:\\.\\d+)?)\\s*(?:\u0645\u062A\u0631\\s*\u0645\u0631\u0628\u0639|\u0645\u062A\u0631\u06CC)"
-    );
-    private static final Pattern FRONTAGE_PATTERN = Pattern.compile(
-            "\u0628\u0631(?:\u0634|\\s*\u0645\u0644\u06A9)?\\s*[:=]?\\s*(\\d+(?:\\.\\d+)?)"
-    );
-    private static final Pattern LOCATION_PATTERN = Pattern.compile(
-            "(?:\u062A\u0648|\u062F\u0631)\\s+([\\u0600-\\u06FF\\u200C\\s]+?)(?=\\s+(?:\u062F\u0627\u0631\u0645|\u062F\u0627\u0631\u06CC\u0645|\u0647\u0633\u062A|\u0627\u0633\u062A|\u0628\u0627|\u0628\u0631\u0634|\u0628\u0631|\u0645\u06CC\u062E\u0648\u0627\u0645|\u0645\u06CC\u200C\u062E\u0648\u0627\u0645)|[\u060C,.]|$)"
+            "(?:(?:زمین|ملک)\\s*)?(\\d+(?:\\.\\d+)?)\\s*(?:متر\\s*مربع|متری)"
     );
 
-    private static final Set<String> ALLOWED_AI_PARAMETERS = Set.of(
+    private static final Pattern FRONTAGE_PATTERN = Pattern.compile(
+            "بر(?:ش|\\s*ملک)?\\s*[:=]?\\s*(\\d+(?:\\.\\d+)?)"
+    );
+
+    private static final Pattern LOCATION_PATTERN = Pattern.compile(
+            "(?:تو|در)\\s+([\\u0600-\\u06FF\\u200C\\s]+?)(?=\\s+(?:دارم|داریم|هست|است|با|برش|بر|میخوام|می‌خوام|که)|[،,.]|$)"
+    );
+
+    private static final Pattern CONSTRUCTION_YEAR_PATTERN = Pattern.compile(
+            "(?:(?:سال\\s*ساخت|ساخت\\s*سال|مال\\s*سال|برای\\s*سال)\\s*[:=]?\\s*)(\\d{4})"
+    );
+
+    private static final Pattern EXISTING_FLOORS_DIGIT_PATTERN = Pattern.compile(
+            "(\\d+)\\s*طبقه"
+    );
+
+    private static final Pattern EXISTING_FLOORS_WORD_PATTERN = Pattern.compile(
+            "(یک|دو|سه|چهار|پنج|شش|هفت|هشت|نه|ده)\\s*طبقه"
+    );
+
+    private static final Pattern EXISTING_UNITS_DIGIT_PATTERN = Pattern.compile(
+            "(\\d+)\\s*واحد(?:ی)?"
+    );
+
+    private static final Pattern EXISTING_UNITS_WORD_PATTERN = Pattern.compile(
+            "(یک|دو|سه|چهار|پنج|شش|هفت|هشت|نه|ده)\\s*واحد(?:ی)?"
+    );
+
+    private static final Set<String> AI_NUMERIC_PARAMETERS = Set.of(
             "landAreaM2",
             "frontageM",
-            "location",
+            "passageWidthM",
+            "buildingAreaM2",
+            "constructionYear",
+            "existingFloors",
+            "existingUnits",
+            "parkingSpaces",
+            "basementFloors",
             "coverageRatio",
             "allowedResidentialFloors",
             "commonAreaRatio",
@@ -56,8 +85,42 @@ public class PersianAgent implements SakhtyarAgent {
             "financingCost",
             "otherCosts",
             "grossConstructionAreaM2",
-            "saleableAreaM2",
+            "saleableAreaM2"
+    );
+
+    private static final Set<String> AI_STRING_PARAMETERS = Set.of(
+            "location",
+            "province",
+            "city",
+            "district",
+            "neighborhood",
+            "address",
+            "orientation",
+            "propertyType",
+            "buildingCondition",
+            "cornerPosition",
+            "zoneCode",
+            "landUse",
             "currencyUnit"
+    );
+
+    private static final Set<String> AI_BOOLEAN_PARAMETERS = Set.of(
+            "hasElevator",
+            "hasParking",
+            "hasBasement",
+            "isCorner",
+            "isVacantLand"
+    );
+
+    private static final Set<String> ORIENTATIONS = Set.of(
+            "NORTH",
+            "SOUTH",
+            "EAST",
+            "WEST",
+            "NORTH_EAST",
+            "NORTH_WEST",
+            "SOUTH_EAST",
+            "SOUTH_WEST"
     );
 
     private final PersianGlossaryService glossary;
@@ -81,14 +144,15 @@ public class PersianAgent implements SakhtyarAgent {
 
     @Override
     public String displayName() {
-        return "\u0639\u0627\u0645\u0644 \u0632\u0628\u0627\u0646 \u0641\u0627\u0631\u0633\u06CC";
+        return "عامل زبان فارسی";
     }
 
     @Override
     public AgentResult execute(AgentRequest request, AgentExecutionContext context) {
         String normalizedText = normalize(request.message());
         AgentIntent fallbackIntent = detectIntent(normalizedText);
-        LinkedHashMap<String, Object> deterministicParameters = extractDeterministic(normalizedText);
+        LinkedHashMap<String, Object> deterministicParameters =
+                extractDeterministic(normalizedText);
         LinkedHashMap<String, Object> normalizedParameters = new LinkedHashMap<>();
         ArrayList<String> warnings = new ArrayList<>();
 
@@ -113,17 +177,21 @@ public class PersianAgent implements SakhtyarAgent {
                                     normalizedText,
                                     Map.of(
                                             "existingParameters", request.parameters(),
-                                            "recognizedGlossaryTerms", glossary.recognizedTerms(normalizedText)
+                                            "recognizedGlossaryTerms",
+                                            glossary.recognizedTerms(normalizedText)
                                     )
                             )
                     );
 
                     Map<String, Object> aiData = response.structuredData();
-                    Map<String, Object> aiParameters = AgentValues.map(aiData.get("parameters"));
+                    Map<String, Object> aiParameters =
+                            AgentValues.map(aiData.get("parameters"));
                     normalizedParameters.putAll(sanitizeAiParameters(aiParameters));
 
-                    AgentIntent aiIntent = parseIntent(AgentValues.text(aiData, "intent"));
-                    if (fallbackIntent == AgentIntent.PROPERTY_ANALYSIS && aiIntent != null) {
+                    AgentIntent aiIntent =
+                            parseIntent(AgentValues.text(aiData, "intent"));
+                    if (fallbackIntent == AgentIntent.PROPERTY_ANALYSIS
+                            && aiIntent != null) {
                         intent = aiIntent;
                     }
 
@@ -133,24 +201,28 @@ public class PersianAgent implements SakhtyarAgent {
                     outputTokens = response.outputTokens();
                 } else {
                     warnings.add(
-                            "Ollama \u062F\u0631 \u062F\u0633\u062A\u0631\u0633 \u0646\u06CC\u0633\u062A \u06CC\u0627 \u0645\u062F\u0644 \u00AB" + provider.modelId()
-                                    + "\u00BB \u0647\u0646\u0648\u0632 \u062F\u0627\u0646\u0644\u0648\u062F \u0646\u0634\u062F\u0647\u061B \u062A\u062D\u0644\u06CC\u0644 \u0642\u0648\u0627\u0639\u062F\u06CC \u0627\u0633\u062A\u0641\u0627\u062F\u0647 \u0634\u062F."
+                            "Ollama در دسترس نیست یا مدل «"
+                                    + provider.modelId()
+                                    + "» هنوز دانلود نشده؛ تحلیل قواعدی استفاده شد."
                     );
                 }
             } catch (RuntimeException ex) {
                 warnings.add(
-                        "\u0645\u062F\u0644 \u0645\u062D\u0644\u06CC \u067E\u0627\u0633\u062E \u0645\u0639\u062A\u0628\u0631 \u0646\u062F\u0627\u062F\u061B \u062A\u062D\u0644\u06CC\u0644 \u0642\u0648\u0627\u0639\u062F\u06CC \u062C\u0627\u06CC\u06AF\u0632\u06CC\u0646 \u0634\u062F. \u062C\u0632\u0626\u06CC\u0627\u062A: "
+                        "مدل محلی پاسخ معتبر نداد؛ تحلیل قواعدی جایگزین شد. جزئیات: "
                                 + safeMessage(ex)
                 );
             }
         } else {
-            warnings.add("Provider \u0647\u0648\u0634 \u0645\u0635\u0646\u0648\u0639\u06CC \u0641\u0639\u0627\u0644 \u0646\u06CC\u0633\u062A\u061B \u062A\u062D\u0644\u06CC\u0644 \u0642\u0648\u0627\u0639\u062F\u06CC \u0627\u0633\u062A\u0641\u0627\u062F\u0647 \u0634\u062F.");
+            warnings.add(
+                    "Provider هوش مصنوعی فعال نیست؛ تحلیل قواعدی استفاده شد."
+            );
         }
 
-        // Deterministic extraction wins for fields where the Java parser is certain.
+        // Deterministic extraction wins where Java can parse the statement safely.
         normalizedParameters.putAll(deterministicParameters);
 
-        Map<String, String> recognizedTerms = glossary.recognizedTerms(normalizedText);
+        Map<String, String> recognizedTerms =
+                glossary.recognizedTerms(normalizedText);
         LinkedHashMap<String, Object> data = new LinkedHashMap<>();
         data.put("intent", intent.name());
         data.put("normalizedText", normalizedText);
@@ -166,11 +238,11 @@ public class PersianAgent implements SakhtyarAgent {
 
         double confidence = "LOCAL_AI".equals(parserMode)
                 ? (normalizedParameters.isEmpty() ? 0.82d : 0.92d)
-                : (normalizedParameters.isEmpty() ? 0.60d : 0.78d);
+                : (normalizedParameters.isEmpty() ? 0.60d : 0.82d);
 
         String message = "LOCAL_AI".equals(parserMode)
-                ? "\u0645\u062A\u0646 \u0641\u0627\u0631\u0633\u06CC \u0628\u0627 \u0645\u062F\u0644 \u0645\u062D\u0644\u06CC \u062A\u062D\u0644\u06CC\u0644 \u0648 \u0628\u0647 \u062F\u0627\u062F\u0647 \u0627\u0633\u062A\u0627\u0646\u062F\u0627\u0631\u062F \u062A\u0628\u062F\u06CC\u0644 \u0634\u062F."
-                : "\u0645\u062A\u0646 \u0641\u0627\u0631\u0633\u06CC \u0628\u0627 \u062A\u062D\u0644\u06CC\u0644 \u0642\u0648\u0627\u0639\u062F\u06CC \u0646\u0631\u0645\u0627\u0644\u200C\u0633\u0627\u0632\u06CC \u0648 \u0647\u062F\u0641 \u062F\u0631\u062E\u0648\u0627\u0633\u062A \u062A\u0634\u062E\u06CC\u0635 \u062F\u0627\u062F\u0647 \u0634\u062F.";
+                ? "متن فارسی با مدل محلی تحلیل و به داده استاندارد تبدیل شد."
+                : "متن فارسی با تحلیل قواعدی نرمال‌سازی و هدف درخواست تشخیص داده شد.";
 
         return new AgentResult(
                 type(),
@@ -184,50 +256,235 @@ public class PersianAgent implements SakhtyarAgent {
         );
     }
 
-    private LinkedHashMap<String, Object> extractDeterministic(String normalizedText) {
+    private LinkedHashMap<String, Object> extractDeterministic(
+            String normalizedText
+    ) {
         LinkedHashMap<String, Object> parameters = new LinkedHashMap<>();
-        BigDecimal area = firstDecimal(AREA_PATTERN, normalizedText);
-        BigDecimal frontage = firstDecimal(FRONTAGE_PATTERN, normalizedText);
-        String location = firstText(LOCATION_PATTERN, normalizedText);
 
-        if (area != null) {
-            parameters.put("landAreaM2", area);
+        putIfNotNull(
+                parameters,
+                "landAreaM2",
+                firstDecimal(AREA_PATTERN, normalizedText)
+        );
+        putIfNotNull(
+                parameters,
+                "frontageM",
+                firstDecimal(FRONTAGE_PATTERN, normalizedText)
+        );
+        putIfNotNull(
+                parameters,
+                "location",
+                firstText(LOCATION_PATTERN, normalizedText)
+        );
+        putIfNotNull(
+                parameters,
+                "constructionYear",
+                firstDecimal(CONSTRUCTION_YEAR_PATTERN, normalizedText)
+        );
+
+        Integer existingFloors = extractExistingCount(
+                normalizedText,
+                EXISTING_FLOORS_DIGIT_PATTERN,
+                EXISTING_FLOORS_WORD_PATTERN,
+                true
+        );
+        if (existingFloors != null) {
+            parameters.put("existingFloors", existingFloors);
         }
-        if (frontage != null) {
-            parameters.put("frontageM", frontage);
+
+        Integer existingUnits = extractExistingCount(
+                normalizedText,
+                EXISTING_UNITS_DIGIT_PATTERN,
+                EXISTING_UNITS_WORD_PATTERN,
+                false
+        );
+        if (existingUnits != null) {
+            parameters.put("existingUnits", existingUnits);
         }
-        if (location != null) {
-            parameters.put("location", location);
+
+        String orientation = extractOrientation(normalizedText);
+        if (orientation != null) {
+            parameters.put("orientation", orientation);
         }
+
         return parameters;
     }
 
     private Map<String, Object> sanitizeAiParameters(Map<String, Object> input) {
         LinkedHashMap<String, Object> result = new LinkedHashMap<>();
+
         input.forEach((key, value) -> {
-            if (key == null || value == null || !ALLOWED_AI_PARAMETERS.contains(key)) {
+            if (key == null || value == null) {
                 return;
             }
-            if ("currencyUnit".equals(key)) {
-                String unit = String.valueOf(value).trim().toUpperCase();
-                if ("RIAL".equals(unit) || "TOMAN".equals(unit)) {
-                    result.put(key, unit);
+
+            if (AI_NUMERIC_PARAMETERS.contains(key)) {
+                BigDecimal decimal = AgentValues.decimal(value);
+                if (decimal != null) {
+                    result.put(key, decimal);
                 }
                 return;
             }
-            if ("location".equals(key)) {
-                String location = String.valueOf(value).trim();
-                if (!location.isBlank()) {
-                    result.put(key, location);
+
+            if (AI_STRING_PARAMETERS.contains(key)) {
+                String text = String.valueOf(value).trim();
+                if (text.isBlank()) {
+                    return;
                 }
+
+                if ("currencyUnit".equals(key)) {
+                    String unit = text.toUpperCase(Locale.ROOT);
+                    if ("RIAL".equals(unit) || "TOMAN".equals(unit)) {
+                        result.put(key, unit);
+                    }
+                    return;
+                }
+
+                if ("orientation".equals(key)) {
+                    String orientation = normalizeOrientation(text);
+                    if (orientation != null) {
+                        result.put(key, orientation);
+                    }
+                    return;
+                }
+
+                result.put(key, text);
                 return;
             }
-            BigDecimal decimal = AgentValues.decimal(value);
-            if (decimal != null) {
-                result.put(key, decimal);
+
+            if (AI_BOOLEAN_PARAMETERS.contains(key)) {
+                Boolean bool = booleanValue(value);
+                if (bool != null) {
+                    result.put(key, bool);
+                }
             }
         });
+
         return result;
+    }
+
+    private Integer extractExistingCount(
+            String text,
+            Pattern digitPattern,
+            Pattern wordPattern,
+            boolean floor
+    ) {
+        Matcher digit = digitPattern.matcher(text);
+        while (digit.find()) {
+            if (floor && isAllowedFloorContext(text, digit.start(), digit.end())) {
+                continue;
+            }
+            try {
+                return Integer.parseInt(digit.group(1));
+            } catch (NumberFormatException ignored) {
+                // continue
+            }
+        }
+
+        Matcher word = wordPattern.matcher(text);
+        while (word.find()) {
+            if (floor && isAllowedFloorContext(text, word.start(), word.end())) {
+                continue;
+            }
+            Integer value = persianNumberWord(word.group(1));
+            if (value != null) {
+                return value;
+            }
+        }
+
+        return null;
+    }
+
+    private boolean isAllowedFloorContext(String text, int start, int end) {
+        int from = Math.max(0, start - 18);
+        int to = Math.min(text.length(), end + 18);
+        String around = text.substring(from, to);
+        return containsAny(
+                around,
+                "مجاز",
+                "قابل ساخت",
+                "اجازه ساخت",
+                "تراکم"
+        );
+    }
+
+    private String extractOrientation(String text) {
+        boolean north = text.contains("شمالی");
+        boolean south = text.contains("جنوبی");
+        boolean east = text.contains("شرقی");
+        boolean west = text.contains("غربی");
+
+        if (north && east) return "NORTH_EAST";
+        if (north && west) return "NORTH_WEST";
+        if (south && east) return "SOUTH_EAST";
+        if (south && west) return "SOUTH_WEST";
+        if (north) return "NORTH";
+        if (south) return "SOUTH";
+        if (east) return "EAST";
+        if (west) return "WEST";
+        return null;
+    }
+
+    private String normalizeOrientation(String value) {
+        String normalized = value.trim()
+                .replace('-', '_')
+                .replace(' ', '_')
+                .toUpperCase(Locale.ROOT);
+
+        if (ORIENTATIONS.contains(normalized)) {
+            return normalized;
+        }
+
+        return switch (value.trim()) {
+            case "شمالی" -> "NORTH";
+            case "جنوبی" -> "SOUTH";
+            case "شرقی" -> "EAST";
+            case "غربی" -> "WEST";
+            case "شمال شرقی", "شمال‌شرقی" -> "NORTH_EAST";
+            case "شمال غربی", "شمال‌غربی" -> "NORTH_WEST";
+            case "جنوب شرقی", "جنوب‌شرقی" -> "SOUTH_EAST";
+            case "جنوب غربی", "جنوب‌غربی" -> "SOUTH_WEST";
+            default -> null;
+        };
+    }
+
+    private Boolean booleanValue(Object value) {
+        if (value instanceof Boolean bool) {
+            return bool;
+        }
+
+        String text = String.valueOf(value).trim().toLowerCase(Locale.ROOT);
+        return switch (text) {
+            case "true", "yes", "1", "بله", "دارد", "هست" -> true;
+            case "false", "no", "0", "خیر", "ندارد", "نیست" -> false;
+            default -> null;
+        };
+    }
+
+    private Integer persianNumberWord(String value) {
+        return switch (value) {
+            case "یک" -> 1;
+            case "دو" -> 2;
+            case "سه" -> 3;
+            case "چهار" -> 4;
+            case "پنج" -> 5;
+            case "شش" -> 6;
+            case "هفت" -> 7;
+            case "هشت" -> 8;
+            case "نه" -> 9;
+            case "ده" -> 10;
+            default -> null;
+        };
+    }
+
+    private void putIfNotNull(
+            Map<String, Object> target,
+            String key,
+            Object value
+    ) {
+        if (value != null) {
+            target.put(key, value);
+        }
     }
 
     private AgentIntent parseIntent(String value) {
@@ -235,7 +492,7 @@ public class PersianAgent implements SakhtyarAgent {
             return null;
         }
         try {
-            return AgentIntent.valueOf(value.trim().toUpperCase());
+            return AgentIntent.valueOf(value.trim().toUpperCase(Locale.ROOT));
         } catch (IllegalArgumentException ignored) {
             return null;
         }
@@ -243,27 +500,27 @@ public class PersianAgent implements SakhtyarAgent {
 
     private AgentIntent detectIntent(String text) {
         if (containsAny(text,
-                "\u0628\u0631\u0631\u0633\u06CC \u0642\u0631\u0627\u0631\u062F\u0627\u062F", "\u0642\u0631\u0627\u0631\u062F\u0627\u062F \u0631\u0627", "\u0642\u0631\u0627\u0631\u062F\u0627\u062F \u0631\u0648", "\u0628\u0646\u062F \u0642\u0631\u0627\u0631\u062F\u0627\u062F")) {
+                "بررسی قرارداد", "قرارداد را", "قرارداد رو", "بند قرارداد")) {
             return AgentIntent.CONTRACT_REVIEW;
         }
         if (containsAny(text,
-                "\u0633\u0627\u0632\u0646\u062F\u0647 \u0645\u0646\u0627\u0633\u0628", "\u067E\u06CC\u062F\u0627 \u06A9\u0631\u062F\u0646 \u0633\u0627\u0632\u0646\u062F\u0647", "\u067E\u06CC\u062F\u0627 \u06A9\u0646 \u0633\u0627\u0632\u0646\u062F\u0647", "\u062A\u0637\u0628\u06CC\u0642 \u0633\u0627\u0632\u0646\u062F\u0647")) {
+                "سازنده مناسب", "پیدا کردن سازنده", "پیدا کن سازنده", "تطبیق سازنده")) {
             return AgentIntent.BUILDER_MATCHING;
         }
         if (containsAny(text,
-                "\u062A\u062D\u0642\u06CC\u0642", "\u062C\u0633\u062A\u062C\u0648", "\u0627\u0637\u0644\u0627\u0639\u0627\u062A \u0628\u0627\u0632\u0627\u0631", "\u0628\u0631\u0631\u0633\u06CC \u0645\u0646\u0627\u0628\u0639")) {
+                "تحقیق", "جستجو", "اطلاعات بازار", "بررسی منابع")) {
             return AgentIntent.RESEARCH;
         }
         if (containsAny(text,
-                "\u0642\u06CC\u0645\u062A", "\u0627\u0631\u0632\u0634 \u0645\u0644\u06A9", "\u0627\u0631\u0632\u0634 \u0632\u0645\u06CC\u0646", "\u0645\u062A\u0631\u06CC \u0686\u0646\u062F")) {
+                "قیمت", "ارزش ملک", "ارزش زمین", "متری چند")) {
             return AgentIntent.PROPERTY_VALUATION;
         }
         if (containsAny(text,
-                "\u0686\u0646\u062F \u0637\u0628\u0642\u0647", "\u0686\u0642\u062F\u0631 \u0645\u06CC\u0634\u0647 \u0633\u0627\u062E\u062A", "\u0686\u0642\u062F\u0631 \u0645\u06CC\u200C\u0634\u0648\u062F \u0633\u0627\u062E\u062A", "\u0633\u0637\u062D \u0627\u0634\u063A\u0627\u0644", "\u062A\u0631\u0627\u06A9\u0645")) {
+                "چند طبقه", "چقدر میشه ساخت", "چقدر می‌شود ساخت", "سطح اشغال", "تراکم")) {
             return AgentIntent.BUILDABILITY_ANALYSIS;
         }
         if (containsAny(text,
-                "\u0645\u0634\u0627\u0631\u06A9\u062A", "\u0635\u0631\u0641\u0647", "\u0633\u0648\u062F \u067E\u0631\u0648\u0698\u0647", "\u0633\u0647\u0645 \u0645\u0627\u0644\u06A9", "\u0633\u0647\u0645 \u0633\u0627\u0632\u0646\u062F\u0647")) {
+                "مشارکت", "صرفه", "سود پروژه", "سهم مالک", "سهم سازنده")) {
             return AgentIntent.PARTNERSHIP_ANALYSIS;
         }
         return AgentIntent.PROPERTY_ANALYSIS;
@@ -303,6 +560,7 @@ public class PersianAgent implements SakhtyarAgent {
         if (text == null) {
             return "";
         }
+
         StringBuilder value = new StringBuilder();
         for (char c : text.trim().toCharArray()) {
             value.append(switch (c) {
@@ -321,7 +579,10 @@ public class PersianAgent implements SakhtyarAgent {
                 default -> c;
             });
         }
-        return value.toString().replaceAll("\\s+", " ").trim();
+
+        return value.toString()
+                .replaceAll("\\s+", " ")
+                .trim();
     }
 
     private String safeMessage(RuntimeException ex) {
