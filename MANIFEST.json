@@ -1,0 +1,191 @@
+{
+  "baseCommit": "655cad599d3fa296593eb32dffd7731a5297c6ae",
+  "generatedFor": "SakhtYar Phase 3",
+  "files": [
+    {
+      "path": "apply-phase3.ps1",
+      "sha256": "83764ec5275634564de3e2ee9adb8b171c83ef2554082192dddd3a54be5db058",
+      "bytes": 904
+    },
+    {
+      "path": "apply-phase3.sh",
+      "sha256": "7eef81d5704905e94025e2390d7a760d16274bdb59f76cba485c889091118f1a",
+      "bytes": 618
+    },
+    {
+      "path": "backend/app/src/main/resources/db/migration/V5__phase3_agents.sql",
+      "sha256": "8fb05046ed1a72164ffa9b503295564726debfb7ac555097260e02cdb2e87533",
+      "bytes": 1905
+    },
+    {
+      "path": "backend/modules/agents/pom.xml",
+      "sha256": "60d869b144b34039bc0d22571d97323462bccf746f6e41c79a36bfa5d6a68905",
+      "bytes": 1663
+    },
+    {
+      "path": "backend/modules/agents/src/main/java/com/sakhtyar/agents/agent/ContractAgent.java",
+      "sha256": "b75b8b5676ffe1165f1af9d9de9e28260bd9ebba04ef3c898e37a24fb2ebe2a9",
+      "bytes": 4589
+    },
+    {
+      "path": "backend/modules/agents/src/main/java/com/sakhtyar/agents/agent/FinancialAgent.java",
+      "sha256": "5f366566c2bb52ac21e247c2c8578dd2848516cf12d6f55f03d45f5a1c34251d",
+      "bytes": 7528
+    },
+    {
+      "path": "backend/modules/agents/src/main/java/com/sakhtyar/agents/agent/MatchingAgent.java",
+      "sha256": "fae48a6b27fc09ab5b0c91ce89ff772348bfa16dac6c2e4c34a89faf9ef59d19",
+      "bytes": 5903
+    },
+    {
+      "path": "backend/modules/agents/src/main/java/com/sakhtyar/agents/agent/PersianAgent.java",
+      "sha256": "41784a54196cde3976c10bc2107f202cc42e94c2f8590fcc53d21f9a11613c31",
+      "bytes": 14814
+    },
+    {
+      "path": "backend/modules/agents/src/main/java/com/sakhtyar/agents/agent/ValuationAgent.java",
+      "sha256": "3294fe21bb8b2b3bbc1cbb3d4e1921c69a2acc0edcea52b3a7a0553280cf1830",
+      "bytes": 5227
+    },
+    {
+      "path": "backend/modules/agents/src/main/java/com/sakhtyar/agents/api/AgentController.java",
+      "sha256": "8ce2e9bdc2cd4d9ec24bb32cc4fa864a5073162c693cb1ea97ce951b50b1d3aa",
+      "bytes": 3408
+    },
+    {
+      "path": "backend/modules/agents/src/main/java/com/sakhtyar/agents/api/AgentDtos.java",
+      "sha256": "1f8187b637769f2e38be3acd85eaf9d1d6c489592bf8084ad9654df4e09be39e",
+      "bytes": 384
+    },
+    {
+      "path": "backend/modules/agents/src/main/java/com/sakhtyar/agents/api/GlossaryController.java",
+      "sha256": "90d9b0ffcc5e59894e59c7ad9cfc16ec8fe6fcf3c82825b30479fbd1a4d232a3",
+      "bytes": 1752
+    },
+    {
+      "path": "backend/modules/agents/src/main/java/com/sakhtyar/agents/api/GlossaryDtos.java",
+      "sha256": "498682cc4954dda37b812dbbbbfb6451b2ae1dca87dbcf9c965568f24dcbd4af",
+      "bytes": 417
+    },
+    {
+      "path": "backend/modules/agents/src/main/java/com/sakhtyar/agents/conversation/AgentConversationService.java",
+      "sha256": "63e8131afe9ff7424136c8a06cce56c159549039e702da09552ec9abcc620cc9",
+      "bytes": 5537
+    },
+    {
+      "path": "backend/modules/agents/src/main/java/com/sakhtyar/agents/core/AgentBus.java",
+      "sha256": "05c3aaaa038f9a6e8712e2a25efd5b20c8734de6776ddeae7534028a9431ed93",
+      "bytes": 4640
+    },
+    {
+      "path": "backend/modules/agents/src/main/java/com/sakhtyar/agents/core/AgentContracts.java",
+      "sha256": "fec91b46b19c1a470055bff157dbc15d1aab1e68cb5f9ad175972b3411837672",
+      "bytes": 167
+    },
+    {
+      "path": "backend/modules/agents/src/main/java/com/sakhtyar/agents/core/AgentDescriptor.java",
+      "sha256": "3b471967ccd2ee36ca8bcaa89cc57dbacfe5d37129e06f80ab651cb6720ba839",
+      "bytes": 820
+    },
+    {
+      "path": "backend/modules/agents/src/main/java/com/sakhtyar/agents/core/AgentRegistry.java",
+      "sha256": "ec73bc23b721c14519b16cfa5f61a1493585d53638f1dde284d1339c877de938",
+      "bytes": 3378
+    },
+    {
+      "path": "backend/modules/agents/src/main/java/com/sakhtyar/agents/core/SakhtyarAgent.java",
+      "sha256": "5c174ea12df2004e1db70605d8cd7ec0d9401bdd596f1619844055a5569240c6",
+      "bytes": 306
+    },
+    {
+      "path": "backend/modules/agents/src/main/java/com/sakhtyar/agents/glossary/GlossaryEntryEntity.java",
+      "sha256": "c7896623408e92f57baa4f261b4439a8a2a8c094c4f006cf995dded47512e62f",
+      "bytes": 3297
+    },
+    {
+      "path": "backend/modules/agents/src/main/java/com/sakhtyar/agents/glossary/GlossaryEntryRepository.java",
+      "sha256": "dd4f81beea666ae28f30e4f6dc5b2e43136b8c81afeb5fb4696c749674771887",
+      "bytes": 506
+    },
+    {
+      "path": "backend/modules/agents/src/main/java/com/sakhtyar/agents/glossary/GlossaryStatus.java",
+      "sha256": "bedddf4a4bfb1d7e817b07b40a36b5c4137523af99c5a5cb3f33497c15c68393",
+      "bytes": 108
+    },
+    {
+      "path": "backend/modules/agents/src/main/java/com/sakhtyar/agents/glossary/PersianGlossaryService.java",
+      "sha256": "c01b3c6ed45871c5a78072fc421b2bc6ce35268a5f6a576b6486180596e76fe4",
+      "bytes": 11557
+    },
+    {
+      "path": "backend/modules/agents/src/main/java/com/sakhtyar/agents/orchestrator/AgentOrchestrator.java",
+      "sha256": "d8e912956ccacabcf49d653408ee5b83cb3427a30c362b6b5acd37faa676d219",
+      "bytes": 6613
+    },
+    {
+      "path": "backend/modules/agents/src/main/java/com/sakhtyar/agents/orchestrator/AgentWorkflowResult.java",
+      "sha256": "1f95938a4fc6ca0d65176309cf01cd0570908b00163592d7e73b56bf9e4482a1",
+      "bytes": 1440
+    },
+    {
+      "path": "backend/modules/agents/src/main/java/com/sakhtyar/agents/persistence/AgentConversationEntity.java",
+      "sha256": "e3bcdb301e68513758ae755c1264943af46798c65c4418b30919469787663d85",
+      "bytes": 1556
+    },
+    {
+      "path": "backend/modules/agents/src/main/java/com/sakhtyar/agents/persistence/AgentConversationRepository.java",
+      "sha256": "dbe7a0d755348c7e05a70f317d3037b1f33afbf6e6b7dbe7182a960b75364eac",
+      "bytes": 238
+    },
+    {
+      "path": "backend/modules/agents/src/main/java/com/sakhtyar/agents/persistence/AgentMessageEntity.java",
+      "sha256": "5a5b26b7c0663f13d8081c84c9485b8df36c9deb831b78cfbe6cd44a5d047d03",
+      "bytes": 1607
+    },
+    {
+      "path": "backend/modules/agents/src/main/java/com/sakhtyar/agents/persistence/AgentMessageRepository.java",
+      "sha256": "e9bb7cb82eff0ce0f60f16dbb467e0d0d0ae77db3bed75146025aadfa7103117",
+      "bytes": 364
+    },
+    {
+      "path": "backend/modules/agents/src/main/java/com/sakhtyar/agents/persistence/AgentRunEntity.java",
+      "sha256": "1186d104c4918b46576a040d6d707d1e4f1fdbc8f29450df88d812bfe126329d",
+      "bytes": 2078
+    },
+    {
+      "path": "backend/modules/agents/src/main/java/com/sakhtyar/agents/persistence/AgentRunRepository.java",
+      "sha256": "062659b9ecf07a016040e3f1da40b12897970528a04e06cf8e38ec955606ebcc",
+      "bytes": 212
+    },
+    {
+      "path": "backend/modules/agents/src/main/java/com/sakhtyar/agents/support/AgentNumbers.java",
+      "sha256": "29789e090af73e87252f46e6cd2a32ef72ca97fae3e0ca136fb4979c9b699236",
+      "bytes": 1221
+    },
+    {
+      "path": "backend/modules/agents/src/main/resources/prompts/persian-agent-system.txt",
+      "sha256": "e8806736e9b8a04812267c8895edf20be4752a939993e14e1585033a7c4dc593",
+      "bytes": 2892
+    },
+    {
+      "path": "frontend/src/api/types.ts",
+      "sha256": "e7463f4787735d22901eed5d954ba0188093a00e1fa3fcc713a3580ec1eb384a",
+      "bytes": 3045
+    },
+    {
+      "path": "frontend/src/features/case/AssistantPanel.tsx",
+      "sha256": "5d3ff80874201300773e41bac26b45ce2a08690b5e233908a08f990c178a28be",
+      "bytes": 17214
+    },
+    {
+      "path": "frontend/src/pages/CaseDetailPage.tsx",
+      "sha256": "98631cef119cf295b51b68901597e9985b62b6839fa04962c7bb279b38f48120",
+      "bytes": 4340
+    },
+    {
+      "path": "readMe/README-PHASE3.md",
+      "sha256": "18acd51c5730ad4a5f6a694db842fe2483e23dd7276aa8c792885e10334feb15",
+      "bytes": 5523
+    }
+  ]
+}

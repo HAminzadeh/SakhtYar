@@ -1,9 +1,9 @@
 package com.sakhtyar.agents.core;
 
 import com.sakhtyar.audit.application.AuditService;
+import java.time.Duration;
 import java.time.Instant;
 import java.util.LinkedHashMap;
-import java.util.Map;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
@@ -45,37 +45,59 @@ public class AgentBus {
             return AgentResult.failed(type, "حداکثر عمق فراخوانی Agentها رد شد.");
         }
 
+        SakhtyarAgent agent = registry.require(type);
         AgentExecutionContext child = context.enter(type);
         Instant startedAt = Instant.now();
         AgentResult result;
 
         try {
-            result = registry.require(type).execute(request, child);
+            result = agent.execute(request, child);
             if (result == null) {
                 result = AgentResult.failed(type, "Agent نتیجه‌ای برنگرداند.");
             }
         } catch (Exception ex) {
             log.warn("Agent {} failed for request {}", type, request.requestId(), ex);
-            result = AgentResult.failed(type, "اجرای Agent با خطا مواجه شد: " + ex.getMessage());
+            result = AgentResult.failed(type, "اجرای Agent با خطا مواجه شد: " + safeMessage(ex));
         }
 
         context.remember(type, result);
-        audit(type, request, result, startedAt);
+        audit(agent, request, result, startedAt, context);
         return result;
     }
 
     private void audit(
-            AgentType type,
+            SakhtyarAgent agent,
             AgentRequest request,
             AgentResult result,
-            Instant startedAt
+            Instant startedAt,
+            AgentExecutionContext context
     ) {
         LinkedHashMap<String, Object> payload = new LinkedHashMap<>();
-        payload.put("agent", type.name());
+        payload.put("schemaVersion", AgentContracts.SCHEMA_VERSION);
+        payload.put("agent", agent.type().name());
+        payload.put("agentVersion", agent.version());
         payload.put("status", result.status().name());
         payload.put("conversationId", request.conversationId().toString());
         payload.put("startedAt", startedAt.toString());
         payload.put("completedAt", result.completedAt().toString());
+        payload.put(
+                "durationMs",
+                Duration.between(startedAt, result.completedAt()).toMillis()
+        );
+        payload.put("callChain", context.callChain());
+        payload.put("input", java.util.Map.of(
+                "message", request.message(),
+                "parameters", request.parameters()
+        ));
+        payload.put("output", java.util.Map.of(
+                "message", result.message(),
+                "data", result.data(),
+                "warnings", result.warnings(),
+                "missingFields", result.missingFields(),
+                "confidence", result.confidence()
+        ));
+        payload.put("humanApprovalRequired", requiresHumanApproval(agent.type()));
+        payload.put("humanApproved", false);
         if (request.caseId() != null) {
             payload.put("caseId", request.caseId().toString());
         }
@@ -83,11 +105,25 @@ public class AgentBus {
             auditService.record(
                     "AGENT_EXECUTION",
                     request.requestId(),
-                    "AGENT_" + type.name() + "_" + result.status().name(),
+                    "AGENT_" + agent.type().name() + "_" + result.status().name(),
                     payload
             );
         } catch (RuntimeException ex) {
             log.warn("Could not persist agent audit event", ex);
         }
+    }
+
+    private boolean requiresHumanApproval(AgentType type) {
+        return switch (type) {
+            case FINANCIAL, LEGAL, CONTRACT, MATCHING -> true;
+            default -> false;
+        };
+    }
+
+    private String safeMessage(Exception ex) {
+        String message = ex.getMessage();
+        return message == null || message.isBlank()
+                ? ex.getClass().getSimpleName()
+                : message;
     }
 }

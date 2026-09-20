@@ -8,5 +8,9 @@ public interface SakhtyarAgent {
         return type().name();
     }
 
+    default String version() {
+        return "1.0.0";
+    }
+
     AgentResult execute(AgentRequest request, AgentExecutionContext context);
 }
