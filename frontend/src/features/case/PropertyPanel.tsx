@@ -17,6 +17,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { useEffect, useState } from 'react'
 import { ApiError, api } from '../../api/client'
 import type { CaseItem, PropertyItem } from '../../api/types'
+import { useAuth } from '../../auth/AuthProvider'
 import {
   buildingConditionOptions,
   cornerPositionOptions,
@@ -184,6 +185,8 @@ export function PropertyPanel({
   caseItem: CaseItem
 }) {
   const queryClient = useQueryClient()
+  const { hasPermission } = useAuth()
+  const canWrite = hasPermission('PROPERTY_WRITE')
   const [form, setForm] = useState<PropertyForm>(() => fromCase(caseItem))
   const [saved, setSaved] = useState(false)
 
@@ -285,6 +288,12 @@ export function PropertyPanel({
 
   return (
     <Stack spacing={2}>
+      {!canWrite && (
+        <Alert severity="info">
+          دسترسی شما فقط برای مشاهده مشخصات ملک است.
+        </Alert>
+      )}
+
       {property.isError && (
         <Alert severity="error">
           دریافت مشخصات ملک ناموفق بود.
@@ -603,7 +612,7 @@ export function PropertyPanel({
             size="large"
             startIcon={<SaveRoundedIcon />}
             onClick={() => save.mutate()}
-            disabled={save.isPending || invalidNumbers}
+            disabled={!canWrite || save.isPending || invalidNumbers}
             fullWidth={false}
             sx={{ minWidth: { xs: '100%', sm: 210 } }}
           >

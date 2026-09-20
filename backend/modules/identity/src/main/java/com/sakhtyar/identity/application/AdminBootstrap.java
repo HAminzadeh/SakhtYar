@@ -4,6 +4,7 @@ import com.sakhtyar.audit.application.AuditService;
 import com.sakhtyar.identity.domain.UserEntity;
 import com.sakhtyar.identity.domain.UserRepository;
 import com.sakhtyar.identity.domain.UserRole;
+import com.sakhtyar.identity.domain.UserStatus;
 import java.time.Instant;
 import java.util.Map;
 import java.util.UUID;
@@ -47,17 +48,21 @@ public class AdminBootstrap implements ApplicationRunner {
             return;
         }
 
+        Instant now = Instant.now();
         UserEntity admin = new UserEntity(
                 UUID.randomUUID(),
                 username,
                 passwordEncoder.encode(password),
                 displayName,
+                null,
+                null,
                 UserRole.ADMIN,
-                true,
-                Instant.now()
+                UserStatus.ACTIVE,
+                now
         );
 
         repository.save(admin);
+
         auditService.recordAs(
                 "USER",
                 admin.getId(),

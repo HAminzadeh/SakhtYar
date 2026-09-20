@@ -1,7 +1,74 @@
+export type Permission =
+  | 'CASE_READ'
+  | 'CASE_WRITE'
+  | 'PROPERTY_READ'
+  | 'PROPERTY_WRITE'
+  | 'OWNER_READ'
+  | 'OWNER_WRITE'
+  | 'DOCUMENT_READ'
+  | 'DOCUMENT_WRITE'
+  | 'AGENT_USE'
+  | 'GLOSSARY_MANAGE'
+  | 'USER_MANAGE'
+  | 'AUDIT_READ'
+
+export type UserRole =
+  | 'ADMIN'
+  | 'PROJECT_MANAGER'
+  | 'ANALYST'
+  | 'LEGAL_EXPERT'
+  | 'READ_ONLY'
+
+export type UserStatus = 'PENDING' | 'ACTIVE' | 'SUSPENDED'
+
 export type Me = {
+  id: string
   username: string
   displayName: string
-  role: string
+  email?: string | null
+  mobile?: string | null
+  role: UserRole
+  status: UserStatus
+  permissions: Permission[]
+  lastLoginAt?: string | null
+}
+
+export type UserAdminItem = {
+  id: string
+  username: string
+  displayName: string
+  email?: string | null
+  mobile?: string | null
+  role: UserRole
+  status: UserStatus
+  permissions: Permission[]
+  failedLoginAttempts: number
+  lockedUntil?: string | null
+  lastLoginAt?: string | null
+  passwordChangedAt: string
+  createdAt: string
+  updatedAt: string
+}
+
+export type AuthSessionItem = {
+  id: string
+  clientType: 'WEB' | 'MOBILE' | string
+  deviceName?: string | null
+  userAgent?: string | null
+  ipAddress?: string | null
+  createdAt: string
+  expiresAt: string
+  lastUsedAt: string
+  revokedAt?: string | null
+  active: boolean
+}
+
+export type RegistrationResponse = {
+  id: string
+  username: string
+  displayName: string
+  status: UserStatus
+  message: string
 }
 
 export type CaseStatus = 'DRAFT' | 'ACTIVE' | 'ARCHIVED'

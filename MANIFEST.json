@@ -1,70 +1,190 @@
 {
-  "name": "SakhtYar Professional Mobile-First UI v1",
-  "base": "current project after Property Flexible JSONB + dropdown changes",
+  "name": "SakhtYar Identity & Access Control v1",
+  "migration": "V7__identity_access_control.sql",
+  "features": [
+    "registration_pending_approval",
+    "web_cookie_access_jwt",
+    "rotating_refresh_sessions",
+    "csrf_protection",
+    "mobile_bearer_auth",
+    "role_permission_authorization",
+    "admin_user_management",
+    "profile_password_sessions",
+    "login_lockout",
+    "immediate_session_revocation"
+  ],
   "files": {
-    "apply-professional-mobilefirst-ui.ps1": {
-      "bytes": 541,
-      "sha256": "3dbf7e12e92af8b673a64a526ce2fc0c6b53f744871767495f79a156626ced23"
+    ".env.example": {
+      "bytes": 1474,
+      "sha256": "4104214ce9a52341196b281040411ad7980f5df4fac263a9a47489284812c30f"
     },
-    "apply-professional-mobilefirst-ui.sh": {
-      "bytes": 404,
-      "sha256": "da502bce7170b47d834a78f1b8e1a1a2fb9721b8ba0576c9a3d8a64bed051b07"
+    "apply-identity-access-control.ps1": {
+      "bytes": 828,
+      "sha256": "6244d4da9ce19f0971cb68b8a06b30ba7e05e5171134fb7a43ef42d7af5388e1"
     },
-    "readMe/README-UI-MOBILE-FIRST.md": {
-      "bytes": 2431,
-      "sha256": "660a6a414dd22a73242c9d824f28148219b3dbe4e785c4fe8645e8d5a16a01d7"
+    "apply-identity-access-control.sh": {
+      "bytes": 511,
+      "sha256": "1e79800d6a574749602173ce420953f0c561db4bf8a9ab119a6d4fb53c2e7fb3"
     },
-    "frontend/src/main.tsx": {
-      "bytes": 1194,
-      "sha256": "8cf822f6f4ff3134aa5b49edbe582427f76e494f47988a51e215c40c3f78c90a"
+    "docker-compose.yml": {
+      "bytes": 4464,
+      "sha256": "6418ea6d4bacf8bafa0c435bec32c43e59bc7208630098f419ea64d2081d6f77"
     },
-    "frontend/src/styles/global.css": {
-      "bytes": 322,
-      "sha256": "041777c396c6ad35d4a8338c5ef357ea159ed23f230c9378fd65290fd37a930f"
+    "readMe/README-IDENTITY-ACCESS-CONTROL.md": {
+      "bytes": 3193,
+      "sha256": "731bf145f319a41e16ff5a08a712716e7f7623f62216b4e58bff6c6a4b2d2773"
     },
-    "frontend/src/ui/appTheme.ts": {
-      "bytes": 3081,
-      "sha256": "5a39a4fff6e3c0df45b75aa4245bbd2285fcdde45b8b02bfa1ce3cf7aae89141"
+    "frontend/src/App.tsx": {
+      "bytes": 1325,
+      "sha256": "4dc5a747a241d42badbacd90b94bd391fdb87347b15f26e7326ad950240ed9ba"
     },
-    "frontend/src/ui/SectionCard.tsx": {
-      "bytes": 1701,
-      "sha256": "fd7d240f34f09fedb2c4df5f5e68bfa3b74549f0a15e10d15ecb9237412370d4"
+    "frontend/src/auth/PermissionRoute.tsx": {
+      "bytes": 622,
+      "sha256": "12a3ea6102107e9b200c66e57b33836e875fefda06dcfcac61091fd81e1b24e7"
     },
-    "frontend/src/ui/FieldGroup.tsx": {
-      "bytes": 588,
-      "sha256": "3940e6bc27719040b136ea83ad3af5e03009c41ebbbacfe10c2330bcf0aa4b15"
+    "frontend/src/auth/AuthProvider.tsx": {
+      "bytes": 1820,
+      "sha256": "45bb6e2a92cb56cce40639120f81cfa8a9331ca7cfac40df32c562954010dd1a"
     },
-    "frontend/src/ui/ResponsiveFieldGrid.tsx": {
-      "bytes": 516,
-      "sha256": "2a2486b3b580d656509325525453c3222ce3481343b9326c1443009365d1d680"
+    "frontend/src/api/client.ts": {
+      "bytes": 3285,
+      "sha256": "227b24426015b538e7f04071910322ed21c80e63780da0ed77a44af728cca991"
     },
-    "frontend/src/ui/tokens.ts": {
-      "bytes": 619,
-      "sha256": "217a9356ba3c7adcc0d573c87efc43661f3555a3e155e42e51b2650eb6d40e14"
+    "frontend/src/api/types.ts": {
+      "bytes": 4800,
+      "sha256": "d372e5a7290dde85c29f59cdb404f91e45a93b514e21bfb4a118945eb3f527fe"
     },
-    "frontend/src/domain/propertyOptions.ts": {
-      "bytes": 3416,
-      "sha256": "8aaa5ed1abcadbb6e901aaf1b0c23286c251caf6de50d0d98fc8994b96682fe2"
+    "frontend/src/pages/UsersPage.tsx": {
+      "bytes": 18458,
+      "sha256": "a8675cff99c4ec817d4d13ce1220f7c1e2e6df1aebbbdd42d984e6e6e2e3e3da"
     },
     "frontend/src/pages/LoginPage.tsx": {
-      "bytes": 3715,
-      "sha256": "90acb555e6555b6411f108d8091470145ac99c22e70e0b07160775a1d58a5bcb"
+      "bytes": 3811,
+      "sha256": "a748ca47a672ef4c5fe485921a125aeed15aa9e99a7844f692f8168073fe8c50"
     },
     "frontend/src/pages/CaseDetailPage.tsx": {
-      "bytes": 6709,
-      "sha256": "760b7828d70c4010c5b2266d074971f5b6b1588b9295a271872c5efa2aac1652"
+      "bytes": 6935,
+      "sha256": "1b589cbc1b6b2c93eb8ea5d8cbc939a142a12daf1eb31c4e0b82052b0542dfad"
+    },
+    "frontend/src/pages/AccountPage.tsx": {
+      "bytes": 9791,
+      "sha256": "64b8e2aed3a3263504c9f275877f91e371937e37764e7e8f4de8600894c47aad"
+    },
+    "frontend/src/pages/RegisterPage.tsx": {
+      "bytes": 6196,
+      "sha256": "d628a3a8095ac697b8fabc7494da5128c1a2d9813df9305ceff5ccac79d8f38b"
     },
     "frontend/src/pages/CasesPage.tsx": {
-      "bytes": 8493,
-      "sha256": "2bfd8abb6717c988ace2abb3c3d23ae4e8a72d36a0cdf93a13d11a57ec2d4ed9"
+      "bytes": 8689,
+      "sha256": "894ead2e08627e140d82ea37f8cd10e3eef6e31d53a3946438fb21a210f7cff8"
     },
     "frontend/src/app/AppShell.tsx": {
-      "bytes": 4505,
-      "sha256": "4f26c494f4860482675bacbcf659aed62673c6acd939d89af0e2d745adce44f3"
+      "bytes": 5885,
+      "sha256": "a53be62bbfc2594e1572d6677f5f685df25482156a074ba6c44c93ca52b19468"
     },
     "frontend/src/features/case/PropertyPanel.tsx": {
-      "bytes": 20293,
-      "sha256": "84190a86c8d09d3b6c230b2a150805a5c0fb78df4be928b805ecff421ab4fbd2"
+      "bytes": 20613,
+      "sha256": "132d930740c0c46ffd82653eb499f140b47e0ad1bfe185c6c2ad1c6a3290a444"
+    },
+    "backend/app/src/main/resources/application.yml": {
+      "bytes": 3217,
+      "sha256": "8fd253e6bb5aa356f82c058326dcdf3d010de5ee4d25a88936bb759aae7c35f9"
+    },
+    "backend/app/src/main/resources/db/migration/V7__identity_access_control.sql": {
+      "bytes": 1856,
+      "sha256": "f1b4f6db8824e73dd44461baccbe46d322e860f26decbbe72c7f8d487c9c0417"
+    },
+    "backend/modules/identity/src/main/java/com/sakhtyar/auth/api/AuthController.java": {
+      "bytes": 15086,
+      "sha256": "87acd57832970ce73ee71688f16aa70ceb72015698042599d6ac66d3ce259441"
+    },
+    "backend/modules/identity/src/main/java/com/sakhtyar/auth/api/UserAdminDtos.java": {
+      "bytes": 3083,
+      "sha256": "5a38360cf1840bf9935056af9bc2f7a1380330b5d5f2c2312a1dfbcf55171aec"
+    },
+    "backend/modules/identity/src/main/java/com/sakhtyar/auth/api/AuthDtos.java": {
+      "bytes": 4054,
+      "sha256": "6dd7d9000815cdb868a39263937fcb41fa9934610153ae11a5610c859583e4b2"
+    },
+    "backend/modules/identity/src/main/java/com/sakhtyar/auth/api/UserAdminController.java": {
+      "bytes": 2361,
+      "sha256": "773e8fe16712e067e3aea73b4c87550e20e8e31043b1f7d12306a8b594609eae"
+    },
+    "backend/modules/identity/src/main/java/com/sakhtyar/identity/security/JwtService.java": {
+      "bytes": 2017,
+      "sha256": "004221f6f88939c0818c2798b82ef821501b0ea463f7c4472f67e39491b3fc6f"
+    },
+    "backend/modules/identity/src/main/java/com/sakhtyar/identity/security/JwtCookieAuthenticationFilter.java": {
+      "bytes": 4784,
+      "sha256": "de7f47bf3756dacdd88854686df368f84fde745e93e9b37a84aec7a49938f868"
+    },
+    "backend/modules/identity/src/main/java/com/sakhtyar/identity/application/PasswordPolicy.java": {
+      "bytes": 1019,
+      "sha256": "eb6eed54739c663368e82c163fa7c37c40e4ee11576eb22291b27ed10aa12b6d"
+    },
+    "backend/modules/identity/src/main/java/com/sakhtyar/identity/application/AdminBootstrap.java": {
+      "bytes": 2452,
+      "sha256": "3e3b78efda08d53d372a561785a0d321fc9bd4206b450c27fbfeb8750f402bc7"
+    },
+    "backend/modules/identity/src/main/java/com/sakhtyar/identity/application/UserAdminService.java": {
+      "bytes": 7405,
+      "sha256": "dd0986c6d8257251cce6a0a5e7c50da033a633990256ece820b87834ccaeaa90"
+    },
+    "backend/modules/identity/src/main/java/com/sakhtyar/identity/application/AuthSessionService.java": {
+      "bytes": 6035,
+      "sha256": "40d20ef38a83e1e8d72cb60ab146538f92080e5c99bee6e1268bb03b189ac203"
+    },
+    "backend/modules/identity/src/main/java/com/sakhtyar/identity/application/AuthService.java": {
+      "bytes": 9173,
+      "sha256": "6b58040aeae0b9ad4f61cab62e6ea3bf4bd8ea2117f54495f277ef63a73dacf5"
+    },
+    "backend/modules/identity/src/main/java/com/sakhtyar/identity/application/DatabaseUserDetailsService.java": {
+      "bytes": 1627,
+      "sha256": "f9c749847dbeb87e8986d85dd8ffe35fade1a440978b9fdc5066a873f43b8df9"
+    },
+    "backend/modules/identity/src/main/java/com/sakhtyar/identity/domain/AuthSessionRepository.java": {
+      "bytes": 434,
+      "sha256": "d8a9f125089e73004ee4b9bc5e430a2990e64c333d4ac54625b2363278836fda"
+    },
+    "backend/modules/identity/src/main/java/com/sakhtyar/identity/domain/AuthSessionEntity.java": {
+      "bytes": 2859,
+      "sha256": "84128703431f86da93147b25278cc6d527f48a16e513d954c582916eef397066"
+    },
+    "backend/modules/identity/src/main/java/com/sakhtyar/identity/domain/UserEntity.java": {
+      "bytes": 5229,
+      "sha256": "449bb6b75782a9257a8ba3b6df5e552289d373f44da11332a9a964fc9a37f595"
+    },
+    "backend/modules/identity/src/main/java/com/sakhtyar/identity/domain/UserRole.java": {
+      "bytes": 1864,
+      "sha256": "568bc374bce416827633b10e24c9124236f9e8d43163ec404024918a57790425"
+    },
+    "backend/modules/identity/src/main/java/com/sakhtyar/identity/domain/UserRepository.java": {
+      "bytes": 614,
+      "sha256": "6cb189808324305855b65f86f698b941e62bc845ca538bbcbdb6cb9b590851d5"
+    },
+    "backend/modules/identity/src/main/java/com/sakhtyar/identity/domain/UserStatus.java": {
+      "bytes": 105,
+      "sha256": "c9eb5387ae361202172df989d4ac0510d6d2a665053895d11b7d38f621e56f9a"
+    },
+    "backend/modules/identity/src/main/java/com/sakhtyar/identity/domain/Permission.java": {
+      "bytes": 276,
+      "sha256": "38657e6944ccc141df0da26bb27393be3a673f363063eae63423bf5893caea27"
+    },
+    "backend/modules/identity/src/main/java/com/sakhtyar/identity/config/SecurityConfig.java": {
+      "bytes": 10032,
+      "sha256": "f94e73c8b5f1390d9993de29f3ab4d2af63b7a4d39bc087b4ce3f52be39f458f"
+    },
+    "backend/modules/identity/src/test/java/com/sakhtyar/identity/security/JwtServiceTest.java": {
+      "bytes": 1567,
+      "sha256": "822095b7388516df2f4f4e9a10960db5d0415f96edf77c5c2b9dccc6ac004fbb"
+    },
+    "backend/modules/identity/src/test/java/com/sakhtyar/identity/application/PasswordPolicyTest.java": {
+      "bytes": 513,
+      "sha256": "4763037bdcf009361be71b49123dcce2e44617c0c5ada76b16fd4d9c4ddaf031"
+    },
+    "backend/modules/identity/src/test/java/com/sakhtyar/identity/domain/UserRolePermissionTest.java": {
+      "bytes": 615,
+      "sha256": "dffd1454ce1e99af98f58ccebaae1981f26adb21fbea97c01ce782852688456b"
     }
   }
 }

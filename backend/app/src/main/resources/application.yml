@@ -61,7 +61,12 @@ app:
   security:
     jwt:
       secret: ${APP_JWT_SECRET:change-this-development-jwt-secret-to-a-long-random-value-1234567890}
-      expiration-minutes: ${APP_JWT_EXPIRATION_MINUTES:480}
+      access-expiration-minutes: ${APP_JWT_ACCESS_EXPIRATION_MINUTES:30}
+    refresh:
+      expiration-days: ${APP_REFRESH_EXPIRATION_DAYS:30}
+    cookies:
+      secure: ${APP_COOKIE_SECURE:false}
+      same-site: ${APP_COOKIE_SAME_SITE:Strict}
 
   storage:
     endpoint: ${MINIO_ENDPOINT:http://localhost:9000}

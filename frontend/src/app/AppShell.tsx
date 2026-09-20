@@ -1,3 +1,4 @@
+import AdminPanelSettingsRoundedIcon from '@mui/icons-material/AdminPanelSettingsRounded'
 import ConstructionRoundedIcon from '@mui/icons-material/ConstructionRounded'
 import FolderRoundedIcon from '@mui/icons-material/FolderRounded'
 import LogoutRoundedIcon from '@mui/icons-material/LogoutRounded'
@@ -20,7 +21,7 @@ import { Link, Outlet, useLocation, useNavigate } from 'react-router-dom'
 import { useAuth } from '../auth/AuthProvider'
 
 export function AppShell() {
-  const { user, logout } = useAuth()
+  const { user, logout, hasPermission } = useAuth()
   const navigate = useNavigate()
   const location = useLocation()
   const theme = useTheme()
@@ -30,6 +31,14 @@ export function AppShell() {
     await logout()
     navigate('/login')
   }
+
+  const mobileValue = location.pathname.startsWith('/admin/users')
+    ? 'users'
+    : location.pathname.startsWith('/account')
+      ? 'account'
+      : location.pathname.startsWith('/cases')
+        ? 'cases'
+        : false
 
   return (
     <Box minHeight="100vh" bgcolor="background.default">
@@ -59,7 +68,6 @@ export function AppShell() {
             >
               <ConstructionRoundedIcon fontSize="small" />
             </Box>
-
             <Box>
               <Typography fontWeight={900} lineHeight={1.1}>
                 ساخت‌یار
@@ -75,9 +83,26 @@ export function AppShell() {
           <Box sx={{ flexGrow: 1 }} />
 
           {!isMobile && (
-            <Stack direction="row" spacing={1} alignItems="center">
-              <Button component={Link} to="/cases" color="inherit">
-                پرونده‌ها
+            <Stack direction="row" spacing={0.75} alignItems="center">
+              {hasPermission('CASE_READ') && (
+                <Button component={Link} to="/cases" color="inherit">
+                  پرونده‌ها
+                </Button>
+              )}
+
+              {hasPermission('USER_MANAGE') && (
+                <Button
+                  component={Link}
+                  to="/admin/users"
+                  color="inherit"
+                  startIcon={<AdminPanelSettingsRoundedIcon />}
+                >
+                  کاربران
+                </Button>
+              )}
+
+              <Button component={Link} to="/account" color="inherit">
+                حساب من
               </Button>
 
               <Stack direction="row" spacing={1} alignItems="center" mx={1}>
@@ -91,9 +116,14 @@ export function AppShell() {
                 >
                   <PersonRoundedIcon fontSize="small" />
                 </Avatar>
-                <Typography variant="body2" fontWeight={700}>
-                  {user?.displayName}
-                </Typography>
+                <Box>
+                  <Typography variant="body2" fontWeight={700}>
+                    {user?.displayName}
+                  </Typography>
+                  <Typography variant="caption" color="text.secondary">
+                    {user?.role}
+                  </Typography>
+                </Box>
               </Stack>
 
               <Button
@@ -123,10 +153,11 @@ export function AppShell() {
       {isMobile && (
         <BottomNavigation
           showLabels
-          value={location.pathname.startsWith('/cases') ? 'cases' : false}
+          value={mobileValue}
           onChange={(_, value) => {
             if (value === 'cases') navigate('/cases')
-            if (value === 'logout') handleLogout()
+            if (value === 'users') navigate('/admin/users')
+            if (value === 'account') navigate('/account')
           }}
           sx={{
             position: 'fixed',
@@ -141,15 +172,26 @@ export function AppShell() {
             backdropFilter: 'blur(12px)',
           }}
         >
+          {hasPermission('CASE_READ') && (
+            <BottomNavigationAction
+              value="cases"
+              label="پرونده‌ها"
+              icon={<FolderRoundedIcon />}
+            />
+          )}
+
+          {hasPermission('USER_MANAGE') && (
+            <BottomNavigationAction
+              value="users"
+              label="کاربران"
+              icon={<AdminPanelSettingsRoundedIcon />}
+            />
+          )}
+
           <BottomNavigationAction
-            value="cases"
-            label="پرونده‌ها"
-            icon={<FolderRoundedIcon />}
-          />
-          <BottomNavigationAction
-            value="logout"
-            label="خروج"
-            icon={<LogoutRoundedIcon />}
+            value="account"
+            label="حساب من"
+            icon={<PersonRoundedIcon />}
           />
         </BottomNavigation>
       )}

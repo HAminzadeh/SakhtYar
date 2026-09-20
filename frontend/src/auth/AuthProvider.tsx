@@ -7,7 +7,7 @@ import {
   useState,
 } from 'react'
 import { api } from '../api/client'
-import type { Me } from '../api/types'
+import type { Me, Permission } from '../api/types'
 
 type AuthContextValue = {
   user: Me | null
@@ -15,6 +15,7 @@ type AuthContextValue = {
   login: (username: string, password: string) => Promise<void>
   logout: () => Promise<void>
   refresh: () => Promise<void>
+  hasPermission: (permission: Permission) => boolean
 }
 
 const AuthContext = createContext<AuthContextValue | null>(null)
@@ -45,16 +46,33 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }
 
   const logout = async () => {
-    await api<void>('/api/v1/auth/logout', { method: 'POST' })
-    setUser(null)
+    try {
+      await api<void>('/api/v1/auth/logout', { method: 'POST' })
+    } finally {
+      setUser(null)
+    }
   }
 
+  const hasPermission = (permission: Permission) =>
+    Boolean(user?.permissions.includes(permission))
+
   const value = useMemo(
-    () => ({ user, loading, login, logout, refresh }),
+    () => ({
+      user,
+      loading,
+      login,
+      logout,
+      refresh,
+      hasPermission,
+    }),
     [user, loading],
   )
 
-  return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>
+  return (
+    <AuthContext.Provider value={value}>
+      {children}
+    </AuthContext.Provider>
+  )
 }
 
 export function useAuth() {

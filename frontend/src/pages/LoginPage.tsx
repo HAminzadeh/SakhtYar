@@ -12,7 +12,7 @@ import {
 } from '@mui/material'
 import { useState } from 'react'
 import { useForm } from 'react-hook-form'
-import { Navigate, useNavigate } from 'react-router-dom'
+import { Link, Navigate, useNavigate } from 'react-router-dom'
 import { z } from 'zod'
 import { useAuth } from '../auth/AuthProvider'
 
@@ -32,21 +32,19 @@ export function LoginPage() {
     register,
     handleSubmit,
     formState: { errors, isSubmitting },
-  } = useForm<FormValues>({
-    resolver: zodResolver(schema),
-  })
+  } = useForm<FormValues>({ resolver: zodResolver(schema) })
 
-  if (user) {
-    return <Navigate to="/cases" replace />
-  }
+  if (user) return <Navigate to="/cases" replace />
 
   const submit = async (values: FormValues) => {
     setError(null)
     try {
       await login(values.username, values.password)
       navigate('/cases')
-    } catch {
-      setError('نام کاربری یا رمز عبور صحیح نیست.')
+    } catch (err) {
+      setError(
+        err instanceof Error ? err.message : 'نام کاربری یا رمز عبور صحیح نیست.',
+      )
     }
   }
 
@@ -61,14 +59,7 @@ export function LoginPage() {
           'radial-gradient(circle at 80% 0%, #DBEAFE 0%, transparent 34%), #F6F8FC',
       }}
     >
-      <Card
-        sx={{
-          width: '100%',
-          maxWidth: 440,
-          borderRadius: 4,
-          boxShadow: '0 24px 60px rgba(16,24,40,.10)',
-        }}
-      >
+      <Card sx={{ width: '100%', maxWidth: 440, borderRadius: 4 }}>
         <CardContent sx={{ p: { xs: 2.5, sm: 4 } }}>
           <Stack spacing={3}>
             <Stack direction="row" spacing={1.5} alignItems="center">
@@ -95,14 +86,11 @@ export function LoginPage() {
 
             {error && <Alert severity="error">{error}</Alert>}
 
-            <Stack
-              component="form"
-              spacing={2}
-              onSubmit={handleSubmit(submit)}
-            >
+            <Stack component="form" spacing={2} onSubmit={handleSubmit(submit)}>
               <TextField
                 fullWidth
                 label="نام کاربری"
+                autoComplete="username"
                 error={Boolean(errors.username)}
                 helperText={errors.username?.message}
                 {...register('username')}
@@ -111,11 +99,11 @@ export function LoginPage() {
                 fullWidth
                 label="رمز عبور"
                 type="password"
+                autoComplete="current-password"
                 error={Boolean(errors.password)}
                 helperText={errors.password?.message}
                 {...register('password')}
               />
-
               <Button
                 variant="contained"
                 size="large"
@@ -124,6 +112,9 @@ export function LoginPage() {
                 sx={{ minHeight: 48 }}
               >
                 ورود به ساخت‌یار
+              </Button>
+              <Button component={Link} to="/register">
+                ایجاد حساب جدید
               </Button>
             </Stack>
           </Stack>

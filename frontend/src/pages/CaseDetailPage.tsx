@@ -20,6 +20,7 @@ import { useState } from 'react'
 import type { ReactNode } from 'react'
 import { useParams } from 'react-router-dom'
 import { api } from '../api/client'
+import { useAuth } from '../auth/AuthProvider'
 import type { CaseItem } from '../api/types'
 import { AssistantPanel } from '../features/case/AssistantPanel'
 import { CaseOverview } from '../features/case/CaseOverview'
@@ -62,6 +63,8 @@ function TabPanel({
 
 export function CaseDetailPage() {
   const { id = '' } = useParams()
+  const { hasPermission } = useAuth()
+  const canUseAgent = hasPermission('AGENT_USE')
   const [tab, setTab] = useState<CaseTab>('overview')
 
   const caseQuery = useQuery({
@@ -207,12 +210,14 @@ export function CaseDetailPage() {
             iconPosition="start"
             label="مدارک"
           />
-          <Tab
-            value="assistant"
-            icon={<PsychologyRoundedIcon />}
-            iconPosition="start"
-            label="دستیار هوشمند"
-          />
+          {canUseAgent && (
+            <Tab
+              value="assistant"
+              icon={<PsychologyRoundedIcon />}
+              iconPosition="start"
+              label="دستیار هوشمند"
+            />
+          )}
         </Tabs>
       </Paper>
 
@@ -236,9 +241,11 @@ export function CaseDetailPage() {
         <DocumentsPanel caseId={id} />
       </TabPanel>
 
-      <TabPanel value="assistant" current={tab}>
-        <AssistantPanel caseId={id} />
-      </TabPanel>
+      {canUseAgent && (
+        <TabPanel value="assistant" current={tab}>
+          <AssistantPanel caseId={id} />
+        </TabPanel>
+      )}
     </Stack>
   )
 }

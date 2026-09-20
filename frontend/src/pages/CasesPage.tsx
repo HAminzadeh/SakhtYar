@@ -24,6 +24,7 @@ import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { api } from '../api/client'
 import type { CaseItem } from '../api/types'
+import { useAuth } from '../auth/AuthProvider'
 
 type CreateCase = {
   title: string
@@ -41,6 +42,8 @@ function statusLabel(status: CaseItem['status']) {
 
 export function CasesPage() {
   const navigate = useNavigate()
+  const { hasPermission } = useAuth()
+  const canWrite = hasPermission('CASE_WRITE')
   const queryClient = useQueryClient()
   const [open, setOpen] = useState(false)
   const [form, setForm] = useState<CreateCase>({
@@ -93,15 +96,17 @@ export function CasesPage() {
           </Typography>
         </Box>
 
-        <Button
-          variant="contained"
-          size="large"
-          startIcon={<AddRoundedIcon />}
-          onClick={() => setOpen(true)}
-          sx={{ alignSelf: { xs: 'stretch', sm: 'auto' } }}
-        >
-          پرونده جدید
-        </Button>
+        {canWrite && (
+          <Button
+            variant="contained"
+            size="large"
+            startIcon={<AddRoundedIcon />}
+            onClick={() => setOpen(true)}
+            sx={{ alignSelf: { xs: 'stretch', sm: 'auto' } }}
+          >
+            پرونده جدید
+          </Button>
+        )}
       </Stack>
 
       {cases.isError && (
@@ -197,7 +202,7 @@ export function CasesPage() {
       </Grid>
 
       <Dialog
-        open={open}
+        open={open && canWrite}
         onClose={() => setOpen(false)}
         fullWidth
         maxWidth="sm"

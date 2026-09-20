@@ -79,7 +79,10 @@ services:
       APP_BOOTSTRAP_ADMIN_DISPLAY_NAME: ${APP_BOOTSTRAP_ADMIN_DISPLAY_NAME:-مدیر سیستم}
 
       APP_JWT_SECRET: ${APP_JWT_SECRET:-change-this-development-jwt-secret-to-a-long-random-value-1234567890}
-      APP_JWT_EXPIRATION_MINUTES: ${APP_JWT_EXPIRATION_MINUTES:-480}
+      APP_JWT_ACCESS_EXPIRATION_MINUTES: ${APP_JWT_ACCESS_EXPIRATION_MINUTES:-30}
+      APP_REFRESH_EXPIRATION_DAYS: ${APP_REFRESH_EXPIRATION_DAYS:-30}
+      APP_COOKIE_SECURE: ${APP_COOKIE_SECURE:-false}
+      APP_COOKIE_SAME_SITE: ${APP_COOKIE_SAME_SITE:-Strict}
       CORS_ALLOWED_ORIGINS: ${CORS_ALLOWED_ORIGINS:-http://localhost:5173,http://localhost:5174,http://localhost:3000}
 
       SAKHTYAR_AI_ENABLED: ${SAKHTYAR_AI_ENABLED:-true}
@@ -100,7 +103,6 @@ services:
       OLLAMA_MAX_LOADED_MODELS: ${OLLAMA_MAX_LOADED_MODELS:-1}
       OLLAMA_PRELOAD_MODEL: ${OLLAMA_PRELOAD_MODEL:-true}
       OLLAMA_PRELOAD_TIMEOUT_SECONDS: ${OLLAMA_PRELOAD_TIMEOUT_SECONDS:-120}
-      # A Linux container cannot launch the Windows host process.
       OLLAMA_AUTO_START: "false"
     extra_hosts:
       - "host.docker.internal:host-gateway"
