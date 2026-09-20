@@ -51,7 +51,7 @@ management:
 
 app:
   cors:
-    allowed-origins: ${CORS_ALLOWED_ORIGINS:http://localhost:5173,http://localhost:3000}
+    allowed-origins: ${CORS_ALLOWED_ORIGINS:http://localhost:5173,http://localhost:5174,http://localhost:3000}
 
   bootstrap-admin:
     username: ${APP_BOOTSTRAP_ADMIN_USERNAME:admin}
@@ -68,6 +68,34 @@ app:
     access-key: ${MINIO_ACCESS_KEY:sakhtyar}
     secret-key: ${MINIO_SECRET_KEY:change-me-minio}
     bucket: ${MINIO_BUCKET:sakhtyar-documents}
+
+  ai:
+    enabled: ${SAKHTYAR_AI_ENABLED:true}
+    provider: ${SAKHTYAR_AI_PROVIDER:ollama}
+    ollama:
+      base-url: ${OLLAMA_BASE_URL:http://127.0.0.1:11434}
+      model: ${OLLAMA_MODEL:qwen3.5:4b}
+      temperature: ${OLLAMA_TEMPERATURE:0.1}
+      think: ${OLLAMA_THINK:false}
+      timeout-seconds: ${OLLAMA_TIMEOUT_SECONDS:90}
+      context-length: ${OLLAMA_CONTEXT_LENGTH:2048}
+      max-predict-tokens: ${OLLAMA_MAX_PREDICT_TOKENS:128}
+      num-batch: ${OLLAMA_NUM_BATCH:128}
+      num-threads: ${OLLAMA_NUM_THREADS:0}
+      use-mmap: ${OLLAMA_USE_MMAP:true}
+      keep-alive: ${OLLAMA_KEEP_ALIVE:-1}
+      structured-schema: ${OLLAMA_STRUCTURED_SCHEMA:true}
+      num-parallel: ${OLLAMA_NUM_PARALLEL:1}
+      max-loaded-models: ${OLLAMA_MAX_LOADED_MODELS:1}
+      preload-model: ${OLLAMA_PRELOAD_MODEL:true}
+      preload-timeout-seconds: ${OLLAMA_PRELOAD_TIMEOUT_SECONDS:120}
+      auto-start: ${OLLAMA_AUTO_START:true}
+      force-cpu: ${OLLAMA_FORCE_CPU:true}
+      llm-library: ${OLLAMA_LLM_LIBRARY:cpu_avx2}
+      no-cloud: ${OLLAMA_NO_CLOUD:true}
+      stop-on-shutdown: ${OLLAMA_STOP_ON_SHUTDOWN:true}
+      startup-timeout-seconds: ${OLLAMA_STARTUP_TIMEOUT_SECONDS:30}
+      executable: ${OLLAMA_EXECUTABLE:}
 
   integrations:
     neshan:

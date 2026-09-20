@@ -3,12 +3,16 @@ package com.sakhtyar.agents.provider;
 import java.util.Map;
 
 /**
- * Extension point for future OpenAI, Ollama, Gemini or local model adapters.
- * Core business calculations must not be implemented inside a model provider.
+ * Contract for AI model providers.
+ *
+ * Business calculations must stay in Java services/agents. A model provider is
+ * only allowed to understand/generate language and return structured data.
  */
 public interface AiModelProvider {
 
     String providerId();
+
+    String modelId();
 
     boolean available();
 

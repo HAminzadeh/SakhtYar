@@ -6,6 +6,7 @@ import com.sakhtyar.agents.core.AgentRequest;
 import com.sakhtyar.agents.core.AgentType;
 import com.sakhtyar.agents.orchestrator.AgentOrchestrator;
 import com.sakhtyar.agents.orchestrator.AgentWorkflowResult;
+import com.sakhtyar.agents.provider.AiModelRegistry;
 import jakarta.validation.Valid;
 import java.util.List;
 import java.util.Map;
@@ -22,13 +23,16 @@ public class AgentController {
 
     private final AgentOrchestrator orchestrator;
     private final AgentRegistry registry;
+    private final AiModelRegistry modelRegistry;
 
     public AgentController(
             AgentOrchestrator orchestrator,
-            AgentRegistry registry
+            AgentRegistry registry,
+            AiModelRegistry modelRegistry
     ) {
         this.orchestrator = orchestrator;
         this.registry = registry;
+        this.modelRegistry = modelRegistry;
     }
 
     @PostMapping("/chat")
@@ -48,5 +52,10 @@ public class AgentController {
     @GetMapping
     public List<AgentType> agents() {
         return registry.availableTypes();
+    }
+
+    @GetMapping("/ai/status")
+    public AiModelRegistry.AiRuntimeStatus aiStatus() {
+        return modelRegistry.status();
     }
 }

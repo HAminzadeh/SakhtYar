@@ -9,7 +9,6 @@ import com.sakhtyar.agents.core.AgentStatus;
 import com.sakhtyar.agents.core.AgentType;
 import com.sakhtyar.agents.core.AgentWorkflowType;
 import com.sakhtyar.agents.support.AgentValues;
-import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
@@ -40,7 +39,10 @@ public class AgentOrchestrator {
         Map<String, Object> normalized = AgentValues.map(
                 persian.data().get("normalizedParameters")
         );
-        AgentRequest effectiveRequest = request.mergeParameters(normalized);
+
+        // AI extraction can fill missing values, but explicit structured input from
+        // the caller must always win.
+        AgentRequest effectiveRequest = request.mergeMissingParameters(normalized);
 
         for (AgentType type : steps(workflow)) {
             AgentResult result = bus.invoke(type, effectiveRequest, context);
@@ -121,15 +123,15 @@ public class AgentOrchestrator {
             List<String> missing
     ) {
         if (status == AgentStatus.NEEDS_INPUT && !missing.isEmpty()) {
-            return "تحلیل «" + workflow + "» شروع شد، اما برای ادامه این اطلاعات لازم است: "
-                    + String.join("، ", missing);
+            return "\u062A\u062D\u0644\u06CC\u0644 \u00AB" + workflow + "\u00BB \u0634\u0631\u0648\u0639 \u0634\u062F\u060C \u0627\u0645\u0627 \u0628\u0631\u0627\u06CC \u0627\u062F\u0627\u0645\u0647 \u0627\u06CC\u0646 \u0627\u0637\u0644\u0627\u0639\u0627\u062A \u0644\u0627\u0632\u0645 \u0627\u0633\u062A: "
+                    + String.join("\u060C ", missing);
         }
         if (status == AgentStatus.FAILED) {
-            return "اجرای جریان «" + workflow + "» ناموفق بود. جزئیات در نتیجه Agentها موجود است.";
+            return "\u0627\u062C\u0631\u0627\u06CC \u062C\u0631\u06CC\u0627\u0646 \u00AB" + workflow + "\u00BB \u0646\u0627\u0645\u0648\u0641\u0642 \u0628\u0648\u062F. \u062C\u0632\u0626\u06CC\u0627\u062A \u062F\u0631 \u0646\u062A\u06CC\u062C\u0647 Agent\u0647\u0627 \u0645\u0648\u062C\u0648\u062F \u0627\u0633\u062A.";
         }
         if (status == AgentStatus.PARTIAL) {
-            return "جریان «" + workflow + "» به‌صورت بخشی اجرا شد. هشدارها و داده‌های ناقص را بررسی کنید.";
+            return "\u062C\u0631\u06CC\u0627\u0646 \u00AB" + workflow + "\u00BB \u0628\u0647\u200C\u0635\u0648\u0631\u062A \u0628\u062E\u0634\u06CC \u0627\u062C\u0631\u0627 \u0634\u062F. \u0647\u0634\u062F\u0627\u0631\u0647\u0627 \u0648 \u062F\u0627\u062F\u0647\u200C\u0647\u0627\u06CC \u0646\u0627\u0642\u0635 \u0631\u0627 \u0628\u0631\u0631\u0633\u06CC \u06A9\u0646\u06CC\u062F.";
         }
-        return "جریان «" + workflow + "» با موفقیت اجرا شد.";
+        return "\u062C\u0631\u06CC\u0627\u0646 \u00AB" + workflow + "\u00BB \u0628\u0627 \u0645\u0648\u0641\u0642\u06CC\u062A \u0627\u062C\u0631\u0627 \u0634\u062F.";
     }
 }

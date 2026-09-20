@@ -21,12 +21,32 @@ public record AgentRequest(
         );
     }
 
+    /**
+     * Existing behavior: values in extra override existing values.
+     */
     public AgentRequest mergeParameters(Map<String, Object> extra) {
         LinkedHashMap<String, Object> merged = new LinkedHashMap<>(parameters);
         if (extra != null) {
             extra.forEach((key, value) -> {
                 if (key != null && value != null) {
                     merged.put(key, value);
+                }
+            });
+        }
+        return new AgentRequest(requestId, conversationId, caseId, message, merged);
+    }
+
+    /**
+     * Adds AI-extracted values only when the caller has not already supplied a
+     * structured value. Explicit request data always has higher priority than an
+     * LLM extraction.
+     */
+    public AgentRequest mergeMissingParameters(Map<String, Object> extra) {
+        LinkedHashMap<String, Object> merged = new LinkedHashMap<>(parameters);
+        if (extra != null) {
+            extra.forEach((key, value) -> {
+                if (key != null && value != null) {
+                    merged.putIfAbsent(key, value);
                 }
             });
         }
