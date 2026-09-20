@@ -1,4 +1,5 @@
 import { zodResolver } from '@hookform/resolvers/zod'
+import ConstructionRoundedIcon from '@mui/icons-material/ConstructionRounded'
 import {
   Alert,
   Box,
@@ -53,19 +54,44 @@ export function LoginPage() {
     <Box
       minHeight="100vh"
       display="grid"
-      sx={{ placeItems: 'center', bgcolor: 'grey.100', p: 2 }}
+      sx={{
+        placeItems: 'center',
+        p: { xs: 1.5, sm: 3 },
+        background:
+          'radial-gradient(circle at 80% 0%, #DBEAFE 0%, transparent 34%), #F6F8FC',
+      }}
     >
-      <Card sx={{ width: '100%', maxWidth: 440 }}>
-        <CardContent sx={{ p: 4 }}>
+      <Card
+        sx={{
+          width: '100%',
+          maxWidth: 440,
+          borderRadius: 4,
+          boxShadow: '0 24px 60px rgba(16,24,40,.10)',
+        }}
+      >
+        <CardContent sx={{ p: { xs: 2.5, sm: 4 } }}>
           <Stack spacing={3}>
-            <Box>
-              <Typography variant="h4" fontWeight={800}>
-                ساخت‌یار
-              </Typography>
-              <Typography color="text.secondary">
-                سامانه هوشمند مشارکت در ساخت
-              </Typography>
-            </Box>
+            <Stack direction="row" spacing={1.5} alignItems="center">
+              <Box
+                sx={{
+                  width: 48,
+                  height: 48,
+                  borderRadius: 3,
+                  bgcolor: 'primary.main',
+                  color: 'primary.contrastText',
+                  display: 'grid',
+                  placeItems: 'center',
+                }}
+              >
+                <ConstructionRoundedIcon />
+              </Box>
+              <Box>
+                <Typography variant="h5">ساخت‌یار</Typography>
+                <Typography variant="body2" color="text.secondary">
+                  سامانه هوشمند مشارکت در ساخت
+                </Typography>
+              </Box>
+            </Stack>
 
             {error && <Alert severity="error">{error}</Alert>}
 
@@ -75,12 +101,14 @@ export function LoginPage() {
               onSubmit={handleSubmit(submit)}
             >
               <TextField
+                fullWidth
                 label="نام کاربری"
                 error={Boolean(errors.username)}
                 helperText={errors.username?.message}
                 {...register('username')}
               />
               <TextField
+                fullWidth
                 label="رمز عبور"
                 type="password"
                 error={Boolean(errors.password)}
@@ -93,8 +121,9 @@ export function LoginPage() {
                 size="large"
                 type="submit"
                 disabled={isSubmitting}
+                sx={{ minHeight: 48 }}
               >
-                ورود
+                ورود به ساخت‌یار
               </Button>
             </Stack>
           </Stack>

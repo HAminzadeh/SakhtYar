@@ -1,10 +1,12 @@
+import ApartmentRoundedIcon from '@mui/icons-material/ApartmentRounded'
+import DescriptionRoundedIcon from '@mui/icons-material/DescriptionRounded'
+import LocationOnRoundedIcon from '@mui/icons-material/LocationOnRounded'
 import SaveRoundedIcon from '@mui/icons-material/SaveRounded'
+import StraightenRoundedIcon from '@mui/icons-material/StraightenRounded'
 import {
   Alert,
   Box,
   Button,
-  Card,
-  CardContent,
   Grid,
   MenuItem,
   Stack,
@@ -15,6 +17,22 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { useEffect, useState } from 'react'
 import { ApiError, api } from '../../api/client'
 import type { CaseItem, PropertyItem } from '../../api/types'
+import {
+  buildingConditionOptions,
+  cornerPositionOptions,
+  deedTypeOptions,
+  landUseOptions,
+  orientationOptions,
+  ownershipStatusOptions,
+  propertyTypeOptions,
+  type OptionItem,
+} from '../../domain/propertyOptions'
+import { FieldGroup } from '../../ui/FieldGroup'
+import {
+  FieldCell,
+  ResponsiveFieldGrid,
+} from '../../ui/ResponsiveFieldGrid'
+import { SectionCard } from '../../ui/SectionCard'
 
 type PropertyForm = {
   province: string
@@ -43,85 +61,6 @@ type PropertyForm = {
   latitude: string
   longitude: string
 }
-
-const ORIENTATIONS = [
-  ['', 'نامشخص'],
-  ['NORTH', 'شمالی'],
-  ['SOUTH', 'جنوبی'],
-  ['EAST', 'شرقی'],
-  ['WEST', 'غربی'],
-  ['NORTH_EAST', 'شمال شرقی'],
-  ['NORTH_WEST', 'شمال غربی'],
-  ['SOUTH_EAST', 'جنوب شرقی'],
-  ['SOUTH_WEST', 'جنوب غربی'],
-] as const
-
-const PROPERTY_TYPES = [
-  ['', 'انتخاب کنید'],
-  ['LAND', 'زمین'],
-  ['OLD_BUILDING', 'کلنگی'],
-  ['RESIDENTIAL_BUILDING', 'ساختمان مسکونی'],
-  ['APARTMENT', 'آپارتمان'],
-  ['VILLA', 'ویلایی'],
-  ['COMMERCIAL', 'تجاری'],
-  ['OFFICE', 'اداری'],
-  ['MIXED_USE', 'مختلط'],
-  ['INDUSTRIAL', 'صنعتی'],
-  ['GARDEN', 'باغ / باغچه'],
-  ['OTHER', 'سایر'],
-] as const
-
-const BUILDING_CONDITIONS = [
-  ['', 'انتخاب کنید'],
-  ['VACANT_LAND', 'زمین خالی'],
-  ['DEMOLITION_CANDIDATE', 'کلنگی / مناسب تخریب'],
-  ['NEEDS_RENOVATION', 'نیازمند بازسازی'],
-  ['HABITABLE', 'قابل سکونت'],
-  ['RENOVATED', 'بازسازی‌شده'],
-  ['NEW_BUILD', 'نوساز'],
-  ['UNDER_CONSTRUCTION', 'در حال ساخت'],
-  ['OTHER', 'سایر'],
-] as const
-
-const DEED_TYPES = [
-  ['', 'انتخاب کنید'],
-  ['SINGLE_PAGE', 'سند تک‌برگ'],
-  ['BOOKLET', 'سند دفترچه‌ای / منگوله‌دار'],
-  ['AGREEMENT', 'قولنامه‌ای'],
-  ['POWER_OF_ATTORNEY', 'وکالتی'],
-  ['ENDOWMENT', 'اوقافی'],
-  ['COOPERATIVE', 'تعاونی'],
-  ['OTHER', 'سایر'],
-] as const
-
-const OWNERSHIP_STATUSES = [
-  ['', 'انتخاب کنید'],
-  ['SIX_DANG', 'شش‌دانگ'],
-  ['SHARED', 'مشاع'],
-  ['PARTIAL', 'سهمی / دانگی'],
-  ['OTHER', 'سایر'],
-] as const
-
-const CORNER_POSITIONS = [
-  ['', 'انتخاب کنید'],
-  ['MID_BLOCK', 'میان‌قطعه / یک‌بر'],
-  ['CORNER', 'نبش / دوبر'],
-  ['THREE_FRONT', 'سه‌بر'],
-  ['FOUR_FRONT', 'چهاربر'],
-  ['OTHER', 'سایر'],
-] as const
-
-const LAND_USES = [
-  ['', 'انتخاب کنید'],
-  ['RESIDENTIAL', 'مسکونی'],
-  ['COMMERCIAL', 'تجاری'],
-  ['OFFICE', 'اداری'],
-  ['MIXED', 'مختلط'],
-  ['INDUSTRIAL', 'صنعتی'],
-  ['GARDEN', 'باغ / فضای سبز'],
-  ['WAREHOUSE', 'انبار'],
-  ['OTHER', 'سایر'],
-] as const
 
 function attributeString(
   item: PropertyItem | null | undefined,
@@ -215,7 +154,7 @@ function SelectField({
   label: string
   value: string
   onChange: (value: string) => void
-  options: readonly (readonly [string, string])[]
+  options: OptionItem[]
 }) {
   return (
     <TextField
@@ -225,12 +164,12 @@ function SelectField({
       value={value}
       onChange={(event) => onChange(event.target.value)}
     >
-      {options.map(([optionValue, optionLabel]) => (
+      {options.map((option) => (
         <MenuItem
-          key={optionValue || `${label}-empty`}
-          value={optionValue}
+          key={option.value || `${label}-empty`}
+          value={option.value}
         >
-          {optionLabel}
+          {option.label}
         </MenuItem>
       ))}
     </TextField>
@@ -346,330 +285,355 @@ export function PropertyPanel({
 
   return (
     <Stack spacing={2}>
-      <Card variant="outlined">
-        <CardContent>
-          <Stack spacing={3}>
-            <div>
-              <Typography variant="h6" fontWeight={700}>
-                مشخصات ملک
-              </Typography>
-              <Typography color="text.secondary" variant="body2">
-                اطلاعات پایه و فیلدهای استاندارد مورد استفاده Agentها و تحلیل‌های ساختمانی
-              </Typography>
-            </div>
+      {property.isError && (
+        <Alert severity="error">
+          دریافت مشخصات ملک ناموفق بود.
+        </Alert>
+      )}
 
-            {property.isError && (
-              <Alert severity="error">دریافت مشخصات ملک ناموفق بود.</Alert>
-            )}
+      {property.data === null && (
+        <Alert severity="info">
+          برای این پرونده هنوز رکورد ملک ایجاد نشده است. با ذخیره فرم،
+          رکورد Property ایجاد می‌شود.
+        </Alert>
+      )}
 
-            {property.data === null && (
-              <Alert severity="info">
-                برای این پرونده هنوز رکورد ملک ایجاد نشده است.
-              </Alert>
-            )}
+      {saved && (
+        <Alert severity="success">
+          مشخصات ملک با موفقیت ذخیره شد.
+        </Alert>
+      )}
 
-            {saved && (
-              <Alert severity="success">
-                مشخصات ملک با موفقیت ذخیره شد.
-              </Alert>
-            )}
+      {save.isError && (
+        <Alert severity="error">
+          {save.error instanceof Error
+            ? save.error.message
+            : 'ذخیره مشخصات ملک ناموفق بود.'}
+        </Alert>
+      )}
 
-            {save.isError && (
-              <Alert severity="error">
-                {save.error instanceof Error
-                  ? save.error.message
-                  : 'ذخیره مشخصات ملک ناموفق بود.'}
-              </Alert>
-            )}
+      <SectionCard
+        title="موقعیت و آدرس"
+        description="اطلاعات مکانی و ثبتی پایه ملک"
+        icon={<LocationOnRoundedIcon />}
+      >
+        <FieldGroup
+          title="موقعیت"
+          description="اطلاعاتی که در نقشه، جستجو و گزارش‌ها استفاده می‌شوند."
+        >
+          <ResponsiveFieldGrid>
+            <FieldCell>
+              <TextField
+                fullWidth
+                label="استان"
+                value={form.province}
+                onChange={(e) => setField('province', e.target.value)}
+              />
+            </FieldCell>
+            <FieldCell>
+              <TextField
+                fullWidth
+                label="شهر"
+                value={form.city}
+                onChange={(e) => setField('city', e.target.value)}
+              />
+            </FieldCell>
+            <FieldCell>
+              <TextField
+                fullWidth
+                label="منطقه"
+                value={form.district}
+                onChange={(e) => setField('district', e.target.value)}
+              />
+            </FieldCell>
+            <FieldCell>
+              <TextField
+                fullWidth
+                label="محله"
+                value={form.neighborhood}
+                onChange={(e) => setField('neighborhood', e.target.value)}
+              />
+            </FieldCell>
+            <FieldCell>
+              <TextField
+                fullWidth
+                label="عرض جغرافیایی"
+                type="number"
+                value={form.latitude}
+                onChange={(e) => setField('latitude', e.target.value)}
+              />
+            </FieldCell>
+            <FieldCell>
+              <TextField
+                fullWidth
+                label="طول جغرافیایی"
+                type="number"
+                value={form.longitude}
+                onChange={(e) => setField('longitude', e.target.value)}
+              />
+            </FieldCell>
+            <FieldCell wide>
+              <TextField
+                fullWidth
+                label="آدرس کامل"
+                multiline
+                minRows={3}
+                value={form.address}
+                onChange={(e) => setField('address', e.target.value)}
+              />
+            </FieldCell>
+          </ResponsiveFieldGrid>
+        </FieldGroup>
+      </SectionCard>
 
-            <Grid container spacing={2}>
-              <Grid size={{ xs: 12, sm: 6, md: 4 }}>
-                <TextField
-                  fullWidth
-                  label="استان"
-                  value={form.province}
-                  onChange={(e) => setField('province', e.target.value)}
-                />
-              </Grid>
+      <SectionCard
+        title="ابعاد و ویژگی‌های ساختمانی"
+        description="ورودی‌های اصلی تحلیل ساخت، تراکم و ارزش ملک"
+        icon={<StraightenRoundedIcon />}
+      >
+        <ResponsiveFieldGrid>
+          <FieldCell>
+            <TextField
+              fullWidth
+              type="number"
+              label="مساحت زمین (متر مربع)"
+              value={form.landAreaM2}
+              onChange={(e) => setField('landAreaM2', e.target.value)}
+            />
+          </FieldCell>
 
-              <Grid size={{ xs: 12, sm: 6, md: 4 }}>
-                <TextField
-                  fullWidth
-                  label="شهر"
-                  value={form.city}
-                  onChange={(e) => setField('city', e.target.value)}
-                />
-              </Grid>
+          <FieldCell>
+            <TextField
+              fullWidth
+              type="number"
+              label="بر ملک (متر)"
+              value={form.frontageM}
+              onChange={(e) => setField('frontageM', e.target.value)}
+            />
+          </FieldCell>
 
-              <Grid size={{ xs: 12, sm: 6, md: 4 }}>
-                <TextField
-                  fullWidth
-                  label="منطقه"
-                  value={form.district}
-                  onChange={(e) => setField('district', e.target.value)}
-                />
-              </Grid>
+          <FieldCell>
+            <TextField
+              fullWidth
+              type="number"
+              label="عرض گذر (متر)"
+              value={form.passageWidthM}
+              onChange={(e) => setField('passageWidthM', e.target.value)}
+            />
+          </FieldCell>
 
-              <Grid size={{ xs: 12, sm: 6, md: 4 }}>
-                <TextField
-                  fullWidth
-                  label="محله"
-                  value={form.neighborhood}
-                  onChange={(e) => setField('neighborhood', e.target.value)}
-                />
-              </Grid>
+          <FieldCell>
+            <TextField
+              fullWidth
+              type="number"
+              label="زیربنای موجود (متر مربع)"
+              value={form.buildingAreaM2}
+              onChange={(e) => setField('buildingAreaM2', e.target.value)}
+            />
+          </FieldCell>
 
-              <Grid size={{ xs: 12, sm: 6, md: 4 }}>
-                <TextField
-                  fullWidth
-                  type="number"
-                  label="مساحت زمین (متر مربع)"
-                  value={form.landAreaM2}
-                  onChange={(e) => setField('landAreaM2', e.target.value)}
-                />
-              </Grid>
+          <FieldCell>
+            <TextField
+              fullWidth
+              type="number"
+              label="سال ساخت"
+              value={form.constructionYear}
+              onChange={(e) => setField('constructionYear', e.target.value)}
+            />
+          </FieldCell>
 
-              <Grid size={{ xs: 12, sm: 6, md: 4 }}>
-                <TextField
-                  fullWidth
-                  type="number"
-                  label="بر ملک (متر)"
-                  value={form.frontageM}
-                  onChange={(e) => setField('frontageM', e.target.value)}
-                />
-              </Grid>
+          <FieldCell>
+            <TextField
+              fullWidth
+              type="number"
+              label="تعداد طبقات موجود"
+              value={form.existingFloors}
+              onChange={(e) => setField('existingFloors', e.target.value)}
+            />
+          </FieldCell>
 
-              <Grid size={{ xs: 12, sm: 6, md: 4 }}>
-                <TextField
-                  fullWidth
-                  type="number"
-                  label="عرض گذر (متر)"
-                  value={form.passageWidthM}
-                  onChange={(e) => setField('passageWidthM', e.target.value)}
-                />
-              </Grid>
+          <FieldCell>
+            <TextField
+              fullWidth
+              type="number"
+              label="تعداد واحدهای موجود"
+              value={form.existingUnits}
+              onChange={(e) => setField('existingUnits', e.target.value)}
+            />
+          </FieldCell>
 
-              <Grid size={{ xs: 12, sm: 6, md: 4 }}>
-                <TextField
-                  fullWidth
-                  type="number"
-                  label="زیربنای موجود (متر مربع)"
-                  value={form.buildingAreaM2}
-                  onChange={(e) => setField('buildingAreaM2', e.target.value)}
-                />
-              </Grid>
+          <FieldCell>
+            <SelectField
+              label="جهت ملک"
+              value={form.orientation}
+              onChange={(value) => setField('orientation', value)}
+              options={orientationOptions}
+            />
+          </FieldCell>
 
-              <Grid size={{ xs: 12, sm: 6, md: 4 }}>
-                <TextField
-                  fullWidth
-                  type="number"
-                  label="سال ساخت"
-                  value={form.constructionYear}
-                  onChange={(e) => setField('constructionYear', e.target.value)}
-                />
-              </Grid>
+          <FieldCell>
+            <SelectField
+              label="موقعیت ملک"
+              value={form.cornerPosition}
+              onChange={(value) => setField('cornerPosition', value)}
+              options={cornerPositionOptions}
+            />
+          </FieldCell>
+        </ResponsiveFieldGrid>
+      </SectionCard>
 
-              <Grid size={{ xs: 12, sm: 6, md: 4 }}>
-                <TextField
-                  fullWidth
-                  type="number"
-                  label="تعداد طبقات موجود"
-                  value={form.existingFloors}
-                  onChange={(e) => setField('existingFloors', e.target.value)}
-                />
-              </Grid>
+      <SectionCard
+        title="نوع ملک و وضعیت حقوقی"
+        description="اطلاعات طبقه‌بندی‌شده برای تحلیل، فیلتر و قرارداد"
+        icon={<ApartmentRoundedIcon />}
+      >
+        <ResponsiveFieldGrid>
+          <FieldCell>
+            <SelectField
+              label="نوع ملک"
+              value={form.propertyType}
+              onChange={(value) => setField('propertyType', value)}
+              options={propertyTypeOptions}
+            />
+          </FieldCell>
 
-              <Grid size={{ xs: 12, sm: 6, md: 4 }}>
-                <TextField
-                  fullWidth
-                  type="number"
-                  label="تعداد واحدهای موجود"
-                  value={form.existingUnits}
-                  onChange={(e) => setField('existingUnits', e.target.value)}
-                />
-              </Grid>
+          <FieldCell>
+            <SelectField
+              label="وضعیت بنا"
+              value={form.buildingCondition}
+              onChange={(value) => setField('buildingCondition', value)}
+              options={buildingConditionOptions}
+            />
+          </FieldCell>
 
-              <Grid size={{ xs: 12, sm: 6, md: 4 }}>
-                <SelectField
-                  label="جهت ملک"
-                  value={form.orientation}
-                  onChange={(value) => setField('orientation', value)}
-                  options={ORIENTATIONS}
-                />
-              </Grid>
+          <FieldCell>
+            <SelectField
+              label="کاربری"
+              value={form.landUse}
+              onChange={(value) => setField('landUse', value)}
+              options={landUseOptions}
+            />
+          </FieldCell>
 
-              <Grid size={{ xs: 12, sm: 6, md: 4 }}>
-                <SelectField
-                  label="نوع ملک"
-                  value={form.propertyType}
-                  onChange={(value) => setField('propertyType', value)}
-                  options={PROPERTY_TYPES}
-                />
-              </Grid>
+          <FieldCell>
+            <SelectField
+              label="نوع سند"
+              value={form.deedType}
+              onChange={(value) => setField('deedType', value)}
+              options={deedTypeOptions}
+            />
+          </FieldCell>
 
-              <Grid size={{ xs: 12, sm: 6, md: 4 }}>
-                <SelectField
-                  label="وضعیت بنا"
-                  value={form.buildingCondition}
-                  onChange={(value) => setField('buildingCondition', value)}
-                  options={BUILDING_CONDITIONS}
-                />
-              </Grid>
+          <FieldCell>
+            <SelectField
+              label="وضعیت مالکیت"
+              value={form.ownershipStatus}
+              onChange={(value) => setField('ownershipStatus', value)}
+              options={ownershipStatusOptions}
+            />
+          </FieldCell>
+        </ResponsiveFieldGrid>
+      </SectionCard>
 
-              <Grid size={{ xs: 12, sm: 6, md: 4 }}>
-                <SelectField
-                  label="نوع سند"
-                  value={form.deedType}
-                  onChange={(value) => setField('deedType', value)}
-                  options={DEED_TYPES}
-                />
-              </Grid>
+      <SectionCard
+        title="اطلاعات ثبتی"
+        description="اطلاعات رسمی پرونده و شناسه‌های ملک"
+        icon={<DescriptionRoundedIcon />}
+      >
+        <ResponsiveFieldGrid>
+          <FieldCell>
+            <TextField
+              fullWidth
+              label="پلاک اصلی"
+              value={form.registryMainNo}
+              onChange={(e) => setField('registryMainNo', e.target.value)}
+            />
+          </FieldCell>
 
-              <Grid size={{ xs: 12, sm: 6, md: 4 }}>
-                <SelectField
-                  label="وضعیت مالکیت"
-                  value={form.ownershipStatus}
-                  onChange={(value) => setField('ownershipStatus', value)}
-                  options={OWNERSHIP_STATUSES}
-                />
-              </Grid>
+          <FieldCell>
+            <TextField
+              fullWidth
+              label="پلاک فرعی"
+              value={form.registrySubNo}
+              onChange={(e) => setField('registrySubNo', e.target.value)}
+            />
+          </FieldCell>
 
-              <Grid size={{ xs: 12, sm: 6, md: 4 }}>
-                <SelectField
-                  label="موقعیت ملک"
-                  value={form.cornerPosition}
-                  onChange={(value) => setField('cornerPosition', value)}
-                  options={CORNER_POSITIONS}
-                />
-              </Grid>
+          <FieldCell>
+            <TextField
+              fullWidth
+              label="بخش ثبتی"
+              value={form.registrySection}
+              onChange={(e) => setField('registrySection', e.target.value)}
+            />
+          </FieldCell>
 
-              <Grid size={{ xs: 12, sm: 6, md: 4 }}>
-                <SelectField
-                  label="کاربری"
-                  value={form.landUse}
-                  onChange={(value) => setField('landUse', value)}
-                  options={LAND_USES}
-                />
-              </Grid>
+          <FieldCell>
+            <TextField
+              fullWidth
+              label="کد پستی"
+              value={form.postalCode}
+              onChange={(e) => setField('postalCode', e.target.value)}
+            />
+          </FieldCell>
+        </ResponsiveFieldGrid>
+      </SectionCard>
 
-              <Grid size={{ xs: 12, sm: 6, md: 4 }}>
-                <TextField
-                  fullWidth
-                  label="کد پستی"
-                  value={form.postalCode}
-                  onChange={(e) => setField('postalCode', e.target.value)}
-                />
-              </Grid>
+      {invalidNumbers && (
+        <Alert severity="warning">
+          یکی از مقادیر عددی واردشده معتبر نیست.
+        </Alert>
+      )}
 
-              <Grid size={{ xs: 12, sm: 6, md: 4 }}>
-                <TextField
-                  fullWidth
-                  label="پلاک اصلی"
-                  value={form.registryMainNo}
-                  onChange={(e) => setField('registryMainNo', e.target.value)}
-                />
-              </Grid>
-
-              <Grid size={{ xs: 12, sm: 6, md: 4 }}>
-                <TextField
-                  fullWidth
-                  label="پلاک فرعی"
-                  value={form.registrySubNo}
-                  onChange={(e) => setField('registrySubNo', e.target.value)}
-                />
-              </Grid>
-
-              <Grid size={{ xs: 12, sm: 6, md: 4 }}>
-                <TextField
-                  fullWidth
-                  label="بخش ثبتی"
-                  value={form.registrySection}
-                  onChange={(e) => setField('registrySection', e.target.value)}
-                />
-              </Grid>
-
-              <Grid size={{ xs: 12, md: 6 }}>
-                <TextField
-                  fullWidth
-                  label="عرض جغرافیایی"
-                  type="number"
-                  value={form.latitude}
-                  onChange={(e) => setField('latitude', e.target.value)}
-                />
-              </Grid>
-
-              <Grid size={{ xs: 12, md: 6 }}>
-                <TextField
-                  fullWidth
-                  label="طول جغرافیایی"
-                  type="number"
-                  value={form.longitude}
-                  onChange={(e) => setField('longitude', e.target.value)}
-                />
-              </Grid>
-
-              <Grid size={12}>
-                <TextField
-                  fullWidth
-                  label="آدرس کامل"
-                  multiline
-                  minRows={3}
-                  value={form.address}
-                  onChange={(e) => setField('address', e.target.value)}
-                />
-              </Grid>
-            </Grid>
-
-            {invalidNumbers && (
-              <Alert severity="warning">
-                یکی از مقادیر عددی واردشده معتبر نیست.
-              </Alert>
-            )}
-
-            <Stack direction="row" justifyContent="flex-end">
-              <Button
-                variant="contained"
-                startIcon={<SaveRoundedIcon />}
-                onClick={() => save.mutate()}
-                disabled={save.isPending || invalidNumbers}
-              >
-                {save.isPending ? 'در حال ذخیره...' : 'ذخیره مشخصات ملک'}
-              </Button>
-            </Stack>
-          </Stack>
-        </CardContent>
-      </Card>
+      <Box
+        sx={{
+          position: { xs: 'sticky', sm: 'static' },
+          bottom: { xs: 76, sm: 'auto' },
+          zIndex: 5,
+          p: { xs: 1, sm: 0 },
+          mx: { xs: -1, sm: 0 },
+          borderRadius: 2,
+          bgcolor: { xs: 'rgba(246,248,252,.96)', sm: 'transparent' },
+          backdropFilter: { xs: 'blur(10px)', sm: 'none' },
+        }}
+      >
+        <Stack direction="row" justifyContent="flex-end">
+          <Button
+            variant="contained"
+            size="large"
+            startIcon={<SaveRoundedIcon />}
+            onClick={() => save.mutate()}
+            disabled={save.isPending || invalidNumbers}
+            fullWidth={false}
+            sx={{ minWidth: { xs: '100%', sm: 210 } }}
+          >
+            {save.isPending ? 'در حال ذخیره...' : 'ذخیره مشخصات ملک'}
+          </Button>
+        </Stack>
+      </Box>
 
       {property.data &&
         Object.keys(property.data.attributes ?? {}).length > 0 && (
-          <Card variant="outlined">
-            <CardContent>
-              <Stack spacing={1.5}>
-                <Typography variant="h6" fontWeight={700}>
-                  اطلاعات تکمیلی انعطاف‌پذیر
-                </Typography>
-                <Typography variant="body2" color="text.secondary">
-                  فیلدهای بدون ستون اختصاصی در JSONB ذخیره می‌شوند. نسخه ساختار:{' '}
-                  {property.data.attributesSchemaVersion}
-                </Typography>
-
-                <Box
-                  component="pre"
-                  dir="ltr"
-                  sx={{
-                    m: 0,
-                    p: 2,
-                    borderRadius: 1,
-                    bgcolor: 'action.hover',
-                    overflow: 'auto',
-                    fontSize: 13,
-                  }}
-                >
-                  {JSON.stringify(property.data.attributes, null, 2)}
-                </Box>
-              </Stack>
-            </CardContent>
-          </Card>
+          <SectionCard
+            title="اطلاعات تکمیلی"
+            description={`فیلدهای انعطاف‌پذیر ذخیره‌شده در JSONB — نسخه ${property.data.attributesSchemaVersion}`}
+          >
+            <Box
+              component="pre"
+              dir="ltr"
+              sx={{
+                m: 0,
+                p: 2,
+                borderRadius: 2,
+                bgcolor: 'action.hover',
+                overflow: 'auto',
+                fontSize: 13,
+                maxHeight: 320,
+              }}
+            >
+              {JSON.stringify(property.data.attributes, null, 2)}
+            </Box>
+          </SectionCard>
         )}
     </Stack>
   )

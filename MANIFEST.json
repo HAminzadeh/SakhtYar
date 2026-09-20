@@ -1,54 +1,70 @@
 {
-  "name": "SakhtYar Property Flexible JSONB v1",
-  "baseMainSeen": "f9c4c20c7a1b377a3def7bfc0931800581ada025",
+  "name": "SakhtYar Professional Mobile-First UI v1",
+  "base": "current project after Property Flexible JSONB + dropdown changes",
   "files": {
-    "apply-property-flexible-jsonb.ps1": {
-      "bytes": 596,
-      "sha256": "c71b77dc1b59b8de1084cb67c3b8139ab12eabbb359ddc5762f955d85a69d13f"
+    "apply-professional-mobilefirst-ui.ps1": {
+      "bytes": 541,
+      "sha256": "3dbf7e12e92af8b673a64a526ce2fc0c6b53f744871767495f79a156626ced23"
     },
-    "apply-property-flexible-jsonb.sh": {
-      "bytes": 422,
-      "sha256": "9468dce4ece967c3e86e77b18fc683b339de82481aad93205922e8457372eddf"
+    "apply-professional-mobilefirst-ui.sh": {
+      "bytes": 404,
+      "sha256": "da502bce7170b47d834a78f1b8e1a1a2fb9721b8ba0576c9a3d8a64bed051b07"
     },
-    "readMe/README-PROPERTY-FLEXIBLE-JSONB.md": {
-      "bytes": 3024,
-      "sha256": "df68d18e4aff045cf4ba59ace4dedb0cb6c07b891c5bc2f9fbf04da7f48201ee"
+    "readMe/README-UI-MOBILE-FIRST.md": {
+      "bytes": 2431,
+      "sha256": "660a6a414dd22a73242c9d824f28148219b3dbe4e785c4fe8645e8d5a16a01d7"
     },
-    "frontend/src/api/types.ts": {
-      "bytes": 3467,
-      "sha256": "62f74488199c0876f0e10792979f9e487488ada8ec209cca174b713ba008a28f"
+    "frontend/src/main.tsx": {
+      "bytes": 1194,
+      "sha256": "8cf822f6f4ff3134aa5b49edbe582427f76e494f47988a51e215c40c3f78c90a"
+    },
+    "frontend/src/styles/global.css": {
+      "bytes": 322,
+      "sha256": "041777c396c6ad35d4a8338c5ef357ea159ed23f230c9378fd65290fd37a930f"
+    },
+    "frontend/src/ui/appTheme.ts": {
+      "bytes": 3081,
+      "sha256": "5a39a4fff6e3c0df45b75aa4245bbd2285fcdde45b8b02bfa1ce3cf7aae89141"
+    },
+    "frontend/src/ui/SectionCard.tsx": {
+      "bytes": 1701,
+      "sha256": "fd7d240f34f09fedb2c4df5f5e68bfa3b74549f0a15e10d15ecb9237412370d4"
+    },
+    "frontend/src/ui/FieldGroup.tsx": {
+      "bytes": 588,
+      "sha256": "3940e6bc27719040b136ea83ad3af5e03009c41ebbbacfe10c2330bcf0aa4b15"
+    },
+    "frontend/src/ui/ResponsiveFieldGrid.tsx": {
+      "bytes": 516,
+      "sha256": "2a2486b3b580d656509325525453c3222ce3481343b9326c1443009365d1d680"
+    },
+    "frontend/src/ui/tokens.ts": {
+      "bytes": 619,
+      "sha256": "217a9356ba3c7adcc0d573c87efc43661f3555a3e155e42e51b2650eb6d40e14"
+    },
+    "frontend/src/domain/propertyOptions.ts": {
+      "bytes": 3416,
+      "sha256": "8aaa5ed1abcadbb6e901aaf1b0c23286c251caf6de50d0d98fc8994b96682fe2"
+    },
+    "frontend/src/pages/LoginPage.tsx": {
+      "bytes": 3715,
+      "sha256": "90acb555e6555b6411f108d8091470145ac99c22e70e0b07160775a1d58a5bcb"
+    },
+    "frontend/src/pages/CaseDetailPage.tsx": {
+      "bytes": 6709,
+      "sha256": "760b7828d70c4010c5b2266d074971f5b6b1588b9295a271872c5efa2aac1652"
+    },
+    "frontend/src/pages/CasesPage.tsx": {
+      "bytes": 8493,
+      "sha256": "2bfd8abb6717c988ace2abb3c3d23ae4e8a72d36a0cdf93a13d11a57ec2d4ed9"
+    },
+    "frontend/src/app/AppShell.tsx": {
+      "bytes": 4505,
+      "sha256": "4f26c494f4860482675bacbcf659aed62673c6acd939d89af0e2d745adce44f3"
     },
     "frontend/src/features/case/PropertyPanel.tsx": {
-      "bytes": 17977,
-      "sha256": "d18ab74c86497e106fb02333a4cc079a1c7480d7c27758e71934fe2bac19bee3"
-    },
-    "frontend/src/features/case/AssistantPanel.tsx": {
-      "bytes": 16719,
-      "sha256": "9fecfd6d92970d1f6184a31184b6b9aadbfb9bd325eae49a7638d879aa5b06ef"
-    },
-    "backend/app/src/main/resources/db/migration/V6__property_flexible_attributes.sql": {
-      "bytes": 1955,
-      "sha256": "d0baec658b23a29d122a7c5ff174b6de62f966bbcdf15285e3dffead1e4de32f"
-    },
-    "backend/modules/agents/src/main/java/com/sakhtyar/agents/agent/PropertyAgent.java": {
-      "bytes": 7314,
-      "sha256": "07495709f206151c30dbdab72a2298e3dd16b12b6cda3bffcea14919757436aa"
-    },
-    "backend/modules/property/src/main/java/com/sakhtyar/property/api/PropertyDtos.java": {
-      "bytes": 4499,
-      "sha256": "56037304205fde28dc176152b5be26280508676097a47acbb2ec321bc9da93b7"
-    },
-    "backend/modules/property/src/main/java/com/sakhtyar/property/api/PropertyController.java": {
-      "bytes": 1595,
-      "sha256": "109c82349d63954bddd52333c3bdf1620c1f6bd1985100f6ec8ef81eab905cfa"
-    },
-    "backend/modules/property/src/main/java/com/sakhtyar/property/application/PropertyService.java": {
-      "bytes": 21573,
-      "sha256": "b892670510fe833b4c110c014095652029b7dcbf2a903a03e392ef412996e324"
-    },
-    "backend/modules/property/src/main/java/com/sakhtyar/property/domain/PropertyEntity.java": {
-      "bytes": 8459,
-      "sha256": "7fe5f28398f712609ef5aa7d8742ad48eab18b4d2f3efab9e0346ae3d8a003d8"
+      "bytes": 20293,
+      "sha256": "84190a86c8d09d3b6c230b2a150805a5c0fb78df4be928b805ecff421ab4fbd2"
     }
   }
 }

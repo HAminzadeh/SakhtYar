@@ -1,5 +1,6 @@
 html {
   direction: rtl;
+  -webkit-text-size-adjust: 100%;
 }
 
 html,
@@ -12,4 +13,18 @@ body,
 
 body {
   min-height: 100vh;
+  overscroll-behavior-y: none;
+}
+
+button,
+input,
+textarea,
+select {
+  font: inherit;
+}
+
+@media (max-width: 600px) {
+  body {
+    background: #f6f8fc;
+  }
 }

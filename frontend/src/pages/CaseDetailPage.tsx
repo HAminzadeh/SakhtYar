@@ -1,8 +1,14 @@
+import ArticleRoundedIcon from '@mui/icons-material/ArticleRounded'
+import GroupsRoundedIcon from '@mui/icons-material/GroupsRounded'
+import HomeWorkRoundedIcon from '@mui/icons-material/HomeWorkRounded'
+import MapRoundedIcon from '@mui/icons-material/MapRounded'
+import PsychologyRoundedIcon from '@mui/icons-material/PsychologyRounded'
+import SpaceDashboardRoundedIcon from '@mui/icons-material/SpaceDashboardRounded'
 import {
   Alert,
   Box,
-  Card,
   Chip,
+  Paper,
   Skeleton,
   Stack,
   Tab,
@@ -51,7 +57,7 @@ function TabPanel({
   children: ReactNode
 }) {
   if (value !== current) return null
-  return <Box sx={{ pt: 3 }}>{children}</Box>
+  return <Box sx={{ pt: { xs: 2, md: 3 } }}>{children}</Box>
 }
 
 export function CaseDetailPage() {
@@ -67,9 +73,9 @@ export function CaseDetailPage() {
   if (caseQuery.isLoading) {
     return (
       <Stack spacing={2}>
-        <Skeleton variant="text" width="35%" height={52} />
-        <Skeleton variant="rounded" height={64} />
-        <Skeleton variant="rounded" height={280} />
+        <Skeleton variant="rounded" height={128} />
+        <Skeleton variant="rounded" height={56} />
+        <Skeleton variant="rounded" height={320} />
       </Stack>
     )
   }
@@ -80,62 +86,135 @@ export function CaseDetailPage() {
 
   const item = caseQuery.data
   const location =
-    [item.city, item.district].filter(Boolean).join(' - ') ||
+    [item.city, item.district].filter(Boolean).join('، ') ||
     'موقعیت ثبت نشده'
 
   return (
-    <Stack spacing={3}>
-      <Stack
-        direction={{ xs: 'column', md: 'row' }}
-        justifyContent="space-between"
-        alignItems={{ xs: 'flex-start', md: 'center' }}
-        gap={2}
+    <Stack spacing={{ xs: 2, md: 3 }}>
+      <Paper
+        sx={{
+          p: { xs: 2, sm: 2.5, md: 3 },
+          border: '1px solid',
+          borderColor: 'divider',
+          borderRadius: 3,
+          background:
+            'linear-gradient(135deg, rgba(239,246,255,.92), rgba(255,255,255,1) 55%)',
+        }}
       >
-        <Box>
-          <Stack
-            direction="row"
-            spacing={1.5}
-            alignItems="center"
-            flexWrap="wrap"
-          >
-            <Typography variant="h4" fontWeight={800}>
-              {item.title}
+        <Stack
+          direction={{ xs: 'column', md: 'row' }}
+          justifyContent="space-between"
+          alignItems={{ xs: 'stretch', md: 'center' }}
+          gap={2}
+        >
+          <Box>
+            <Stack
+              direction="row"
+              spacing={1}
+              alignItems="center"
+              flexWrap="wrap"
+            >
+              <Typography
+                variant="h4"
+                sx={{ fontSize: { xs: '1.45rem', sm: '1.8rem' } }}
+              >
+                {item.title}
+              </Typography>
+
+              <Chip
+                size="small"
+                label={statusLabel(item.status)}
+                color={item.status === 'ACTIVE' ? 'success' : 'default'}
+                variant={item.status === 'ACTIVE' ? 'filled' : 'outlined'}
+              />
+            </Stack>
+
+            <Typography color="text.secondary" mt={0.75}>
+              {location}
             </Typography>
+          </Box>
 
-            <Chip
-              size="small"
-              label={statusLabel(item.status)}
-              color={item.status === 'ACTIVE' ? 'success' : 'default'}
-            />
-          </Stack>
+          <Box
+            sx={{
+              px: 1.5,
+              py: 1,
+              borderRadius: 2,
+              bgcolor: 'rgba(255,255,255,.78)',
+              border: '1px solid',
+              borderColor: 'divider',
+              alignSelf: { xs: 'stretch', md: 'auto' },
+            }}
+          >
+            <Typography variant="caption" color="text.secondary">
+              آخرین بروزرسانی
+            </Typography>
+            <Typography variant="body2" fontWeight={700}>
+              {new Date(item.updatedAt).toLocaleString('fa-IR')}
+            </Typography>
+          </Box>
+        </Stack>
+      </Paper>
 
-          <Typography color="text.secondary" mt={0.5}>
-            {location}
-          </Typography>
-        </Box>
-
-        <Typography variant="body2" color="text.secondary">
-          آخرین بروزرسانی:{' '}
-          {new Date(item.updatedAt).toLocaleString('fa-IR')}
-        </Typography>
-      </Stack>
-
-      <Card variant="outlined">
+      <Paper
+        sx={{
+          border: '1px solid',
+          borderColor: 'divider',
+          borderRadius: 3,
+          overflow: 'hidden',
+        }}
+      >
         <Tabs
           value={tab}
           onChange={(_, value: CaseTab) => setTab(value)}
           variant="scrollable"
           scrollButtons="auto"
           allowScrollButtonsMobile
+          sx={{
+            px: { xs: 0.5, sm: 1 },
+            '& .MuiTab-root': {
+              minWidth: { xs: 92, sm: 120 },
+              px: { xs: 1.25, sm: 2 },
+            },
+          }}
         >
-          <Tab value="overview" label="خلاصه" />
-          <Tab value="property" label="مشخصات ملک" />
-          <Tab value="owners" label="مالکین" />
-          <Tab value="map" label="نقشه" />
-          <Tab value="documents" label="مدارک" />
-          <Tab value="assistant" label="دستیار هوشمند" />
+          <Tab
+            value="overview"
+            icon={<SpaceDashboardRoundedIcon />}
+            iconPosition="start"
+            label="خلاصه"
+          />
+          <Tab
+            value="property"
+            icon={<HomeWorkRoundedIcon />}
+            iconPosition="start"
+            label="مشخصات ملک"
+          />
+          <Tab
+            value="owners"
+            icon={<GroupsRoundedIcon />}
+            iconPosition="start"
+            label="مالکین"
+          />
+          <Tab
+            value="map"
+            icon={<MapRoundedIcon />}
+            iconPosition="start"
+            label="نقشه"
+          />
+          <Tab
+            value="documents"
+            icon={<ArticleRoundedIcon />}
+            iconPosition="start"
+            label="مدارک"
+          />
+          <Tab
+            value="assistant"
+            icon={<PsychologyRoundedIcon />}
+            iconPosition="start"
+            label="دستیار هوشمند"
+          />
         </Tabs>
-      </Card>
+      </Paper>
 
       <TabPanel value="overview" current={tab}>
         <CaseOverview caseId={id} caseItem={item} />
