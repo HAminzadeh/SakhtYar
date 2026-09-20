@@ -17,11 +17,16 @@ import { api } from '../api/client'
 import type { CaseItem } from '../api/types'
 import { CaseOverview } from '../features/case/CaseOverview'
 import { DocumentsPanel } from '../features/case/DocumentsPanel'
-import { MapPlaceholder } from '../features/case/MapPlaceholder'
 import { OwnersPanel } from '../features/case/OwnersPanel'
+import { PropertyMap } from '../features/case/PropertyMap'
 import { PropertyPanel } from '../features/case/PropertyPanel'
 
-type CaseTab = 'overview' | 'property' | 'owners' | 'map' | 'documents'
+type CaseTab =
+  | 'overview'
+  | 'property'
+  | 'owners'
+  | 'map'
+  | 'documents'
 
 function statusLabel(status: CaseItem['status']) {
   switch (status) {
@@ -143,7 +148,7 @@ export function CaseDetailPage() {
       </TabPanel>
 
       <TabPanel value="map" current={tab}>
-        <MapPlaceholder />
+        <PropertyMap caseId={id} />
       </TabPanel>
 
       <TabPanel value="documents" current={tab}>

@@ -1,0 +1,5 @@
+app:
+  integrations:
+    neshan:
+      enabled: true
+      service-api-key: service.f3e62ceeb93f4280bb58df28cffbbedf

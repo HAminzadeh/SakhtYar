@@ -63,3 +63,37 @@ export type OwnerItem = {
   createdAt: string
   updatedAt: string
 }
+
+export type GeoSearchResult = {
+  title?: string | null
+  address?: string | null
+  neighborhood?: string | null
+  city?: string | null
+  category?: string | null
+  latitude: number
+  longitude: number
+}
+
+export type ReverseGeocodeResult = {
+  formattedAddress?: string | null
+  province?: string | null
+  city?: string | null
+  district?: string | null
+  neighborhood?: string | null
+  routeName?: string | null
+  place?: string | null
+}
+
+export type GeoStatus = {
+  providerAvailable: boolean
+  spatialDatabase: string
+}
+
+export type NearbyProperty = {
+  caseId: string
+  caseTitle: string
+  address?: string | null
+  latitude: number
+  longitude: number
+  distanceMeters: number
+}
