@@ -24,6 +24,7 @@
     <dependency><groupId>com.sakhtyar</groupId><artifactId>sakhtyar-document</artifactId></dependency>
     <dependency><groupId>com.sakhtyar</groupId><artifactId>sakhtyar-geo</artifactId></dependency>
     <dependency><groupId>com.sakhtyar</groupId><artifactId>sakhtyar-integration-neshan</artifactId></dependency>
+    <dependency><groupId>com.sakhtyar</groupId><artifactId>sakhtyar-agents</artifactId></dependency>
 
     <dependency><groupId>org.springframework.boot</groupId><artifactId>spring-boot-starter-web</artifactId></dependency>
     <dependency><groupId>org.springframework.boot</groupId><artifactId>spring-boot-starter-data-jpa</artifactId></dependency>

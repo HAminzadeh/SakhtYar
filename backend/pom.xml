@@ -32,6 +32,7 @@
     <module>modules/document</module>
     <module>modules/geo</module>
     <module>modules/integration-neshan</module>
+    <module>modules/agents</module>
     <module>app</module>
   </modules>
 
@@ -90,6 +91,11 @@
       <dependency>
         <groupId>com.sakhtyar</groupId>
         <artifactId>sakhtyar-integration-neshan</artifactId>
+        <version>${project.version}</version>
+      </dependency>
+      <dependency>
+        <groupId>com.sakhtyar</groupId>
+        <artifactId>sakhtyar-agents</artifactId>
         <version>${project.version}</version>
       </dependency>
 
