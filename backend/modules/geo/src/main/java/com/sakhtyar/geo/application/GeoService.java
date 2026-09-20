@@ -30,23 +30,15 @@ public class GeoService {
         return provider.getIfAvailable() != null;
     }
 
-    public List<GeoSearchResult> search(
-            String term,
-            BigDecimal latitude,
-            BigDecimal longitude
-    ) {
-        if (term == null || term.isBlank()) {
+    public List<GeoSearchResult> geocode(String address) {
+        if (address == null || address.isBlank()) {
             throw new ResponseStatusException(
                     HttpStatus.BAD_REQUEST,
-                    "Search term is required."
+                    "Address is required."
             );
         }
 
-        return requireProvider().search(
-                term.trim(),
-                latitude,
-                longitude
-        );
+        return requireProvider().geocode(address.trim());
     }
 
     public ReverseGeocodeResult reverseGeocode(
@@ -80,7 +72,7 @@ public class GeoService {
         if (value == null) {
             throw new ResponseStatusException(
                     HttpStatus.SERVICE_UNAVAILABLE,
-                    "Map search provider is not configured. Enable Neshan and set NESHAN_SERVICE_API_KEY."
+                    "Geocoding provider is not configured. Enable Neshan and configure its service API key."
             );
         }
         return value;

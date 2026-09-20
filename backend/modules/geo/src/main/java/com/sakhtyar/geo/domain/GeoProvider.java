@@ -5,11 +5,14 @@ import java.util.List;
 
 public interface GeoProvider {
 
-    List<GeoSearchResult> search(
-            String term,
-            BigDecimal latitude,
-            BigDecimal longitude
-    );
+    /**
+     * Converts a human-readable address into one or more geographic candidates.
+     *
+     * The current Neshan adapter uses the Geocoding API rather than the legacy
+     * place-search endpoint, because the SakhtYar use case is property-address
+     * resolution and the corresponding service is exposed by the Neshan panel.
+     */
+    List<GeoSearchResult> geocode(String address);
 
     ReverseGeocodeResult reverseGeocode(
             BigDecimal latitude,

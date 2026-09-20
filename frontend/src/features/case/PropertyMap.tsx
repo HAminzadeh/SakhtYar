@@ -161,17 +161,12 @@ export function PropertyMap({ caseId }: { caseId: string }) {
   })
 
   const searchMutation = useMutation({
-    mutationFn: () => {
-      const center = point ?? initialCenter
-
-      return api<GeoSearchResult[]>(
-        `/api/v1/geo/search?term=${encodeURIComponent(
+    mutationFn: () =>
+      api<GeoSearchResult[]>(
+        `/api/v1/geo/geocode?address=${encodeURIComponent(
           query.trim(),
-        )}&lat=${encodeURIComponent(
-          center.latitude,
-        )}&lng=${encodeURIComponent(center.longitude)}`,
-      )
-    },
+        )}`,
+      ),
     onSuccess: setSearchResults,
   })
 
@@ -417,7 +412,7 @@ export function PropertyMap({ caseId }: { caseId: string }) {
 
       {geoStatus.data && !geoStatus.data.providerAvailable && (
         <Alert severity="info">
-          نقشه قابل نمایش است، اما جستجوی آدرس و Reverse Geocoding
+          نقشه قابل نمایش است، اما تبدیل آدرس به نقطه و Reverse Geocoding
           در Backend غیرفعال است. متغیرهای
           <strong> NESHAN_ENABLED=true </strong>
           و
@@ -441,8 +436,8 @@ export function PropertyMap({ caseId }: { caseId: string }) {
             >
               <TextField
                 fullWidth
-                label="جستجوی آدرس یا مکان"
-                placeholder="مثلاً: تهران، پیروزی، خیابان پنجم"
+                label="جستجوی آدرس ملک"
+                placeholder="مثلاً: تهران، خیابان پیروزی، کوچه پنجم"
                 value={query}
                 onChange={(event) => setQuery(event.target.value)}
                 onKeyDown={(event) => {
@@ -484,7 +479,7 @@ export function PropertyMap({ caseId }: { caseId: string }) {
               <Alert severity="error">
                 {searchMutation.error instanceof Error
                   ? searchMutation.error.message
-                  : 'جستجوی نشان ناموفق بود.'}
+                  : 'تبدیل آدرس به مختصات توسط نشان ناموفق بود.'}
               </Alert>
             )}
 

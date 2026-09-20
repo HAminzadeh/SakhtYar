@@ -38,19 +38,35 @@ public class GeoController {
         );
     }
 
+    /**
+     * Preferred Phase 2 address lookup endpoint.
+     */
+    @GetMapping("/geocode")
+    public List<GeoSearchResult> geocode(
+            @RequestParam String address
+    ) {
+        return service.geocode(address);
+    }
+
+    /**
+     * Backward-compatible alias for the first Phase 2 UI package.
+     * Latitude/longitude are accepted but intentionally ignored because address
+     * lookup now uses Neshan Geocoding instead of the legacy /v3/search API.
+     */
+    @Deprecated
     @GetMapping("/search")
-    public List<GeoSearchResult> search(
+    public List<GeoSearchResult> legacySearch(
             @RequestParam String term,
-            @RequestParam
+            @RequestParam(required = false)
             @DecimalMin("-90.0")
             @DecimalMax("90.0")
             BigDecimal lat,
-            @RequestParam
+            @RequestParam(required = false)
             @DecimalMin("-180.0")
             @DecimalMax("180.0")
             BigDecimal lng
     ) {
-        return service.search(term, lat, lng);
+        return service.geocode(term);
     }
 
     @GetMapping("/reverse")

@@ -4,13 +4,13 @@ import com.sakhtyar.geo.domain.GeoProvider;
 import com.sakhtyar.geo.domain.GeoSearchResult;
 import com.sakhtyar.geo.domain.ReverseGeocodeResult;
 import java.math.BigDecimal;
-import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Component;
 import org.springframework.web.client.RestClient;
+import org.springframework.web.client.RestClientException;
 import org.springframework.web.client.RestClientResponseException;
 import org.springframework.web.server.ResponseStatusException;
 import tools.jackson.core.JacksonException;
@@ -40,40 +40,34 @@ public class NeshanGeoProvider implements GeoProvider {
     }
 
     @Override
-    public List<GeoSearchResult> search(
-            String term,
-            BigDecimal latitude,
-            BigDecimal longitude
-    ) {
+    public List<GeoSearchResult> geocode(String address) {
         requireApiKey();
 
         try {
             String payload = objectMapper.writeValueAsString(
-                    Map.of(
-                            "term", term,
-                            "center", Map.of(
-                                    "latitude", latitude,
-                                    "longitude", longitude
-                            )
-                    )
+                    Map.of("address", address)
             );
 
             String body = client.get()
-                    .uri(uriBuilder -> uriBuilder
-                            .path("/v3/search")
-                            .queryParam("q", payload)
-                            .build())
+                    .uri("/geocoding/v1?json={json}", payload)
                     .header("Api-Key", properties.serviceApiKey())
                     .retrieve()
                     .body(String.class);
 
-            return parseSearch(body);
+            return parseGeocode(body, address);
         } catch (RestClientResponseException ex) {
             throw translate(ex);
+        } catch (RestClientException ex) {
+            throw new ResponseStatusException(
+                    HttpStatus.BAD_GATEWAY,
+                    "Could not connect to Neshan geocoding service.",
+                    ex
+            );
         } catch (JacksonException ex) {
             throw new ResponseStatusException(
                     HttpStatus.BAD_GATEWAY,
-                    "Could not read Neshan search response."
+                    "Could not read Neshan geocoding response.",
+                    ex
             );
         }
     }
@@ -99,71 +93,114 @@ public class NeshanGeoProvider implements GeoProvider {
             return parseReverse(body);
         } catch (RestClientResponseException ex) {
             throw translate(ex);
+        } catch (RestClientException ex) {
+            throw new ResponseStatusException(
+                    HttpStatus.BAD_GATEWAY,
+                    "Could not connect to Neshan reverse-geocoding service.",
+                    ex
+            );
         } catch (JacksonException ex) {
             throw new ResponseStatusException(
                     HttpStatus.BAD_GATEWAY,
-                    "Could not read Neshan reverse-geocoding response."
+                    "Could not read Neshan reverse-geocoding response.",
+                    ex
             );
         }
     }
 
-    private List<GeoSearchResult> parseSearch(String body)
-            throws JacksonException {
+    private List<GeoSearchResult> parseGeocode(
+            String body,
+            String requestedAddress
+    ) throws JacksonException {
         JsonNode root = objectMapper.readTree(body);
-        JsonNode items = root.path("items");
+        JsonNode candidate = unwrapCandidate(root);
 
-        if (!items.isArray()) {
-            items = root.path("results");
-        }
+        BigDecimal lat = firstDecimal(
+                candidate,
+                "location.latitude",
+                "location.lat",
+                "location.y",
+                "latitude",
+                "lat",
+                "y"
+        );
+        BigDecimal lng = firstDecimal(
+                candidate,
+                "location.longitude",
+                "location.lng",
+                "location.x",
+                "longitude",
+                "lng",
+                "x"
+        );
 
-        List<GeoSearchResult> results = new ArrayList<>();
-        if (!items.isArray()) {
-            return results;
-        }
-
-        for (JsonNode item : items) {
-            BigDecimal lat = firstDecimal(
-                    item,
+        if (lat == null || lng == null) {
+            // Some response envelopes keep the location on the root object.
+            lat = firstDecimal(
+                    root,
                     "location.latitude",
+                    "location.lat",
                     "location.y",
                     "latitude",
-                    "lat"
+                    "lat",
+                    "y"
             );
-            BigDecimal lng = firstDecimal(
-                    item,
+            lng = firstDecimal(
+                    root,
                     "location.longitude",
+                    "location.lng",
                     "location.x",
                     "longitude",
-                    "lng"
-            );
-
-            if (lat == null || lng == null) {
-                continue;
-            }
-
-            results.add(
-                    new GeoSearchResult(
-                            firstText(item, "title", "name"),
-                            firstText(
-                                    item,
-                                    "address",
-                                    "formatted_address",
-                                    "formattedAddress"
-                            ),
-                            firstText(
-                                    item,
-                                    "neighbourhood",
-                                    "neighborhood"
-                            ),
-                            firstText(item, "city", "region"),
-                            firstText(item, "category", "type"),
-                            lat,
-                            lng
-                    )
+                    "lng",
+                    "x"
             );
         }
 
-        return results;
+        if (lat == null || lng == null) {
+            throw new ResponseStatusException(
+                    HttpStatus.BAD_GATEWAY,
+                    "Neshan geocoding response did not contain coordinates."
+            );
+        }
+
+        String returnedAddress = firstText(
+                candidate,
+                "formatted_address",
+                "formattedAddress",
+                "address"
+        );
+        if (returnedAddress == null) {
+            returnedAddress = firstText(
+                    root,
+                    "formatted_address",
+                    "formattedAddress",
+                    "address"
+            );
+        }
+        if (returnedAddress == null) {
+            returnedAddress = requestedAddress;
+        }
+
+        String title = firstText(candidate, "title", "name");
+        if (title == null) {
+            title = returnedAddress;
+        }
+
+        return List.of(
+                new GeoSearchResult(
+                        title,
+                        returnedAddress,
+                        firstText(
+                                candidate,
+                                "neighbourhood",
+                                "neighborhood"
+                        ),
+                        firstText(candidate, "city", "region"),
+                        null,
+                        lat,
+                        lng
+                )
+        );
     }
 
     private ReverseGeocodeResult parseReverse(String body)
@@ -195,6 +232,30 @@ public class NeshanGeoProvider implements GeoProvider {
         );
     }
 
+    private JsonNode unwrapCandidate(JsonNode root) {
+        JsonNode result = root.path("result");
+        if (result.isObject()) {
+            return result;
+        }
+
+        JsonNode data = root.path("data");
+        if (data.isObject()) {
+            return data;
+        }
+
+        JsonNode items = root.path("items");
+        if (items.isArray() && !items.isEmpty()) {
+            return items.get(0);
+        }
+
+        JsonNode results = root.path("results");
+        if (results.isArray() && !results.isEmpty()) {
+            return results.get(0);
+        }
+
+        return root;
+    }
+
     private void requireApiKey() {
         if (properties.serviceApiKey() == null
                 || properties.serviceApiKey().isBlank()) {
@@ -219,7 +280,7 @@ public class NeshanGeoProvider implements GeoProvider {
                 || ex.getStatusCode().value() == 403) {
             return new ResponseStatusException(
                     HttpStatus.SERVICE_UNAVAILABLE,
-                    "Neshan API key was rejected."
+                    "Neshan API key was rejected or does not have access to the requested service."
             );
         }
 

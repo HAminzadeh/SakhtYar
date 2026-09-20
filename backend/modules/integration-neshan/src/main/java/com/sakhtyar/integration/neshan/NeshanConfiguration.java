@@ -12,16 +12,16 @@ public class NeshanConfiguration {
 
     @Bean
     @ConditionalOnProperty(
-        prefix = "app.integrations.neshan",
-        name = "enabled",
-        havingValue = "true"
+            prefix = "app.integrations.neshan",
+            name = "enabled",
+            havingValue = "true"
     )
     RestClient neshanRestClient(
-        NeshanProperties properties
+            NeshanProperties properties
     ) {
         return RestClient.builder()
-            .baseUrl(properties.baseUrl())
-            .defaultHeader("Accept", "application/json")
-            .build();
+                .baseUrl(properties.baseUrl())
+                .defaultHeader("Accept", "application/json")
+                .build();
     }
 }
