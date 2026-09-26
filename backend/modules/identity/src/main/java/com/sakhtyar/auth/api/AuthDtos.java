@@ -1,7 +1,5 @@
 package com.sakhtyar.auth.api;
 
-import com.sakhtyar.identity.domain.Permission;
-import com.sakhtyar.identity.domain.UserEntity;
 import com.sakhtyar.identity.domain.UserStatus;
 import jakarta.validation.constraints.Email;
 import jakarta.validation.constraints.NotBlank;
@@ -10,7 +8,6 @@ import jakarta.validation.constraints.Size;
 import java.time.Instant;
 import java.util.Set;
 import java.util.UUID;
-import java.util.stream.Collectors;
 
 public final class AuthDtos {
 
@@ -27,7 +24,7 @@ public final class AuthDtos {
             @NotBlank
             @Pattern(
                     regexp = "[\\p{L}\\p{N}._-]{3,100}",
-                    message = "نام کاربری باید ۳ تا ۱۰۰ کاراکتر و بدون فاصله باشد."
+                    message = "Ù†Ø§Ù… Ú©Ø§Ø±Ø¨Ø±ÛŒ Ø¨Ø§ÛŒØ¯ Û³ ØªØ§ Û±Û°Û° Ú©Ø§Ø±Ø§Ú©ØªØ± Ùˆ Ø¨Ø¯ÙˆÙ† ÙØ§ØµÙ„Ù‡ Ø¨Ø§Ø´Ø¯."
             )
             String username,
 
@@ -108,25 +105,7 @@ public final class AuthDtos {
             Set<String> permissions,
             Instant lastLoginAt
     ) {
-        public static MeResponse from(UserEntity user) {
-            Set<String> permissions = user.getRole()
-                    .permissions()
-                    .stream()
-                    .map(Permission::name)
-                    .collect(Collectors.toUnmodifiableSet());
-
-            return new MeResponse(
-                    user.getId(),
-                    user.getUsername(),
-                    user.getDisplayName(),
-                    user.getEmail(),
-                    user.getMobile(),
-                    user.getRole().name(),
-                    user.getStatus(),
-                    permissions,
-                    user.getLastLoginAt()
-            );
-        }
+        
     }
 
     public record MobileTokenResponse(
@@ -160,3 +139,4 @@ public final class AuthDtos {
     ) {
     }
 }
+

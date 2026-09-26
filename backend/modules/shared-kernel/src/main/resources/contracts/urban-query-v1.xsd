@@ -1,17 +1,45 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema"
  targetNamespace="https://sakhtyar.ir/contracts/urban/v1"
- xmlns="https://sakhtyar.ir/contracts/urban/v1" elementFormDefault="qualified">
+ xmlns:u="https://sakhtyar.ir/contracts/urban/v1"
+ elementFormDefault="qualified">
+
+ <xs:simpleType name="IntentType">
+  <xs:restriction base="xs:string">
+   <xs:enumeration value="FEASIBILITY_ESTIMATE"/>
+   <xs:enumeration value="REGULATION_SEARCH"/>
+   <xs:enumeration value="EXPLAIN_FEASIBILITY"/>
+   <xs:enumeration value="PROPERTY_SIMULATION"/>
+  </xs:restriction>
+ </xs:simpleType>
+
  <xs:element name="UrbanQuery">
   <xs:complexType>
    <xs:sequence>
-    <xs:element name="Intent" type="xs:string"/>
-    <xs:element name="Language" type="xs:string" minOccurs="0"/>
+    <xs:element name="Intent" type="u:IntentType"/>
+    <xs:element name="Language" type="xs:language"/>
     <xs:element name="CaseId" type="xs:string" minOccurs="0"/>
     <xs:element name="PropertyId" type="xs:string" minOccurs="0"/>
-    <xs:element name="PayloadXml" type="xs:string" minOccurs="0"/>
+    <xs:element name="Property" minOccurs="0">
+     <xs:complexType>
+      <xs:sequence>
+       <xs:element name="LandAreaM2" type="xs:decimal" minOccurs="0"/>
+       <xs:element name="FrontageM" type="xs:decimal" minOccurs="0"/>
+       <xs:element name="PassageWidthM" type="xs:decimal" minOccurs="0"/>
+       <xs:element name="ZoneCode" type="xs:string" minOccurs="0"/>
+      </xs:sequence>
+     </xs:complexType>
+    </xs:element>
+    <xs:element name="RequestedOutputs" minOccurs="0">
+     <xs:complexType>
+      <xs:sequence>
+       <xs:element name="Output" type="xs:string" minOccurs="1" maxOccurs="unbounded"/>
+      </xs:sequence>
+     </xs:complexType>
+    </xs:element>
+    <xs:element name="Confidence" type="xs:decimal" minOccurs="0"/>
    </xs:sequence>
-   <xs:attribute name="version" type="xs:string" use="required"/>
+   <xs:attribute name="version" type="xs:string" use="required" fixed="1.0"/>
   </xs:complexType>
  </xs:element>
 </xs:schema>
