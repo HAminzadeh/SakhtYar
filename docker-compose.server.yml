@@ -60,6 +60,7 @@ services:
       APP_JWT_EXPIRATION_MINUTES: ${APP_JWT_EXPIRATION_MINUTES}
 
       CORS_ALLOWED_ORIGINS: https://${SAKHTYAR_DOMAIN}
+      OTEL_EXPORTER_OTLP_TRACES_ENDPOINT: http://tempo:4318/v1/traces
     expose:
       - "8080"
     depends_on:
@@ -72,6 +73,7 @@ services:
     networks:
       - app
       - data
+      - monitor
 
   worker:
     build:
@@ -309,9 +311,48 @@ services:
       GF_SECURITY_ADMIN_PASSWORD: ${GRAFANA_ADMIN_PASSWORD}
     volumes:
       - sakhtyar_grafana_data:/var/lib/grafana
+      - ./deploy/observability/grafana/provisioning:/etc/grafana/provisioning:ro
     networks:
       - monitor
 
+  tempo:
+    image: grafana/tempo:latest
+    container_name: sakhtyar-tempo
+    restart: unless-stopped
+    profiles: ["observability"]
+    command: ["-config.file=/etc/tempo.yml"]
+    volumes:
+      - ./deploy/observability/tempo.yml:/etc/tempo.yml:ro
+      - sakhtyar_tempo_data:/var/tempo
+    networks:
+      - monitor
+      - app
+
+  loki:
+    image: grafana/loki:latest
+    container_name: sakhtyar-loki
+    restart: unless-stopped
+    profiles: ["observability"]
+    command: ["-config.file=/etc/loki/local-config.yaml"]
+    volumes:
+      - ./deploy/observability/loki.yml:/etc/loki/local-config.yaml:ro
+      - sakhtyar_loki_data:/loki
+    networks:
+      - monitor
+
+  alloy:
+    image: grafana/alloy:latest
+    container_name: sakhtyar-alloy
+    restart: unless-stopped
+    profiles: ["observability"]
+    command: ["run", "/etc/alloy/config.alloy"]
+    volumes:
+      - ./deploy/observability/alloy.alloy:/etc/alloy/config.alloy:ro
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+    depends_on:
+      - loki
+    networks:
+      - monitor
   node-exporter:
     image: prom/node-exporter:latest
     container_name: sakhtyar-node-exporter
@@ -343,3 +384,5 @@ volumes:
   sakhtyar_ollama_data:
   sakhtyar_prometheus_data:
   sakhtyar_grafana_data:
+  sakhtyar_tempo_data:
+  sakhtyar_loki_data:
