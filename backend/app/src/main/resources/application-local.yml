@@ -3,3 +3,7 @@ app:
     neshan:
       enabled: true
       service-api-key: service.f3e62ceeb93f4280bb58df28cffbbedf
+
+  bootstrap-admin:
+    reset-password-on-startup: ${APP_BOOTSTRAP_ADMIN_RESET_PASSWORD_ON_STARTUP:true}
+

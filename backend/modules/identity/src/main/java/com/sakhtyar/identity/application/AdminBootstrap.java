@@ -24,6 +24,7 @@ public class AdminBootstrap implements ApplicationRunner {
     private final String username;
     private final String password;
     private final String displayName;
+    private final boolean resetPasswordOnStartup;
 
     public AdminBootstrap(
             UserRepository repository,
@@ -31,7 +32,8 @@ public class AdminBootstrap implements ApplicationRunner {
             AuditService auditService,
             @Value("${app.bootstrap-admin.username}") String username,
             @Value("${app.bootstrap-admin.password}") String password,
-            @Value("${app.bootstrap-admin.display-name}") String displayName
+            @Value("${app.bootstrap-admin.display-name}") String displayName,
+            @Value("${app.bootstrap-admin.reset-password-on-startup:false}") boolean resetPasswordOnStartup
     ) {
         this.repository = repository;
         this.passwordEncoder = passwordEncoder;
@@ -39,12 +41,17 @@ public class AdminBootstrap implements ApplicationRunner {
         this.username = username;
         this.password = password;
         this.displayName = displayName;
+        this.resetPasswordOnStartup = resetPasswordOnStartup;
     }
 
     @Override
     @Transactional
     public void run(ApplicationArguments args) {
-        if (repository.existsByUsernameIgnoreCase(username)) {
+        UserEntity existingAdmin =
+                repository.findByUsernameIgnoreCase(username).orElse(null);
+
+        if (existingAdmin != null) {
+            resetExistingAdminPasswordIfRequested(existingAdmin);
             return;
         }
 
@@ -67,6 +74,28 @@ public class AdminBootstrap implements ApplicationRunner {
                 "USER",
                 admin.getId(),
                 "BOOTSTRAP_ADMIN_CREATED",
+                "system",
+                Map.of("username", admin.getUsername())
+        );
+    }
+
+    private void resetExistingAdminPasswordIfRequested(UserEntity admin) {
+        if (!resetPasswordOnStartup) {
+            return;
+        }
+
+        if (passwordEncoder.matches(password, admin.getPasswordHash())) {
+            return;
+        }
+
+        Instant now = Instant.now();
+        admin.changePassword(passwordEncoder.encode(password), now);
+        repository.save(admin);
+
+        auditService.recordAs(
+                "USER",
+                admin.getId(),
+                "BOOTSTRAP_ADMIN_PASSWORD_RESET",
                 "system",
                 Map.of("username", admin.getUsername())
         );
