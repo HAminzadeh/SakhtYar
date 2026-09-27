@@ -313,6 +313,7 @@ services:
       - sakhtyar_grafana_data:/var/lib/grafana
       - ./deploy/observability/grafana/provisioning:/etc/grafana/provisioning:ro
     networks:
+      - app
       - monitor
 
   tempo:

@@ -3,6 +3,15 @@ discovery.docker "containers" {
 }
 discovery.relabel "containers" {
   targets = discovery.docker.containers.targets
+
+  // Keep only SakhtYar containers. Docker container names include a leading "/".
+  rule {
+    source_labels = ["__meta_docker_container_name"]
+    regex = "/sakhtyar-.*"
+    action = "keep"
+  }
+
+  // Expose the container name as a Loki label without the leading "/".
   rule {
     source_labels = ["__meta_docker_container_name"]
     regex = "/(.*)"
