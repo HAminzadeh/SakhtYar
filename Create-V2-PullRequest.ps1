@@ -297,7 +297,30 @@ Write-Host "Command:" -ForegroundColor DarkGray
 Write-Host "$MavenCommand clean verify" -ForegroundColor Gray
 Write-Host ""
 
-& $MavenCommand clean verify
+$BackendPath = Join-Path $RepoRoot "backend"
+
+if (-not (Test-Path (Join-Path $BackendPath "pom.xml"))) {
+    Stop-Script "فایل backend\pom.xml پیدا نشد."
+}
+
+Push-Location $BackendPath
+
+try {
+    & $MavenCommand clean verify
+
+    if ($LASTEXITCODE -ne 0) {
+        Stop-Script @"
+Build یا Test پروژه شکست خورد.
+
+Pull Request ساخته نشد.
+
+ابتدا Errorهای Maven را رفع کن و سپس اسکریپت را دوباره اجرا کن.
+"@
+    }
+}
+finally {
+    Pop-Location
+}
 
 if ($LASTEXITCODE -ne 0) {
     Stop-Script @"
