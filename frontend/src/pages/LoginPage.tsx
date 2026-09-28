@@ -1,5 +1,6 @@
+import { ConstructionRoundedIcon } from '../ui/antdIcons'
 import { zodResolver } from '@hookform/resolvers/zod'
-import ConstructionRoundedIcon from '@mui/icons-material/ConstructionRounded'
+
 import {
   Alert,
   Box,
@@ -9,7 +10,7 @@ import {
   Stack,
   TextField,
   Typography,
-} from '@mui/material'
+} from '../ui/antdCompat'
 import { useState } from 'react'
 import { useForm } from 'react-hook-form'
 import { Link, Navigate, useNavigate } from 'react-router-dom'

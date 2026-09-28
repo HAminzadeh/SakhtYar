@@ -1,7 +1,4 @@
-import LocationOnRoundedIcon from '@mui/icons-material/LocationOnRounded'
-import MyLocationRoundedIcon from '@mui/icons-material/MyLocationRounded'
-import SaveRoundedIcon from '@mui/icons-material/SaveRounded'
-import SearchRoundedIcon from '@mui/icons-material/SearchRounded'
+import { LocationOnRoundedIcon, MyLocationRoundedIcon, SaveRoundedIcon, SearchRoundedIcon } from '../../ui/antdIcons'
 import {
   Alert,
   Box,
@@ -17,7 +14,7 @@ import {
   Stack,
   TextField,
   Typography,
-} from '@mui/material'
+} from '../../ui/antdCompat'
 import maplibregl from '@neshan-maps-platform/maplibre-sdk'
 import '@neshan-maps-platform/maplibre-sdk/style.css'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'

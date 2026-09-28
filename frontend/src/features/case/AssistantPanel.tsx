@@ -1,7 +1,4 @@
-import CheckRoundedIcon from '@mui/icons-material/CheckRounded'
-import PsychologyRoundedIcon from '@mui/icons-material/PsychologyRounded'
-import SaveRoundedIcon from '@mui/icons-material/SaveRounded'
-import SendRoundedIcon from '@mui/icons-material/SendRounded'
+import { CheckRoundedIcon, PsychologyRoundedIcon, SaveRoundedIcon, SendRoundedIcon } from '../../ui/antdIcons'
 import {
   Alert,
   Box,
@@ -14,7 +11,7 @@ import {
   Stack,
   TextField,
   Typography,
-} from '@mui/material'
+} from '../../ui/antdCompat'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { useMemo, useState } from 'react'
 import { api } from '../../api/client'

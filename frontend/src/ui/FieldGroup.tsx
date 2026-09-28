@@ -1,4 +1,4 @@
-import { Box, Divider, Stack, Typography } from '@mui/material'
+import { Box, Divider, Stack, Typography } from '../ui/antdCompat'
 import type { ReactNode } from 'react'
 
 export function FieldGroup({

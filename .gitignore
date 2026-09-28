@@ -57,3 +57,5 @@ Thumbs.db.env.observability.local
 sakhtyar-running-app.jar
 jar-check/
 .env.observability.local
+
+/.local/docker-images/

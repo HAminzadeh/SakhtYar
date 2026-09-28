@@ -1,4 +1,4 @@
-import CloudUploadRoundedIcon from '@mui/icons-material/CloudUploadRounded'
+import { CloudUploadRoundedIcon } from '../../ui/antdIcons'
 import {
   Alert,
   Button,
@@ -10,7 +10,7 @@ import {
   ListItemText,
   Stack,
   Typography,
-} from '@mui/material'
+} from '../../ui/antdCompat'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { type ChangeEvent } from 'react'
 import { api } from '../../api/client'

@@ -1,5 +1,6 @@
+import { HowToRegRoundedIcon } from '../ui/antdIcons'
 import { zodResolver } from '@hookform/resolvers/zod'
-import HowToRegRoundedIcon from '@mui/icons-material/HowToRegRounded'
+
 import {
   Alert,
   Box,
@@ -9,7 +10,7 @@ import {
   Stack,
   TextField,
   Typography,
-} from '@mui/material'
+} from '../ui/antdCompat'
 import { useState } from 'react'
 import { useForm } from 'react-hook-form'
 import { Link, Navigate } from 'react-router-dom'

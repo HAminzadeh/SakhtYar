@@ -1,8 +1,4 @@
-import ApartmentRoundedIcon from '@mui/icons-material/ApartmentRounded'
-import DescriptionRoundedIcon from '@mui/icons-material/DescriptionRounded'
-import LocationOnRoundedIcon from '@mui/icons-material/LocationOnRounded'
-import SaveRoundedIcon from '@mui/icons-material/SaveRounded'
-import StraightenRoundedIcon from '@mui/icons-material/StraightenRounded'
+import { ApartmentRoundedIcon, DescriptionRoundedIcon, LocationOnRoundedIcon, SaveRoundedIcon, StraightenRoundedIcon } from '../../ui/antdIcons'
 import {
   Alert,
   Box,
@@ -12,7 +8,7 @@ import {
   Stack,
   TextField,
   Typography,
-} from '@mui/material'
+} from '../../ui/antdCompat'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { useEffect, useState } from 'react'
 import { ApiError, api } from '../../api/client'

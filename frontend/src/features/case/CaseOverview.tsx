@@ -1,7 +1,4 @@
-import DescriptionRoundedIcon from '@mui/icons-material/DescriptionRounded'
-import GroupsRoundedIcon from '@mui/icons-material/GroupsRounded'
-import HomeWorkRoundedIcon from '@mui/icons-material/HomeWorkRounded'
-import PercentRoundedIcon from '@mui/icons-material/PercentRounded'
+import { DescriptionRoundedIcon, GroupsRoundedIcon, HomeWorkRoundedIcon, PercentRoundedIcon } from '../../ui/antdIcons'
 import {
   Alert,
   Box,
@@ -10,7 +7,7 @@ import {
   Grid,
   Stack,
   Typography,
-} from '@mui/material'
+} from '../../ui/antdCompat'
 import { useQuery } from '@tanstack/react-query'
 import type { ReactNode } from 'react'
 import { ApiError, api } from '../../api/client'

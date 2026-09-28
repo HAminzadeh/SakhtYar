@@ -1,9 +1,40 @@
+spring:
+  config:
+    import: optional:file:./.env.observability.local[.properties]
+
+  docker:
+    compose:
+      enabled: false
+
+  datasource:
+    url: jdbc:postgresql://localhost:5432/${POSTGRES_DB:sakhtyar}
+    username: ${POSTGRES_USER:sakhtyar}
+    password: ${POSTGRES_PASSWORD:change-me-postgres}
+
+  data:
+    redis:
+      host: localhost
+      port: 6379
+      password: ${REDIS_PASSWORD:}
+
+management:
+  opentelemetry:
+    tracing:
+      export:
+        otlp:
+          endpoint: http://localhost:4318/v1/traces
+
 app:
+  storage:
+    endpoint: http://localhost:9000
+    access-key: ${MINIO_ROOT_USER:sakhtyar}
+    secret-key: ${MINIO_ROOT_PASSWORD:change-me-minio}
+    bucket: ${MINIO_BUCKET:sakhtyar-documents}
+
   integrations:
     neshan:
-      enabled: true
-      service-api-key: service.f3e62ceeb93f4280bb58df28cffbbedf
+      enabled: ${NESHAN_ENABLED:true}
+      service-api-key: ${NESHAN_SERVICE_API_KEY:}
 
   bootstrap-admin:
     reset-password-on-startup: ${APP_BOOTSTRAP_ADMIN_RESET_PASSWORD_ON_STARTUP:true}
-

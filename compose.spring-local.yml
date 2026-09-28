@@ -1,0 +1,162 @@
+name: sakhtyar-local
+
+services:
+  db:
+    build:
+      context: ./deploy/postgres
+    restart: unless-stopped
+    env_file:
+      - ./.env.observability.local
+    ports:
+      - "5432:5432"
+    volumes:
+      - sakhtyar_pg_data:/var/lib/postgresql/data
+    shm_size: 1gb
+    command:
+      - postgres
+      - -c
+      - shared_buffers=4GB
+      - -c
+      - effective_cache_size=12GB
+      - -c
+      - work_mem=32MB
+      - -c
+      - maintenance_work_mem=1GB
+      - -c
+      - max_connections=200
+      - -c
+      - checkpoint_completion_target=0.9
+      - -c
+      - wal_compression=on
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U \"$$POSTGRES_USER\" -d \"$$POSTGRES_DB\""]
+      interval: 3s
+      timeout: 5s
+      retries: 40
+
+  redis:
+    image: redis:7.4-alpine
+    restart: unless-stopped
+    env_file:
+      - ./.env.observability.local
+    ports:
+      - "6379:6379"
+    command:
+      - sh
+      - -c
+      - exec redis-server --appendonly yes --requirepass "$$REDIS_PASSWORD" --maxmemory 2gb --maxmemory-policy allkeys-lru
+    volumes:
+      - sakhtyar_redis_data:/data
+    healthcheck:
+      test: ["CMD-SHELL", "redis-cli -a \"$$REDIS_PASSWORD\" ping | grep PONG"]
+      interval: 3s
+      timeout: 3s
+      retries: 40
+
+  minio:
+    image: sakhtyar/minio-community:known-good-local
+    pull_policy: never
+    restart: unless-stopped
+    env_file:
+      - ./.env.observability.local
+    ports:
+      - "9000:9000"
+      - "9001:9001"
+    volumes:
+      - sakhtyar_minio_data:/data
+    command: ["server", "/data", "--console-address", ":9001"]
+  frontend:
+    image: node:24-alpine
+    restart: unless-stopped
+    working_dir: /workspace
+    ports:
+      - "5173:5173"
+    volumes:
+      - ./frontend:/workspace
+      - sakhtyar_frontend_node_modules:/workspace/node_modules
+    command:
+      - sh
+      - -c
+      - npm install && npm run dev -- --host 0.0.0.0 --port 5173
+    healthcheck:
+      test: ["CMD-SHELL", "wget -q -O /dev/null http://127.0.0.1:5173/ || exit 1"]
+      interval: 3s
+      timeout: 3s
+      retries: 80
+
+  prometheus:
+    image: prom/prometheus:latest
+    restart: unless-stopped
+    ports:
+      - "9090:9090"
+    volumes:
+      - ./deploy/prometheus/prometheus-local.yml:/etc/prometheus/prometheus.yml:ro
+      - sakhtyar_prometheus_data:/prometheus
+
+  grafana:
+    image: grafana/grafana-oss:latest
+    restart: unless-stopped
+    env_file:
+      - ./.env.observability.local
+    ports:
+      - "13001:3000"
+    volumes:
+      - sakhtyar_grafana_data:/var/lib/grafana
+      - ./deploy/observability/grafana/provisioning:/etc/grafana/provisioning:ro
+    depends_on:
+      prometheus:
+        condition: service_started
+      loki:
+        condition: service_started
+      tempo:
+        condition: service_started
+
+  tempo:
+    image: grafana/tempo:latest
+    restart: unless-stopped
+    command: ["-config.file=/etc/tempo.yml"]
+    ports:
+      - "3200:3200"
+      - "4318:4318"
+    volumes:
+      - ./deploy/observability/tempo.yml:/etc/tempo.yml:ro
+      - sakhtyar_tempo_data:/var/tempo
+
+  loki:
+    image: grafana/loki:latest
+    restart: unless-stopped
+    command: ["-config.file=/etc/loki/local-config.yaml"]
+    ports:
+      - "3100:3100"
+    volumes:
+      - ./deploy/observability/loki.yml:/etc/loki/local-config.yaml:ro
+      - sakhtyar_loki_data:/loki
+
+  alloy:
+    image: grafana/alloy:latest
+    restart: unless-stopped
+    command: ["run", "/etc/alloy/config.alloy"]
+    volumes:
+      - ./deploy/observability/alloy.alloy:/etc/alloy/config.alloy:ro
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+    depends_on:
+      loki:
+        condition: service_started
+
+volumes:
+  sakhtyar_pg_data:
+    name: source_sakhtyar_pg_data
+  sakhtyar_redis_data:
+    name: source_sakhtyar_redis_data
+  sakhtyar_minio_data:
+    name: source_sakhtyar_minio_data
+  sakhtyar_frontend_node_modules:
+    name: source_sakhtyar_frontend_node_modules
+  sakhtyar_prometheus_data:
+    name: source_sakhtyar_prometheus_data
+  sakhtyar_grafana_data:
+    name: source_sakhtyar_grafana_data
+  sakhtyar_tempo_data:
+    name: source_sakhtyar_tempo_data
+  sakhtyar_loki_data:
+    name: source_sakhtyar_loki_data

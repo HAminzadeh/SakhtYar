@@ -1,9 +1,4 @@
-import ArticleRoundedIcon from '@mui/icons-material/ArticleRounded'
-import GroupsRoundedIcon from '@mui/icons-material/GroupsRounded'
-import HomeWorkRoundedIcon from '@mui/icons-material/HomeWorkRounded'
-import MapRoundedIcon from '@mui/icons-material/MapRounded'
-import PsychologyRoundedIcon from '@mui/icons-material/PsychologyRounded'
-import SpaceDashboardRoundedIcon from '@mui/icons-material/SpaceDashboardRounded'
+import { ArticleRoundedIcon, GroupsRoundedIcon, HomeWorkRoundedIcon, MapRoundedIcon, PsychologyRoundedIcon, SpaceDashboardRoundedIcon } from '../ui/antdIcons'
 import {
   Alert,
   Box,
@@ -14,7 +9,7 @@ import {
   Tab,
   Tabs,
   Typography,
-} from '@mui/material'
+} from '../ui/antdCompat'
 import { useQuery } from '@tanstack/react-query'
 import { useState } from 'react'
 import type { ReactNode } from 'react'

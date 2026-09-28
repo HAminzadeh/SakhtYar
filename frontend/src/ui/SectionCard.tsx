@@ -4,7 +4,7 @@ import {
   CardContent,
   Stack,
   Typography,
-} from '@mui/material'
+} from '../ui/antdCompat'
 import type { ReactNode } from 'react'
 
 export function SectionCard({

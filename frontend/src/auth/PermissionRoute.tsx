@@ -1,4 +1,4 @@
-import { Alert, Stack } from '@mui/material'
+import { Alert, Stack } from '../ui/antdCompat'
 import { Navigate, Outlet } from 'react-router-dom'
 import type { Permission } from '../api/types'
 import { useAuth } from './AuthProvider'
