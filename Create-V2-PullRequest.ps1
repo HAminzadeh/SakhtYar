@@ -341,16 +341,18 @@ Write-OK "Maven Build و Testها با موفقیت تمام شدند."
 
 Write-Step "8/11 - بررسی Frontend و Configurationها"
 
-$PackageFiles = Get-ChildItem `
-    -Path $RepoRoot `
-    -Filter "package.json" `
-    -File `
-    -Recurse `
-    -ErrorAction SilentlyContinue |
-    Where-Object {
-        $_.FullName -notmatch "\\node_modules\\" -and
-        $_.FullName -notmatch "\\target\\"
-    }
+$PackageFiles = @(
+    Get-ChildItem `
+        -Path $RepoRoot `
+        -Filter "package.json" `
+        -File `
+        -Recurse `
+        -ErrorAction SilentlyContinue |
+        Where-Object {
+            $_.FullName -notmatch "\\node_modules\\" -and
+            $_.FullName -notmatch "\\target\\"
+        }
+)
 
 if ($PackageFiles.Count -gt 0) {
 
