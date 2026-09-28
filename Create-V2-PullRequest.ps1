@@ -34,7 +34,7 @@ $ErrorActionPreference = "Stop"
 # Configuration
 # ---------------------------------------------------------
 
-$SourceBranch = "V2"
+$SourceBranch = "v2"
 $TargetBranch = "main"
 
 $PrTitle = "Merge V2 into main - ادغام نسخه توسعه‌یافته SakhtYar با Branch اصلی"
