@@ -1,6 +1,4 @@
-import AddRoundedIcon from '@mui/icons-material/AddRounded'
-import DeleteOutlineRoundedIcon from '@mui/icons-material/DeleteOutlineRounded'
-import EditRoundedIcon from '@mui/icons-material/EditRounded'
+import { AddRoundedIcon, DeleteOutlineRoundedIcon, EditRoundedIcon } from '../../ui/antdIcons'
 import {
   Alert,
   Box,
@@ -26,7 +24,7 @@ import {
   TextField,
   Tooltip,
   Typography,
-} from '@mui/material'
+} from '../../ui/antdCompat'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { useMemo, useState } from 'react'
 import { ApiError, api } from '../../api/client'

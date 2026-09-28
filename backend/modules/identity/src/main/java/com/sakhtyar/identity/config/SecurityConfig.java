@@ -110,7 +110,9 @@ public class SecurityConfig {
                         .requestMatchers(
                                 "/api/v1/health",
                                 "/actuator/health",
-                                "/actuator/info"
+                                "/actuator/health/**",
+                                "/actuator/info",
+                                "/actuator/prometheus"
                         ).permitAll()
 
                         .requestMatchers(
@@ -230,3 +232,4 @@ public class SecurityConfig {
         return http.build();
     }
 }
+

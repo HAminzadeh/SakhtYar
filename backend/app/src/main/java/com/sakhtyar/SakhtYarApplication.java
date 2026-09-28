@@ -1,5 +1,6 @@
 package com.sakhtyar;
 
+import com.sakhtyar.bootstrap.LocalInfrastructureInitializer;
 import org.springframework.boot.SpringApplication;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
 
@@ -7,6 +8,8 @@ import org.springframework.boot.autoconfigure.SpringBootApplication;
 public class SakhtYarApplication {
 
     public static void main(String[] args) {
-        SpringApplication.run(SakhtYarApplication.class, args);
+        SpringApplication application = new SpringApplication(SakhtYarApplication.class);
+        application.addInitializers(new LocalInfrastructureInitializer());
+        application.run(args);
     }
 }

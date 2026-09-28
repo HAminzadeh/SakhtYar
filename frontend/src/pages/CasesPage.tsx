@@ -1,7 +1,4 @@
-import AddRoundedIcon from '@mui/icons-material/AddRounded'
-import ArrowBackRoundedIcon from '@mui/icons-material/ArrowBackRounded'
-import LocationOnRoundedIcon from '@mui/icons-material/LocationOnRounded'
-import SquareFootRoundedIcon from '@mui/icons-material/SquareFootRounded'
+import { AddRoundedIcon, ArrowBackRoundedIcon, LocationOnRoundedIcon, SquareFootRoundedIcon } from '../ui/antdIcons'
 import {
   Alert,
   Box,
@@ -18,7 +15,7 @@ import {
   Stack,
   TextField,
   Typography,
-} from '@mui/material'
+} from '../ui/antdCompat'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'

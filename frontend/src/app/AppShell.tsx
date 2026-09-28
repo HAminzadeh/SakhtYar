@@ -1,8 +1,4 @@
-import AdminPanelSettingsRoundedIcon from '@mui/icons-material/AdminPanelSettingsRounded'
-import ConstructionRoundedIcon from '@mui/icons-material/ConstructionRounded'
-import FolderRoundedIcon from '@mui/icons-material/FolderRounded'
-import LogoutRoundedIcon from '@mui/icons-material/LogoutRounded'
-import PersonRoundedIcon from '@mui/icons-material/PersonRounded'
+import { AdminPanelSettingsRoundedIcon, ConstructionRoundedIcon, FolderRoundedIcon, LogoutRoundedIcon, PersonRoundedIcon } from '../ui/antdIcons'
 import {
   AppBar,
   Avatar,
@@ -16,7 +12,7 @@ import {
   Typography,
   useMediaQuery,
   useTheme,
-} from '@mui/material'
+} from '../ui/antdCompat'
 import { Link, Outlet, useLocation, useNavigate } from 'react-router-dom'
 import { useAuth } from '../auth/AuthProvider'
 

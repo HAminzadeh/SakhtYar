@@ -1,7 +1,5 @@
 package com.sakhtyar.auth.api;
 
-import com.sakhtyar.identity.domain.Permission;
-import com.sakhtyar.identity.domain.UserEntity;
 import com.sakhtyar.identity.domain.UserRole;
 import com.sakhtyar.identity.domain.UserStatus;
 import jakarta.validation.constraints.Email;
@@ -12,7 +10,6 @@ import jakarta.validation.constraints.Size;
 import java.time.Instant;
 import java.util.Set;
 import java.util.UUID;
-import java.util.stream.Collectors;
 
 public final class UserAdminDtos {
 
@@ -86,29 +83,7 @@ public final class UserAdminDtos {
             Instant createdAt,
             Instant updatedAt
     ) {
-        public static UserResponse from(UserEntity user) {
-            Set<String> permissions = user.getRole()
-                    .permissions()
-                    .stream()
-                    .map(Permission::name)
-                    .collect(Collectors.toUnmodifiableSet());
-
-            return new UserResponse(
-                    user.getId(),
-                    user.getUsername(),
-                    user.getDisplayName(),
-                    user.getEmail(),
-                    user.getMobile(),
-                    user.getRole(),
-                    user.getStatus(),
-                    permissions,
-                    user.getFailedLoginAttempts(),
-                    user.getLockedUntil(),
-                    user.getLastLoginAt(),
-                    user.getPasswordChangedAt(),
-                    user.getCreatedAt(),
-                    user.getUpdatedAt()
-            );
-        }
+        
     }
 }
+

@@ -1,4 +1,4 @@
-import { Grid } from '@mui/material'
+import { Grid } from '../ui/antdCompat'
 import type { ReactNode } from 'react'
 
 export function ResponsiveFieldGrid({

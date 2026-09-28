@@ -43,6 +43,7 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.ResponseStatus;
 import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.server.ResponseStatusException;
+import com.sakhtyar.identity.mapper.UserMapper;
 
 @RestController
 @RequestMapping("/api/v1/auth")
@@ -53,6 +54,7 @@ public class AuthController {
     private final JwtService jwtService;
     private final boolean secureCookies;
     private final String sameSite;
+    private final UserMapper userMapper;
 
     public AuthController(
             AuthService authService,
@@ -61,8 +63,9 @@ public class AuthController {
             @Value("${app.security.cookies.secure:false}")
             boolean secureCookies,
             @Value("${app.security.cookies.same-site:Strict}")
-            String sameSite
-    ) {
+            String sameSite,
+            UserMapper userMapper) {
+        this.userMapper = userMapper;
         this.authService = authService;
         this.sessionService = sessionService;
         this.jwtService = jwtService;
@@ -106,7 +109,7 @@ public class AuthController {
         );
 
         issueWebCookies(user, session, response);
-        return MeResponse.from(user);
+        return userMapper.toMeResponse(user);
     }
 
     @PostMapping("/refresh")
@@ -140,7 +143,7 @@ public class AuthController {
 
     @GetMapping("/me")
     public MeResponse me(Authentication authentication) {
-        return MeResponse.from(
+        return userMapper.toMeResponse(
                 authService.requireByUsername(authentication.getName())
         );
     }
@@ -150,7 +153,7 @@ public class AuthController {
             Authentication authentication,
             @Valid @RequestBody ProfileUpdateRequest request
     ) {
-        return MeResponse.from(
+        return userMapper.toMeResponse(
                 authService.updateProfile(
                         authentication.getName(),
                         request
@@ -406,7 +409,7 @@ public class AuthController {
                 jwtService.accessExpirationSeconds(),
                 session.refreshToken(),
                 session.session().getExpiresAt(),
-                MeResponse.from(user)
+                userMapper.toMeResponse(user)
         );
     }
 
@@ -420,7 +423,7 @@ public class AuthController {
                 jwtService.accessExpirationSeconds(),
                 session.refreshToken(),
                 session.session().getExpiresAt(),
-                MeResponse.from(user)
+                userMapper.toMeResponse(user)
         );
     }
 

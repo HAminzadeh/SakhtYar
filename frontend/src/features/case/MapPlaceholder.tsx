@@ -1,11 +1,11 @@
-import LocationOnRoundedIcon from '@mui/icons-material/LocationOnRounded'
+import { LocationOnRoundedIcon } from '../../ui/antdIcons'
 import {
   Box,
   Card,
   CardContent,
   Stack,
   Typography,
-} from '@mui/material'
+} from '../../ui/antdCompat'
 
 export function MapPlaceholder() {
   return (

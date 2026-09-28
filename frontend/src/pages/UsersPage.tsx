@@ -1,6 +1,4 @@
-import AddRoundedIcon from '@mui/icons-material/AddRounded'
-import LockResetRoundedIcon from '@mui/icons-material/LockResetRounded'
-import ManageAccountsRoundedIcon from '@mui/icons-material/ManageAccountsRounded'
+import { AddRoundedIcon, LockResetRoundedIcon, ManageAccountsRoundedIcon } from '../ui/antdIcons'
 import {
   Alert,
   Button,
@@ -16,7 +14,7 @@ import {
   Stack,
   TextField,
   Typography,
-} from '@mui/material'
+} from '../ui/antdCompat'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { useState } from 'react'
 import { api } from '../api/client'

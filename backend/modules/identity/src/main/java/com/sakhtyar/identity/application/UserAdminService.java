@@ -8,6 +8,7 @@ import com.sakhtyar.identity.domain.UserEntity;
 import com.sakhtyar.identity.domain.UserRepository;
 import com.sakhtyar.identity.domain.UserRole;
 import com.sakhtyar.identity.domain.UserStatus;
+import com.sakhtyar.identity.mapper.UserMapper;
 import java.time.Instant;
 import java.util.List;
 import java.util.Map;
@@ -22,6 +23,7 @@ import org.springframework.web.server.ResponseStatusException;
 public class UserAdminService {
 
     private final UserRepository repository;
+    private final UserMapper userMapper;
     private final PasswordEncoder passwordEncoder;
     private final PasswordPolicy passwordPolicy;
     private final AuthSessionService sessionService;
@@ -29,12 +31,14 @@ public class UserAdminService {
 
     public UserAdminService(
             UserRepository repository,
+            UserMapper userMapper,
             PasswordEncoder passwordEncoder,
             PasswordPolicy passwordPolicy,
             AuthSessionService sessionService,
             AuditService auditService
     ) {
         this.repository = repository;
+        this.userMapper = userMapper;
         this.passwordEncoder = passwordEncoder;
         this.passwordPolicy = passwordPolicy;
         this.sessionService = sessionService;
@@ -45,7 +49,7 @@ public class UserAdminService {
     public List<UserResponse> list() {
         return repository.findAllByOrderByCreatedAtDesc()
                 .stream()
-                .map(UserResponse::from)
+                .map(userMapper::toUserResponse)
                 .toList();
     }
 
@@ -57,14 +61,14 @@ public class UserAdminService {
         if (repository.existsByUsernameIgnoreCase(username)) {
             throw new ResponseStatusException(
                     HttpStatus.CONFLICT,
-                    "این نام کاربری قبلاً وجود دارد."
+                    "Ø§ÛŒÙ† Ù†Ø§Ù… Ú©Ø§Ø±Ø¨Ø±ÛŒ Ù‚Ø¨Ù„Ø§Ù‹ ÙˆØ¬ÙˆØ¯ Ø¯Ø§Ø±Ø¯."
             );
         }
 
         if (email != null && repository.existsByEmailIgnoreCase(email)) {
             throw new ResponseStatusException(
                     HttpStatus.CONFLICT,
-                    "این ایمیل قبلاً وجود دارد."
+                    "Ø§ÛŒÙ† Ø§ÛŒÙ…ÛŒÙ„ Ù‚Ø¨Ù„Ø§Ù‹ ÙˆØ¬ÙˆØ¯ Ø¯Ø§Ø±Ø¯."
             );
         }
 
@@ -94,7 +98,7 @@ public class UserAdminService {
                 )
         );
 
-        return UserResponse.from(user);
+        return userMapper.toUserResponse(user);
     }
 
     @Transactional
@@ -112,7 +116,7 @@ public class UserAdminService {
                     .ifPresent(existing -> {
                         throw new ResponseStatusException(
                                 HttpStatus.CONFLICT,
-                                "این ایمیل قبلاً استفاده شده است."
+                                "Ø§ÛŒÙ† Ø§ÛŒÙ…ÛŒÙ„ Ù‚Ø¨Ù„Ø§Ù‹ Ø§Ø³ØªÙØ§Ø¯Ù‡ Ø´Ø¯Ù‡ Ø§Ø³Øª."
                         );
                     });
         }
@@ -123,7 +127,7 @@ public class UserAdminService {
                 && request.status() != UserStatus.ACTIVE) {
             throw new ResponseStatusException(
                     HttpStatus.BAD_REQUEST,
-                    "نمی‌توانید حساب فعلی خودتان را غیرفعال کنید."
+                    "Ù†Ù…ÛŒâ€ŒØªÙˆØ§Ù†ÛŒØ¯ Ø­Ø³Ø§Ø¨ ÙØ¹Ù„ÛŒ Ø®ÙˆØ¯ØªØ§Ù† Ø±Ø§ ØºÛŒØ±ÙØ¹Ø§Ù„ Ú©Ù†ÛŒØ¯."
             );
         }
 
@@ -150,7 +154,7 @@ public class UserAdminService {
                 )
         );
 
-        return UserResponse.from(user);
+        return userMapper.toUserResponse(user);
     }
 
     @Transactional
@@ -208,7 +212,7 @@ public class UserAdminService {
                 ) <= 1) {
             throw new ResponseStatusException(
                     HttpStatus.BAD_REQUEST,
-                    "حداقل یک مدیر فعال باید در سیستم باقی بماند."
+                    "Ø­Ø¯Ø§Ù‚Ù„ ÛŒÚ© Ù…Ø¯ÛŒØ± ÙØ¹Ø§Ù„ Ø¨Ø§ÛŒØ¯ Ø¯Ø± Ø³ÛŒØ³ØªÙ… Ø¨Ø§Ù‚ÛŒ Ø¨Ù…Ø§Ù†Ø¯."
             );
         }
     }
@@ -217,7 +221,7 @@ public class UserAdminService {
         return repository.findById(userId)
                 .orElseThrow(() -> new ResponseStatusException(
                         HttpStatus.NOT_FOUND,
-                        "کاربر پیدا نشد."
+                        "Ú©Ø§Ø±Ø¨Ø± Ù¾ÛŒØ¯Ø§ Ù†Ø´Ø¯."
                 ));
     }
 
@@ -227,3 +231,4 @@ public class UserAdminService {
         return trimmed.isEmpty() ? null : trimmed;
     }
 }
+
