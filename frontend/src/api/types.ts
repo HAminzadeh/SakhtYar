@@ -71,7 +71,15 @@ export type RegistrationResponse = {
   message: string
 }
 
-export type CaseStatus = 'DRAFT' | 'ACTIVE' | 'ARCHIVED'
+export type CaseStatus =
+  | 'DRAFT'
+  | 'NEGOTIATION'
+  | 'CONTRACT'
+  | 'CONSTRUCTION'
+  | 'ACTIVE'
+  | 'COMPLETED'
+  | 'ON_HOLD'
+  | 'ARCHIVED'
 
 export type CaseItem = {
   id: string
@@ -82,6 +90,7 @@ export type CaseItem = {
   district?: string | null
   address?: string | null
   landAreaM2?: number | null
+  coverImageUrl?: string | null
   createdBy: string
   createdAt: string
   updatedAt: string
@@ -107,6 +116,7 @@ export type PropertyItem = {
   neighborhood?: string | null
   address?: string | null
   landAreaM2?: number | null
+  coverImageUrl?: string | null
   frontageM?: number | null
   passageWidthM?: number | null
   buildingAreaM2?: number | null

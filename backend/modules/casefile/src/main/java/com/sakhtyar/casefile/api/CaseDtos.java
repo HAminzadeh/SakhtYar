@@ -5,6 +5,7 @@ import com.sakhtyar.casefile.domain.CaseStatus;
 import jakarta.validation.constraints.DecimalMin;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
+import jakarta.validation.constraints.Size;
 import java.math.BigDecimal;
 import java.time.Instant;
 import java.util.UUID;
@@ -21,7 +22,8 @@ public final class CaseDtos {
             String city,
             String district,
             String address,
-            @DecimalMin(value = "0.01", inclusive = true) BigDecimal landAreaM2
+            @DecimalMin(value = "0.01", inclusive = true) BigDecimal landAreaM2,
+            @Size(max = 1000) String coverImageUrl
     ) {
     }
 
@@ -34,6 +36,7 @@ public final class CaseDtos {
             String district,
             String address,
             BigDecimal landAreaM2,
+            String coverImageUrl,
             String createdBy,
             Instant createdAt,
             Instant updatedAt
@@ -48,6 +51,7 @@ public final class CaseDtos {
                     entity.getDistrict(),
                     entity.getAddress(),
                     entity.getLandAreaM2(),
+                    entity.getCoverImageUrl(),
                     entity.getCreatedBy(),
                     entity.getCreatedAt(),
                     entity.getUpdatedAt()

@@ -74,7 +74,12 @@ async function rawRequest(
     headers.set('Content-Type', 'application/json')
   }
 
-  if (unsafe(method) && !path.startsWith('/api/v1/auth/mobile/')) {
+  const csrfExempt =
+    path.startsWith('/api/v1/auth/login') ||
+    path.startsWith('/api/v1/auth/register') ||
+    path.startsWith('/api/v1/auth/mobile/')
+
+  if (unsafe(method) && !csrfExempt) {
     const csrf = await ensureCsrf()
     if (csrf) {
       headers.set('X-XSRF-TOKEN', csrf)

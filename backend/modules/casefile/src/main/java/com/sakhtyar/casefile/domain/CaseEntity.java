@@ -39,6 +39,9 @@ public class CaseEntity {
     @Column(name = "land_area_m2", precision = 12, scale = 2)
     private BigDecimal landAreaM2;
 
+    @Column(name = "cover_image_url", length = 1000)
+    private String coverImageUrl;
+
     @Column(name = "created_by", nullable = false, length = 100)
     private String createdBy;
 
@@ -60,6 +63,7 @@ public class CaseEntity {
             String district,
             String address,
             BigDecimal landAreaM2,
+            String coverImageUrl,
             String createdBy,
             Instant createdAt,
             Instant updatedAt
@@ -72,6 +76,7 @@ public class CaseEntity {
         this.district = district;
         this.address = address;
         this.landAreaM2 = landAreaM2;
+        this.coverImageUrl = coverImageUrl;
         this.createdBy = createdBy;
         this.createdAt = createdAt;
         this.updatedAt = updatedAt;
@@ -84,7 +89,8 @@ public class CaseEntity {
             String city,
             String district,
             String address,
-            BigDecimal landAreaM2
+            BigDecimal landAreaM2,
+            String coverImageUrl
     ) {
         this.title = title;
         this.status = status;
@@ -93,6 +99,7 @@ public class CaseEntity {
         this.district = district;
         this.address = address;
         this.landAreaM2 = landAreaM2;
+        this.coverImageUrl = coverImageUrl;
         this.updatedAt = Instant.now();
     }
 
@@ -117,6 +124,7 @@ public class CaseEntity {
     public String getDistrict() { return district; }
     public String getAddress() { return address; }
     public BigDecimal getLandAreaM2() { return landAreaM2; }
+    public String getCoverImageUrl() { return coverImageUrl; }
     public String getCreatedBy() { return createdBy; }
     public Instant getCreatedAt() { return createdAt; }
     public Instant getUpdatedAt() { return updatedAt; }

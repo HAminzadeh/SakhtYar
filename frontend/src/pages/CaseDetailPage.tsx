@@ -1,22 +1,26 @@
-import { ArticleRoundedIcon, GroupsRoundedIcon, HomeWorkRoundedIcon, MapRoundedIcon, PsychologyRoundedIcon, SpaceDashboardRoundedIcon } from '../ui/antdIcons'
+import {
+  ApartmentOutlined,
+  FileTextOutlined,
+  GlobalOutlined,
+  HomeOutlined,
+  RobotOutlined,
+  TeamOutlined,
+} from '@ant-design/icons'
 import {
   Alert,
-  Box,
-  Chip,
-  Paper,
-  Skeleton,
-  Stack,
-  Tab,
+  Card,
+  Space,
+  Spin,
   Tabs,
+  Tag,
   Typography,
-} from '../ui/antdCompat'
+} from 'antd'
 import { useQuery } from '@tanstack/react-query'
 import { useState } from 'react'
-import type { ReactNode } from 'react'
 import { useParams } from 'react-router-dom'
 import { api } from '../api/client'
 import { useAuth } from '../auth/AuthProvider'
-import type { CaseItem } from '../api/types'
+import type { CaseItem, CaseStatus } from '../api/types'
 import { AssistantPanel } from '../features/case/AssistantPanel'
 import { CaseOverview } from '../features/case/CaseOverview'
 import { DocumentsPanel } from '../features/case/DocumentsPanel'
@@ -32,28 +36,45 @@ type CaseTab =
   | 'documents'
   | 'assistant'
 
-function statusLabel(status: CaseItem['status']) {
-  switch (status) {
-    case 'ACTIVE':
-      return 'فعال'
-    case 'ARCHIVED':
-      return 'بایگانی'
-    default:
-      return 'پیش‌نویس'
+const localCovers = [
+  '/assets/sakhtyar/projects/project-01.jpg',
+  '/assets/sakhtyar/projects/project-02.jpg',
+  '/assets/sakhtyar/projects/project-03.jpg',
+]
+
+function resolveCover(item: CaseItem) {
+  if (
+    item.id.startsWith(
+      '10000000-0000-0000-0000-0000000000',
+    )
+  ) {
+    const raw = Number(item.id.slice(-2))
+    const n = Number.isFinite(raw) && raw > 0 ? raw : 1
+    return localCovers[(n - 1) % localCovers.length]
   }
+
+  return item.coverImageUrl || localCovers[0]
 }
 
-function TabPanel({
-  value,
-  current,
-  children,
-}: {
-  value: CaseTab
-  current: CaseTab
-  children: ReactNode
-}) {
-  if (value !== current) return null
-  return <Box sx={{ pt: { xs: 2, md: 3 } }}>{children}</Box>
+function statusMeta(status: CaseStatus) {
+  switch (status) {
+    case 'CONTRACT':
+      return { label: 'در قرارداد', color: 'green' }
+    case 'CONSTRUCTION':
+      return { label: 'در حال ساخت', color: 'blue' }
+    case 'NEGOTIATION':
+      return { label: 'در مذاکره', color: 'gold' }
+    case 'COMPLETED':
+      return { label: 'تکمیل شده', color: 'cyan' }
+    case 'ON_HOLD':
+      return { label: 'متوقف', color: 'red' }
+    case 'ACTIVE':
+      return { label: 'فعال', color: 'green' }
+    case 'ARCHIVED':
+      return { label: 'بایگانی', color: 'default' }
+    default:
+      return { label: 'پیش‌نویس', color: 'default' }
+  }
 }
 
 export function CaseDetailPage() {
@@ -70,177 +91,121 @@ export function CaseDetailPage() {
 
   if (caseQuery.isLoading) {
     return (
-      <Stack spacing={2}>
-        <Skeleton variant="rounded" height={128} />
-        <Skeleton variant="rounded" height={56} />
-        <Skeleton variant="rounded" height={320} />
-      </Stack>
+      <div className="sakhtyar-loading">
+        <Spin size="large" />
+      </div>
     )
   }
 
   if (caseQuery.isError || !caseQuery.data) {
-    return <Alert severity="error">پرونده پیدا نشد.</Alert>
+    return (
+      <Alert
+        type="error"
+        showIcon
+        message="پرونده پیدا نشد."
+      />
+    )
   }
 
   const item = caseQuery.data
-  const location =
-    [item.city, item.district].filter(Boolean).join('، ') ||
-    'موقعیت ثبت نشده'
+  const status = statusMeta(item.status)
+  const cover = resolveCover(item)
+
+  const tabs = [
+    {
+      key: 'overview',
+      label: 'خلاصه',
+      icon: <HomeOutlined />,
+      children: (
+        <CaseOverview
+          caseId={id}
+          caseItem={item}
+        />
+      ),
+    },
+    {
+      key: 'property',
+      label: 'مشخصات ملک',
+      icon: <ApartmentOutlined />,
+      children: (
+        <PropertyPanel
+          caseId={id}
+          caseItem={item}
+        />
+      ),
+    },
+    {
+      key: 'owners',
+      label: 'مالکین',
+      icon: <TeamOutlined />,
+      children: <OwnersPanel caseId={id} />,
+    },
+    {
+      key: 'map',
+      label: 'نقشه',
+      icon: <GlobalOutlined />,
+      children: <PropertyMap caseId={id} />,
+    },
+    {
+      key: 'documents',
+      label: 'مدارک',
+      icon: <FileTextOutlined />,
+      children: <DocumentsPanel caseId={id} />,
+    },
+    ...(canUseAgent
+      ? [
+          {
+            key: 'assistant',
+            label: 'دستیار هوشمند',
+            icon: <RobotOutlined />,
+            children: <AssistantPanel caseId={id} />,
+          },
+        ]
+      : []),
+  ]
 
   return (
-    <Stack spacing={{ xs: 2, md: 3 }}>
-      <Paper
-        sx={{
-          p: { xs: 2, sm: 2.5, md: 3 },
-          border: '1px solid',
-          borderColor: 'divider',
-          borderRadius: 3,
-          background:
-            'linear-gradient(135deg, rgba(239,246,255,.92), rgba(255,255,255,1) 55%)',
-        }}
+    <div className="sakhtyar-page-stack">
+      <section
+        className="sakhtyar-case-hero"
+        style={{ backgroundImage: `url("${cover}")` }}
       >
-        <Stack
-          direction={{ xs: 'column', md: 'row' }}
-          justifyContent="space-between"
-          alignItems={{ xs: 'stretch', md: 'center' }}
-          gap={2}
-        >
-          <Box>
-            <Stack
-              direction="row"
-              spacing={1}
-              alignItems="center"
-              flexWrap="wrap"
-            >
-              <Typography
-                variant="h4"
-                sx={{ fontSize: { xs: '1.45rem', sm: '1.8rem' } }}
-              >
-                {item.title}
-              </Typography>
+        <div className="sakhtyar-case-hero-shade" />
+        <div className="sakhtyar-case-hero-copy">
+          <Space wrap>
+            <Tag color={status.color}>
+              {status.label}
+            </Tag>
+            <Typography.Text className="sakhtyar-case-location">
+              {[item.district, item.city]
+                .filter(Boolean)
+                .join('، ') || 'موقعیت ثبت نشده'}
+            </Typography.Text>
+          </Space>
 
-              <Chip
-                size="small"
-                label={statusLabel(item.status)}
-                color={item.status === 'ACTIVE' ? 'success' : 'default'}
-                variant={item.status === 'ACTIVE' ? 'filled' : 'outlined'}
-              />
-            </Stack>
+          <Typography.Title>
+            {item.title}
+          </Typography.Title>
 
-            <Typography color="text.secondary" mt={0.75}>
-              {location}
-            </Typography>
-          </Box>
+          <Typography.Paragraph>
+            {item.description || 'پرونده مشارکت در ساخت'}
+          </Typography.Paragraph>
 
-          <Box
-            sx={{
-              px: 1.5,
-              py: 1,
-              borderRadius: 2,
-              bgcolor: 'rgba(255,255,255,.78)',
-              border: '1px solid',
-              borderColor: 'divider',
-              alignSelf: { xs: 'stretch', md: 'auto' },
-            }}
-          >
-            <Typography variant="caption" color="text.secondary">
-              آخرین بروزرسانی
-            </Typography>
-            <Typography variant="body2" fontWeight={700}>
-              {new Date(item.updatedAt).toLocaleString('fa-IR')}
-            </Typography>
-          </Box>
-        </Stack>
-      </Paper>
+          <Typography.Text className="sakhtyar-case-location">
+            آخرین بروزرسانی:{' '}
+            {new Date(item.updatedAt).toLocaleString('fa-IR')}
+          </Typography.Text>
+        </div>
+      </section>
 
-      <Paper
-        sx={{
-          border: '1px solid',
-          borderColor: 'divider',
-          borderRadius: 3,
-          overflow: 'hidden',
-        }}
-      >
+      <Card className="sakhtyar-tabs-card">
         <Tabs
-          value={tab}
-          onChange={(_, value: CaseTab) => setTab(value)}
-          variant="scrollable"
-          scrollButtons="auto"
-          allowScrollButtonsMobile
-          sx={{
-            px: { xs: 0.5, sm: 1 },
-            '& .MuiTab-root': {
-              minWidth: { xs: 92, sm: 120 },
-              px: { xs: 1.25, sm: 2 },
-            },
-          }}
-        >
-          <Tab
-            value="overview"
-            icon={<SpaceDashboardRoundedIcon />}
-            iconPosition="start"
-            label="خلاصه"
-          />
-          <Tab
-            value="property"
-            icon={<HomeWorkRoundedIcon />}
-            iconPosition="start"
-            label="مشخصات ملک"
-          />
-          <Tab
-            value="owners"
-            icon={<GroupsRoundedIcon />}
-            iconPosition="start"
-            label="مالکین"
-          />
-          <Tab
-            value="map"
-            icon={<MapRoundedIcon />}
-            iconPosition="start"
-            label="نقشه"
-          />
-          <Tab
-            value="documents"
-            icon={<ArticleRoundedIcon />}
-            iconPosition="start"
-            label="مدارک"
-          />
-          {canUseAgent && (
-            <Tab
-              value="assistant"
-              icon={<PsychologyRoundedIcon />}
-              iconPosition="start"
-              label="دستیار هوشمند"
-            />
-          )}
-        </Tabs>
-      </Paper>
-
-      <TabPanel value="overview" current={tab}>
-        <CaseOverview caseId={id} caseItem={item} />
-      </TabPanel>
-
-      <TabPanel value="property" current={tab}>
-        <PropertyPanel caseId={id} caseItem={item} />
-      </TabPanel>
-
-      <TabPanel value="owners" current={tab}>
-        <OwnersPanel caseId={id} />
-      </TabPanel>
-
-      <TabPanel value="map" current={tab}>
-        <PropertyMap caseId={id} />
-      </TabPanel>
-
-      <TabPanel value="documents" current={tab}>
-        <DocumentsPanel caseId={id} />
-      </TabPanel>
-
-      {canUseAgent && (
-        <TabPanel value="assistant" current={tab}>
-          <AssistantPanel caseId={id} />
-        </TabPanel>
-      )}
-    </Stack>
+          activeKey={tab}
+          onChange={(key) => setTab(key as CaseTab)}
+          items={tabs}
+          size="large"
+        />
+      </Card>
+    </div>
   )
 }

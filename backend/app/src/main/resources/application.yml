@@ -63,13 +63,15 @@ management:
           endpoint: ${OTEL_EXPORTER_OTLP_TRACES_ENDPOINT:http://localhost:4318/v1/traces}
 
 app:
+  dev-seed:
+    enabled: ${APP_DEV_SEED_ENABLED:false}
   cors:
-    allowed-origins: ${CORS_ALLOWED_ORIGINS:http://localhost:5173,http://localhost:5174,http://localhost:3000}
+    allowed-origins: ${CORS_ALLOWED_ORIGINS:http://localhost:5175,http://localhost:5175,http://localhost:5175,http://localhost:5173,http://localhost:5174,http://localhost:3000}
 
   bootstrap-admin:
     username: ${APP_BOOTSTRAP_ADMIN_USERNAME:admin}
     password: ${APP_BOOTSTRAP_ADMIN_PASSWORD:ChangeMeNow_123!}
-    display-name: ${APP_BOOTSTRAP_ADMIN_DISPLAY_NAME:Ù…Ø¯ÛŒØ± Ø³ÛŒØ³ØªÙ…}
+    display-name: ${APP_BOOTSTRAP_ADMIN_DISPLAY_NAME:System Administrator}
     reset-password-on-startup: ${APP_BOOTSTRAP_ADMIN_RESET_PASSWORD_ON_STARTUP:false}
   security:
     jwt:

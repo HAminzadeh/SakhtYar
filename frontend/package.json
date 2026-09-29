@@ -6,7 +6,8 @@
     "scripts":  {
                     "dev":  "vite",
                     "build":  "tsc -b \u0026\u0026 vite build",
-                    "preview":  "vite preview"
+                    "preview":  "vite preview",
+                    "dev:ide":  "vite --host 127.0.0.1 --port 5175 --strictPort"
                 },
     "dependencies":  {
                          "@ant-design/icons":  "^6.3.4",

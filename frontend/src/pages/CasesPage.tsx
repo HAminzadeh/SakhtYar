@@ -1,40 +1,82 @@
-import { AddRoundedIcon, ArrowBackRoundedIcon, LocationOnRoundedIcon, SquareFootRoundedIcon } from '../ui/antdIcons'
+import {
+  CheckCircleOutlined,
+  ClockCircleOutlined,
+  EnvironmentOutlined,
+  ExpandOutlined,
+  FilterOutlined,
+  FolderOpenOutlined,
+  PlusOutlined,
+  SearchOutlined,
+  SortAscendingOutlined,
+  StopOutlined,
+} from '@ant-design/icons'
 import {
   Alert,
-  Box,
   Button,
   Card,
-  CardActionArea,
-  CardContent,
-  Chip,
-  Dialog,
-  DialogActions,
-  DialogContent,
-  DialogTitle,
-  Grid,
-  Stack,
-  TextField,
+  Col,
+  Empty,
+  Form,
+  Input,
+  InputNumber,
+  Modal,
+  Row,
+  Select,
+  Space,
+  Statistic,
+  Tag,
   Typography,
-} from '../ui/antdCompat'
+} from 'antd'
+import { useMemo, useState } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { api } from '../api/client'
-import type { CaseItem } from '../api/types'
+import type { CaseItem, CaseStatus } from '../api/types'
 import { useAuth } from '../auth/AuthProvider'
 
 type CreateCase = {
   title: string
-  city: string
-  district: string
-  address: string
-  landAreaM2: number | null
+  city?: string
+  district?: string
+  address?: string
+  landAreaM2?: number
 }
 
-function statusLabel(status: CaseItem['status']) {
-  if (status === 'ACTIVE') return 'فعال'
-  if (status === 'ARCHIVED') return 'بایگانی'
-  return 'پیش‌نویس'
+const localCovers = [
+  '/assets/sakhtyar/projects/project-01.jpg',
+  '/assets/sakhtyar/projects/project-02.jpg',
+  '/assets/sakhtyar/projects/project-03.jpg',
+]
+
+function demoCover(item: CaseItem, index: number) {
+  if (item.id.startsWith('10000000-0000-0000-0000-0000000000')) {
+    const raw = Number(item.id.slice(-2))
+    const n = Number.isFinite(raw) && raw > 0 ? raw : index + 1
+    return localCovers[(n - 1) % localCovers.length]
+  }
+
+  return item.coverImageUrl || localCovers[index % localCovers.length]
+}
+
+function statusMeta(status: CaseStatus) {
+  switch (status) {
+    case 'CONTRACT':
+      return { label: 'در قرارداد', color: 'green' }
+    case 'CONSTRUCTION':
+      return { label: 'در حال ساخت', color: 'blue' }
+    case 'NEGOTIATION':
+      return { label: 'در مذاکره', color: 'gold' }
+    case 'COMPLETED':
+      return { label: 'تکمیل شده', color: 'cyan' }
+    case 'ON_HOLD':
+      return { label: 'متوقف', color: 'red' }
+    case 'ACTIVE':
+      return { label: 'فعال', color: 'green' }
+    case 'ARCHIVED':
+      return { label: 'بایگانی', color: 'default' }
+    default:
+      return { label: 'پیش‌نویس', color: 'default' }
+  }
 }
 
 export function CasesPage() {
@@ -43,13 +85,9 @@ export function CasesPage() {
   const canWrite = hasPermission('CASE_WRITE')
   const queryClient = useQueryClient()
   const [open, setOpen] = useState(false)
-  const [form, setForm] = useState<CreateCase>({
-    title: '',
-    city: '',
-    district: '',
-    address: '',
-    landAreaM2: null,
-  })
+  const [search, setSearch] = useState('')
+  const [statusFilter, setStatusFilter] = useState<string>('ALL')
+  const [sort, setSort] = useState<'UPDATED' | 'AREA'>('UPDATED')
 
   const cases = useQuery({
     queryKey: ['cases'],
@@ -64,6 +102,7 @@ export function CasesPage() {
           ...data,
           status: 'DRAFT',
           description: '',
+          coverImageUrl: localCovers[0],
         }),
       }),
     onSuccess: (created) => {
@@ -73,199 +112,304 @@ export function CasesPage() {
     },
   })
 
+  const items = useMemo(() => {
+    const q = search.trim().toLocaleLowerCase('fa')
+    let result = [...(cases.data ?? [])]
+
+    if (q) {
+      result = result.filter((item) =>
+        [item.title, item.city, item.district, item.address]
+          .filter(Boolean)
+          .some((value) =>
+            String(value).toLocaleLowerCase('fa').includes(q),
+          ),
+      )
+    }
+
+    if (statusFilter !== 'ALL') {
+      result = result.filter((item) => item.status === statusFilter)
+    }
+
+    result.sort((a, b) => {
+      if (sort === 'AREA') {
+        return (b.landAreaM2 ?? 0) - (a.landAreaM2 ?? 0)
+      }
+
+      return (
+        new Date(b.updatedAt).getTime() -
+        new Date(a.updatedAt).getTime()
+      )
+    })
+
+    return result
+  }, [cases.data, search, statusFilter, sort])
+
+  const all = cases.data ?? []
+  const construction = all.filter((x) => x.status === 'CONSTRUCTION').length
+  const contract = all.filter((x) => x.status === 'CONTRACT').length
+  const onHold = all.filter((x) => x.status === 'ON_HOLD').length
+
   return (
-    <Stack spacing={{ xs: 2.5, md: 3.5 }}>
-      <Stack
-        direction={{ xs: 'column', sm: 'row' }}
-        justifyContent="space-between"
-        alignItems={{ xs: 'stretch', sm: 'center' }}
-        gap={2}
-      >
-        <Box>
-          <Typography
-            variant="h4"
-            sx={{ fontSize: { xs: '1.55rem', sm: '2rem' } }}
-          >
-            پرونده‌های مشارکت
-          </Typography>
-          <Typography color="text.secondary" mt={0.5}>
-            مدیریت پرونده‌ها، ملک‌ها و فرآیندهای تحلیل
-          </Typography>
-        </Box>
+    <div className="sakhtyar-page-stack">
+      <section className="sakhtyar-hero sakhtyar-hero-cases">
+        <div className="sakhtyar-hero-overlay" />
+        <div className="sakhtyar-hero-copy">
+          <span className="sakhtyar-hero-icon">
+            <FolderOpenOutlined />
+          </span>
+          <div>
+            <Typography.Title level={1}>
+              پرونده‌های مشارکت
+            </Typography.Title>
+            <Typography.Paragraph>
+              مدیریت پرونده‌های مشارکت در ساخت، املاک و فرآیندهای اجرایی
+            </Typography.Paragraph>
+          </div>
+        </div>
+      </section>
 
-        {canWrite && (
-          <Button
-            variant="contained"
+      <Row gutter={[16, 16]} className="sakhtyar-stats-row">
+        <Col xs={24} sm={12} xl={6}>
+          <Card className="sakhtyar-stat-card sakhtyar-stat-blue">
+            <Statistic
+              title="کل پرونده‌ها"
+              value={all.length}
+              prefix={<FolderOpenOutlined />}
+            />
+          </Card>
+        </Col>
+
+        <Col xs={24} sm={12} xl={6}>
+          <Card className="sakhtyar-stat-card sakhtyar-stat-amber">
+            <Statistic
+              title="در حال ساخت"
+              value={construction}
+              prefix={<ClockCircleOutlined />}
+            />
+          </Card>
+        </Col>
+
+        <Col xs={24} sm={12} xl={6}>
+          <Card className="sakhtyar-stat-card sakhtyar-stat-green">
+            <Statistic
+              title="در قرارداد"
+              value={contract}
+              prefix={<CheckCircleOutlined />}
+            />
+          </Card>
+        </Col>
+
+        <Col xs={24} sm={12} xl={6}>
+          <Card className="sakhtyar-stat-card sakhtyar-stat-red">
+            <Statistic
+              title="متوقف شده"
+              value={onHold}
+              prefix={<StopOutlined />}
+            />
+          </Card>
+        </Col>
+      </Row>
+
+      <Card className="sakhtyar-filter-card">
+        <div className="sakhtyar-filter-row">
+          <Input
+            allowClear
             size="large"
-            startIcon={<AddRoundedIcon />}
-            onClick={() => setOpen(true)}
-            sx={{ alignSelf: { xs: 'stretch', sm: 'auto' } }}
-          >
-            پرونده جدید
-          </Button>
-        )}
-      </Stack>
+            prefix={<SearchOutlined />}
+            placeholder="جستجو در نام پروژه، موقعیت یا آدرس..."
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+          />
 
-      {cases.isError && (
-        <Alert severity="error">دریافت پرونده‌ها ناموفق بود.</Alert>
-      )}
+          <Select
+            size="large"
+            value={statusFilter}
+            onChange={setStatusFilter}
+            suffixIcon={<FilterOutlined />}
+            options={[
+              { value: 'ALL', label: 'همه وضعیت‌ها' },
+              { value: 'NEGOTIATION', label: 'در مذاکره' },
+              { value: 'CONTRACT', label: 'در قرارداد' },
+              { value: 'CONSTRUCTION', label: 'در حال ساخت' },
+              { value: 'ACTIVE', label: 'فعال' },
+              { value: 'COMPLETED', label: 'تکمیل شده' },
+              { value: 'ON_HOLD', label: 'متوقف' },
+              { value: 'DRAFT', label: 'پیش‌نویس' },
+            ]}
+          />
 
-      <Grid container spacing={{ xs: 1.5, sm: 2 }}>
-        {cases.data?.map((item) => (
-          <Grid key={item.id} size={{ xs: 12, md: 6, xl: 4 }}>
-            <Card
-              sx={{
-                height: '100%',
-                transition: 'transform .18s ease, box-shadow .18s ease',
-                '&:hover': {
-                  transform: { md: 'translateY(-2px)' },
-                  boxShadow: { md: '0 10px 28px rgba(16,24,40,.08)' },
-                },
-              }}
+          <Select
+            size="large"
+            value={sort}
+            onChange={setSort}
+            suffixIcon={<SortAscendingOutlined />}
+            options={[
+              { value: 'UPDATED', label: 'آخرین بروزرسانی' },
+              { value: 'AREA', label: 'بیشترین مساحت' },
+            ]}
+          />
+
+          {canWrite && (
+            <Button
+              type="primary"
+              size="large"
+              icon={<PlusOutlined />}
+              onClick={() => setOpen(true)}
             >
-              <CardActionArea
-                onClick={() => navigate(`/cases/${item.id}`)}
-                sx={{ height: '100%' }}
-              >
-                <CardContent sx={{ p: { xs: 2, sm: 2.5 } }}>
-                  <Stack spacing={2}>
-                    <Stack
-                      direction="row"
-                      justifyContent="space-between"
-                      gap={1}
-                    >
-                      <Box>
-                        <Typography variant="h6">{item.title}</Typography>
-                        <Stack
-                          direction="row"
-                          spacing={0.5}
-                          alignItems="center"
-                          mt={0.75}
-                        >
-                          <LocationOnRoundedIcon
-                            fontSize="small"
-                            color="action"
-                          />
-                          <Typography
-                            variant="body2"
-                            color="text.secondary"
-                          >
-                            {[item.city, item.district]
-                              .filter(Boolean)
-                              .join('، ') || 'موقعیت ثبت نشده'}
-                          </Typography>
-                        </Stack>
-                      </Box>
+              پرونده جدید
+            </Button>
+          )}
+        </div>
+      </Card>
 
-                      <Chip
-                        size="small"
-                        label={statusLabel(item.status)}
-                        color={item.status === 'ACTIVE' ? 'success' : 'default'}
-                        variant={item.status === 'ACTIVE' ? 'filled' : 'outlined'}
-                      />
-                    </Stack>
+      {cases.isError ? (
+        <Alert
+          type="error"
+          showIcon
+          message="دریافت پرونده‌ها ناموفق بود."
+        />
+      ) : null}
 
-                    <Stack
-                      direction="row"
-                      justifyContent="space-between"
-                      alignItems="center"
-                      pt={1.5}
-                      borderTop="1px solid"
-                      borderColor="divider"
-                    >
-                      <Stack direction="row" spacing={0.75} alignItems="center">
-                        <SquareFootRoundedIcon
-                          fontSize="small"
-                          color="action"
-                        />
-                        <Typography variant="body2" fontWeight={700}>
-                          {item.landAreaM2
-                            ? `${item.landAreaM2.toLocaleString('fa-IR')} متر مربع`
-                            : 'مساحت ثبت نشده'}
-                        </Typography>
-                      </Stack>
+      {items.length === 0 && !cases.isLoading ? <Empty /> : null}
 
-                      <ArrowBackRoundedIcon
-                        fontSize="small"
-                        color="primary"
-                      />
-                    </Stack>
-                  </Stack>
-                </CardContent>
-              </CardActionArea>
-            </Card>
-          </Grid>
-        ))}
-      </Grid>
+      <Row gutter={[20, 20]}>
+        {items.map((item, index) => {
+          const status = statusMeta(item.status)
+          const fallback = localCovers[index % localCovers.length]
+          const cover = demoCover(item, index)
 
-      <Dialog
-        open={open && canWrite}
-        onClose={() => setOpen(false)}
-        fullWidth
-        maxWidth="sm"
-        fullScreen={false}
-      >
-        <DialogTitle>ایجاد پرونده جدید</DialogTitle>
-
-        <DialogContent>
-          <Stack spacing={2} sx={{ pt: 1 }}>
-            <TextField
-              fullWidth
-              label="عنوان پرونده"
-              value={form.title}
-              onChange={(e) => setForm({ ...form, title: e.target.value })}
-            />
-            <Stack direction={{ xs: 'column', sm: 'row' }} spacing={2}>
-              <TextField
-                fullWidth
-                label="شهر"
-                value={form.city}
-                onChange={(e) => setForm({ ...form, city: e.target.value })}
-              />
-              <TextField
-                fullWidth
-                label="منطقه"
-                value={form.district}
-                onChange={(e) =>
-                  setForm({ ...form, district: e.target.value })
+          return (
+            <Col key={item.id} xs={24} md={12} xl={8}>
+              <Card
+                hoverable
+                className="sakhtyar-project-card"
+                cover={
+                  <div className="sakhtyar-project-cover">
+                    <img
+                      src={cover}
+                      alt={item.title}
+                      onError={(e) => {
+                        if (e.currentTarget.src.endsWith(fallback)) return
+                        e.currentTarget.src = fallback
+                      }}
+                    />
+                    <Tag color={status.color}>
+                      {status.label}
+                    </Tag>
+                  </div>
                 }
-              />
-            </Stack>
-            <TextField
-              fullWidth
-              label="آدرس"
-              multiline
-              minRows={2}
-              value={form.address}
-              onChange={(e) => setForm({ ...form, address: e.target.value })}
-            />
-            <TextField
-              fullWidth
-              label="مساحت زمین (متر مربع)"
-              type="number"
-              value={form.landAreaM2 ?? ''}
-              onChange={(e) =>
-                setForm({
-                  ...form,
-                  landAreaM2:
-                    e.target.value === '' ? null : Number(e.target.value),
-                })
-              }
-            />
-          </Stack>
-        </DialogContent>
+                onClick={() => navigate(`/cases/${item.id}`)}
+              >
+                <Space
+                  direction="vertical"
+                  size={13}
+                  style={{ width: '100%' }}
+                >
+                  <Typography.Title level={4} style={{ margin: 0 }}>
+                    {item.title}
+                  </Typography.Title>
 
-        <DialogActions sx={{ px: 3, pb: 2.5 }}>
-          <Button onClick={() => setOpen(false)}>انصراف</Button>
+                  <Typography.Text type="secondary">
+                    <EnvironmentOutlined />{' '}
+                    {[item.district, item.city]
+                      .filter(Boolean)
+                      .join('، ') || 'موقعیت ثبت نشده'}
+                  </Typography.Text>
+
+                  <div className="sakhtyar-project-meta">
+                    <span>
+                      <ExpandOutlined />
+                      <small>مساحت زمین</small>
+                      <strong>
+                        {item.landAreaM2
+                          ? `${item.landAreaM2.toLocaleString('fa-IR')} متر مربع`
+                          : 'ثبت نشده'}
+                      </strong>
+                    </span>
+
+                    <span>
+                      <ClockCircleOutlined />
+                      <small>آخرین بروزرسانی</small>
+                      <strong>
+                        {new Date(item.updatedAt).toLocaleDateString('fa-IR')}
+                      </strong>
+                    </span>
+                  </div>
+
+                  <Button block size="large">
+                    مشاهده پرونده
+                  </Button>
+                </Space>
+              </Card>
+            </Col>
+          )
+        })}
+      </Row>
+
+      <Modal
+        open={open && canWrite}
+        title="ایجاد پرونده جدید"
+        onCancel={() => setOpen(false)}
+        footer={null}
+        destroyOnHidden
+      >
+        <Form<CreateCase>
+          layout="vertical"
+          onFinish={(values) => createCase.mutate(values)}
+          requiredMark={false}
+        >
+          <Form.Item
+            label="عنوان پرونده"
+            name="title"
+            rules={[
+              {
+                required: true,
+                message: 'عنوان پرونده الزامی است',
+              },
+            ]}
+          >
+            <Input size="large" />
+          </Form.Item>
+
+          <Row gutter={12}>
+            <Col span={12}>
+              <Form.Item label="شهر" name="city">
+                <Input size="large" />
+              </Form.Item>
+            </Col>
+            <Col span={12}>
+              <Form.Item label="منطقه" name="district">
+                <Input size="large" />
+              </Form.Item>
+            </Col>
+          </Row>
+
+          <Form.Item label="آدرس" name="address">
+            <Input.TextArea rows={3} />
+          </Form.Item>
+
+          <Form.Item
+            label="مساحت زمین (متر مربع)"
+            name="landAreaM2"
+          >
+            <InputNumber
+              style={{ width: '100%' }}
+              size="large"
+              min={1}
+            />
+          </Form.Item>
+
           <Button
-            variant="contained"
-            disabled={!form.title.trim() || createCase.isPending}
-            onClick={() => createCase.mutate(form)}
+            type="primary"
+            htmlType="submit"
+            size="large"
+            block
+            loading={createCase.isPending}
           >
             ایجاد پرونده
           </Button>
-        </DialogActions>
-      </Dialog>
-    </Stack>
+        </Form>
+      </Modal>
+    </div>
   )
 }

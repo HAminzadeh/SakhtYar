@@ -51,7 +51,7 @@ public class AdminBootstrap implements ApplicationRunner {
                 repository.findByUsernameIgnoreCase(username).orElse(null);
 
         if (existingAdmin != null) {
-            resetExistingAdminPasswordIfRequested(existingAdmin);
+            syncExistingAdmin(existingAdmin);
             return;
         }
 
@@ -60,7 +60,7 @@ public class AdminBootstrap implements ApplicationRunner {
                 UUID.randomUUID(),
                 username,
                 passwordEncoder.encode(password),
-                displayName,
+                safeDisplayName(),
                 null,
                 null,
                 UserRole.ADMIN,
@@ -79,25 +79,60 @@ public class AdminBootstrap implements ApplicationRunner {
         );
     }
 
-    private void resetExistingAdminPasswordIfRequested(UserEntity admin) {
-        if (!resetPasswordOnStartup) {
-            return;
-        }
-
-        if (passwordEncoder.matches(password, admin.getPasswordHash())) {
-            return;
-        }
-
+    private void syncExistingAdmin(UserEntity admin) {
+        boolean changed = false;
         Instant now = Instant.now();
-        admin.changePassword(passwordEncoder.encode(password), now);
+
+        if (resetPasswordOnStartup
+                && !passwordEncoder.matches(password, admin.getPasswordHash())) {
+            admin.changePassword(passwordEncoder.encode(password), now);
+            changed = true;
+        }
+
+        String safeName = safeDisplayName();
+        if (!safeName.equals(admin.getDisplayName())) {
+            admin.updateOwnProfile(
+                    safeName,
+                    admin.getEmail(),
+                    admin.getMobile()
+            );
+            changed = true;
+        }
+
+        if (!changed) {
+            return;
+        }
+
         repository.save(admin);
 
         auditService.recordAs(
                 "USER",
                 admin.getId(),
-                "BOOTSTRAP_ADMIN_PASSWORD_RESET",
+                "BOOTSTRAP_ADMIN_SYNCED",
                 "system",
                 Map.of("username", admin.getUsername())
         );
+    }
+
+    private String safeDisplayName() {
+        String value = displayName == null ? "" : displayName.trim();
+
+        if (value.isBlank()
+                || value.length() > 200
+                || looksCorrupted(value)) {
+            return "System Administrator";
+        }
+
+        return value;
+    }
+
+    private boolean looksCorrupted(String value) {
+        return value.contains("Ã")
+                || value.contains("Â")
+                || value.contains("Ø")
+                || value.contains("Ù")
+                || value.contains("Û")
+                || value.contains("�")
+                || value.contains("Æ");
     }
 }

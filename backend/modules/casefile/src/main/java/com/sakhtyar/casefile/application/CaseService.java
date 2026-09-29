@@ -53,6 +53,7 @@ public class CaseService {
                 request.district(),
                 request.address(),
                 request.landAreaM2(),
+                request.coverImageUrl(),
                 authentication.getName(),
                 now,
                 now
@@ -84,7 +85,8 @@ public class CaseService {
                 request.city(),
                 request.district(),
                 request.address(),
-                request.landAreaM2()
+                request.landAreaM2(),
+                request.coverImageUrl()
         );
 
         auditService.record(

@@ -38,3 +38,5 @@ app:
 
   bootstrap-admin:
     reset-password-on-startup: ${APP_BOOTSTRAP_ADMIN_RESET_PASSWORD_ON_STARTUP:true}
+  dev-seed:
+    enabled: ${APP_DEV_SEED_ENABLED:true}

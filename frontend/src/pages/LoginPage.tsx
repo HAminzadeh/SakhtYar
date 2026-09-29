@@ -1,126 +1,148 @@
-import { ConstructionRoundedIcon } from '../ui/antdIcons'
-import { zodResolver } from '@hookform/resolvers/zod'
-
 import {
-  Alert,
-  Box,
-  Button,
-  Card,
-  CardContent,
-  Stack,
-  TextField,
-  Typography,
-} from '../ui/antdCompat'
+  ApartmentOutlined,
+  ArrowLeftOutlined,
+  LockOutlined,
+  UserAddOutlined,
+  UserOutlined,
+} from '@ant-design/icons'
+import { Alert, Button, Card, Form, Input, Space, Typography } from 'antd'
 import { useState } from 'react'
-import { useForm } from 'react-hook-form'
 import { Link, Navigate, useNavigate } from 'react-router-dom'
-import { z } from 'zod'
 import { useAuth } from '../auth/AuthProvider'
 
-const schema = z.object({
-  username: z.string().min(1, 'نام کاربری الزامی است'),
-  password: z.string().min(1, 'رمز عبور الزامی است'),
-})
-
-type FormValues = z.infer<typeof schema>
+type LoginValues = {
+  username: string
+  password: string
+}
 
 export function LoginPage() {
   const { user, login } = useAuth()
   const navigate = useNavigate()
   const [error, setError] = useState<string | null>(null)
-
-  const {
-    register,
-    handleSubmit,
-    formState: { errors, isSubmitting },
-  } = useForm<FormValues>({ resolver: zodResolver(schema) })
+  const [submitting, setSubmitting] = useState(false)
 
   if (user) return <Navigate to="/cases" replace />
 
-  const submit = async (values: FormValues) => {
+  const submit = async (values: LoginValues) => {
     setError(null)
+    setSubmitting(true)
+
     try {
-      await login(values.username, values.password)
-      navigate('/cases')
+      await login(values.username.trim(), values.password)
+      navigate('/cases', { replace: true })
     } catch (err) {
       setError(
-        err instanceof Error ? err.message : 'نام کاربری یا رمز عبور صحیح نیست.',
+        err instanceof Error
+          ? err.message
+          : 'نام کاربری یا رمز عبور صحیح نیست.',
       )
+    } finally {
+      setSubmitting(false)
     }
   }
 
   return (
-    <Box
-      minHeight="100vh"
-      display="grid"
-      sx={{
-        placeItems: 'center',
-        p: { xs: 1.5, sm: 3 },
-        background:
-          'radial-gradient(circle at 80% 0%, #DBEAFE 0%, transparent 34%), #F6F8FC',
-      }}
-    >
-      <Card sx={{ width: '100%', maxWidth: 440, borderRadius: 4 }}>
-        <CardContent sx={{ p: { xs: 2.5, sm: 4 } }}>
-          <Stack spacing={3}>
-            <Stack direction="row" spacing={1.5} alignItems="center">
-              <Box
-                sx={{
-                  width: 48,
-                  height: 48,
-                  borderRadius: 3,
-                  bgcolor: 'primary.main',
-                  color: 'primary.contrastText',
-                  display: 'grid',
-                  placeItems: 'center',
-                }}
-              >
-                <ConstructionRoundedIcon />
-              </Box>
-              <Box>
-                <Typography variant="h5">ساخت‌یار</Typography>
-                <Typography variant="body2" color="text.secondary">
-                  سامانه هوشمند مشارکت در ساخت
-                </Typography>
-              </Box>
-            </Stack>
+    <div className="sakhtyar-login">
+      <section className="sakhtyar-login-scene">
+        <div className="sakhtyar-login-scene-shade" />
+        <div className="sakhtyar-login-message">
+          <div className="sakhtyar-login-wordmark">ساخت‌یار</div>
+          <div className="sakhtyar-login-tagline">
+            سامانه هوشمند مشارکت در ساخت
+          </div>
+          <div className="sakhtyar-login-accent" />
+          <p>
+            مدیریت حرفه‌ای پروژه‌های ساختمانی، از ارزیابی ملک و توافق با مالکین
+            تا قرارداد و اجرای پروژه، در یک پلتفرم یکپارچه.
+          </p>
+        </div>
+      </section>
 
-            {error && <Alert severity="error">{error}</Alert>}
+      <section className="sakhtyar-login-form-side">
+        <Card className="sakhtyar-login-card" bordered={false}>
+          <Space direction="vertical" size={26} style={{ width: '100%' }}>
+            <div className="sakhtyar-login-card-brand">
+              <span className="sakhtyar-login-logo">
+                <ApartmentOutlined />
+              </span>
+              <Typography.Title level={2}>ساخت‌یار</Typography.Title>
+              <Typography.Text type="secondary">
+                سامانه هوشمند مشارکت در ساخت
+              </Typography.Text>
+            </div>
 
-            <Stack component="form" spacing={2} onSubmit={handleSubmit(submit)}>
-              <TextField
-                fullWidth
+            {error ? <Alert type="error" showIcon message={error} /> : null}
+
+            <Form<LoginValues>
+              layout="vertical"
+              onFinish={submit}
+              requiredMark={false}
+              autoComplete="on"
+              initialValues={{ username: 'admin' }}
+            >
+              <Form.Item
                 label="نام کاربری"
-                autoComplete="username"
-                error={Boolean(errors.username)}
-                helperText={errors.username?.message}
-                {...register('username')}
-              />
-              <TextField
-                fullWidth
-                label="رمز عبور"
-                type="password"
-                autoComplete="current-password"
-                error={Boolean(errors.password)}
-                helperText={errors.password?.message}
-                {...register('password')}
-              />
-              <Button
-                variant="contained"
-                size="large"
-                type="submit"
-                disabled={isSubmitting}
-                sx={{ minHeight: 48 }}
+                name="username"
+                rules={[
+                  {
+                    required: true,
+                    whitespace: true,
+                    message: 'نام کاربری الزامی است',
+                  },
+                ]}
               >
-                ورود به ساخت‌یار
-              </Button>
-              <Button component={Link} to="/register">
-                ایجاد حساب جدید
-              </Button>
-            </Stack>
-          </Stack>
-        </CardContent>
-      </Card>
-    </Box>
+                <Input
+                  size="large"
+                  prefix={<UserOutlined />}
+                  autoComplete="username"
+                  disabled={submitting}
+                />
+              </Form.Item>
+
+              <Form.Item
+                label="رمز عبور"
+                name="password"
+                rules={[
+                  {
+                    required: true,
+                    message: 'رمز عبور الزامی است',
+                  },
+                ]}
+              >
+                <Input.Password
+                  size="large"
+                  prefix={<LockOutlined />}
+                  autoComplete="current-password"
+                  disabled={submitting}
+                />
+              </Form.Item>
+
+              <Form.Item style={{ marginBottom: 12 }}>
+                <Button
+                  type="primary"
+                  htmlType="submit"
+                  size="large"
+                  block
+                  loading={submitting}
+                  icon={<ArrowLeftOutlined />}
+                >
+                  ورود به ساخت‌یار
+                </Button>
+              </Form.Item>
+
+              <Link to="/register">
+                <Button
+                  size="large"
+                  block
+                  icon={<UserAddOutlined />}
+                >
+                  ایجاد حساب جدید
+                </Button>
+              </Link>
+            </Form>
+          </Space>
+        </Card>
+      </section>
+    </div>
   )
 }

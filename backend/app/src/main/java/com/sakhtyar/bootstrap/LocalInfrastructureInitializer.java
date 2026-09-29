@@ -49,7 +49,7 @@ public final class LocalInfrastructureInitializer
 
         LocalInfrastructureLog.ok("============================================================");
         LocalInfrastructureLog.ok("Local infrastructure is READY.");
-        LocalInfrastructureLog.ok("UI: " + resolveUiUrl(docker, composePath));
+        LocalInfrastructureLog.ok("UI (start from IntelliJ npm dev): http://localhost:5173");
         LocalInfrastructureLog.ok("Backend will start next on: http://localhost:8080");
         LocalInfrastructureLog.ok("============================================================");
     }
@@ -192,21 +192,13 @@ public final class LocalInfrastructureInitializer
             DockerCommandRunner docker,
             Path composePath
     ) {
-        LocalInfrastructureLog.step("[6/7] Checking MinIO...");
+        LocalInfrastructureLog.step("[6/6] Checking MinIO...");
         waitForHttp(
                 "MinIO",
                 "http://127.0.0.1:9000/minio/health/live",
                 Duration.ofSeconds(60)
         );
-
-        LocalInfrastructureLog.step("[7/7] Checking SakhtYar UI...");
-        waitForHttp(
-                "SakhtYar UI",
-                resolveUiUrl(docker, composePath),
-                Duration.ofSeconds(120)
-        );
     }
-
     private static List<String> composeServices(
             DockerCommandRunner docker,
             Path composePath
