@@ -28,6 +28,7 @@
     <module>modules/contract</module>
     <module>modules/knowledge</module>
     <module>modules/crawler</module>
+    <module>modules/material</module>
     <module>modules/analysis</module>
     <module>app</module>
   </modules>
@@ -110,6 +111,11 @@
       <dependency>
         <groupId>com.sakhtyar</groupId>
         <artifactId>sakhtyar-crawler</artifactId>
+        <version>${project.version}</version>
+      </dependency>
+      <dependency>
+        <groupId>com.sakhtyar</groupId>
+        <artifactId>sakhtyar-material</artifactId>
         <version>${project.version}</version>
       </dependency>
       <dependency>
