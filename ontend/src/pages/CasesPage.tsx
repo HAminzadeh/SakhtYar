@@ -1,17 +1,16 @@
 import {
-  AppstoreOutlined,
-  BarsOutlined,
-  BorderOutlined,
   CheckCircleOutlined,
   ClockCircleOutlined,
+  BuildOutlined,
   EnvironmentOutlined,
   ExpandOutlined,
   FilterOutlined,
   FolderOpenOutlined,
+  PauseCircleOutlined,
   PlusOutlined,
   SearchOutlined,
   SortAscendingOutlined,
-  StopOutlined,
+  ToolOutlined,
 } from '@ant-design/icons'
 import {
   Alert,
@@ -37,6 +36,7 @@ import { api } from '../api/client'
 import type { CaseItem, CaseStatus } from '../api/types'
 import { useAuth } from '../auth/AuthProvider'
 import { PageHero } from '../ui/PageHero'
+import { projectImage, PROJECT_IMAGES } from '../ui/projectImages'
 
 type CreateCase = {
   title: string
@@ -44,32 +44,6 @@ type CreateCase = {
   district?: string
   address?: string
   landAreaM2?: number
-}
-
-type ViewMode = 'cards' | 'compact' | 'list'
-type ColumnCount = 2 | 3 | 4
-
-const localCovers = [
-  '/assets/sakhtyar/projects/project-01.jpg',
-  '/assets/sakhtyar/projects/project-02.jpg',
-  '/assets/sakhtyar/projects/project-03.jpg',
-  '/assets/sakhtyar/projects/project-04.jpg',
-  '/assets/sakhtyar/projects/project-05.jpg',
-  '/assets/sakhtyar/projects/project-06.jpg',
-  '/assets/sakhtyar/projects/project-07.jpg',
-  '/assets/sakhtyar/projects/project-08.jpg',
-  '/assets/sakhtyar/projects/project-09.jpg',
-  '/assets/sakhtyar/projects/project-10.jpg',
-]
-
-function demoCover(item: CaseItem, index: number) {
-  if (item.id.startsWith('10000000-0000-0000-0000-0000000000')) {
-    const raw = Number(item.id.slice(-2))
-    const n = Number.isFinite(raw) && raw > 0 ? raw : index + 1
-    return localCovers[(n - 1) % localCovers.length]
-  }
-
-  return item.coverImageUrl || localCovers[index % localCovers.length]
 }
 
 function statusMeta(status: CaseStatus) {
@@ -98,13 +72,10 @@ export function CasesPage() {
   const { hasPermission } = useAuth()
   const canWrite = hasPermission('CASE_WRITE')
   const queryClient = useQueryClient()
-
   const [open, setOpen] = useState(false)
   const [search, setSearch] = useState('')
   const [statusFilter, setStatusFilter] = useState<string>('ALL')
   const [sort, setSort] = useState<'UPDATED' | 'AREA'>('UPDATED')
-  const [viewMode, setViewMode] = useState<ViewMode>('cards')
-  const [columnCount, setColumnCount] = useState<ColumnCount>(3)
 
   const cases = useQuery({
     queryKey: ['cases'],
@@ -119,7 +90,7 @@ export function CasesPage() {
           ...data,
           status: 'DRAFT',
           description: '',
-          coverImageUrl: localCovers[0],
+          coverImageUrl: PROJECT_IMAGES[0],
         }),
       }),
     onSuccess: (created) => {
@@ -166,64 +137,41 @@ export function CasesPage() {
   const contract = all.filter((x) => x.status === 'CONTRACT').length
   const onHold = all.filter((x) => x.status === 'ON_HOLD').length
 
-  const layout = useMemo(() => {
-    if (viewMode === 'list') return { md: 24, lg: 24, xl: 24 }
-    if (viewMode === 'compact') return { md: 12, lg: 8, xl: 6 }
-    if (columnCount === 2) return { md: 12, lg: 12, xl: 12 }
-    if (columnCount === 4) return { md: 12, lg: 8, xl: 6 }
-    return { md: 12, lg: 8, xl: 8 }
-  }, [viewMode, columnCount])
-
   return (
-    <div className="sakhtyar-page-stack sakhtyar-cases-page">
+    <div className="sakhtyar-page-stack">
       <PageHero
         image="/assets/sakhtyar/heroes/cases-hero.jpg"
         title="پرونده‌های مشارکت"
         subtitle="مدیریت پرونده‌های مشارکت در ساخت، ملک و فرآیندهای اجرایی"
-        icon={<FolderOpenOutlined />}
+        icon={<BuildOutlined />}
+        className="sakhtyar-cases-hero"
       />
 
-      <Row gutter={[12, 12]} className="sakhtyar-stats-row">
-        <Col xs={12} md={6}>
+      <Row gutter={[16, 16]} className="sakhtyar-stats-row">
+        <Col xs={24} sm={12} xl={6}>
           <Card className="sakhtyar-stat-card sakhtyar-stat-blue">
-            <Statistic
-              title="کل پرونده‌ها"
-              value={all.length}
-              prefix={<FolderOpenOutlined />}
-            />
+            <Statistic title="کل پرونده‌ها" value={all.length} prefix={<FolderOpenOutlined />} />
           </Card>
         </Col>
-        <Col xs={12} md={6}>
+        <Col xs={24} sm={12} xl={6}>
           <Card className="sakhtyar-stat-card sakhtyar-stat-amber">
-            <Statistic
-              title="در حال ساخت"
-              value={construction}
-              prefix={<ClockCircleOutlined />}
-            />
+            <Statistic title="در حال ساخت" value={construction} prefix={<ToolOutlined />} />
           </Card>
         </Col>
-        <Col xs={12} md={6}>
+        <Col xs={24} sm={12} xl={6}>
           <Card className="sakhtyar-stat-card sakhtyar-stat-green">
-            <Statistic
-              title="در قرارداد"
-              value={contract}
-              prefix={<CheckCircleOutlined />}
-            />
+            <Statistic title="در قرارداد" value={contract} prefix={<CheckCircleOutlined />} />
           </Card>
         </Col>
-        <Col xs={12} md={6}>
+        <Col xs={24} sm={12} xl={6}>
           <Card className="sakhtyar-stat-card sakhtyar-stat-red">
-            <Statistic
-              title="متوقف شده"
-              value={onHold}
-              prefix={<StopOutlined />}
-            />
+            <Statistic title="متوقف شده" value={onHold} prefix={<PauseCircleOutlined />} />
           </Card>
         </Col>
       </Row>
 
       <Card className="sakhtyar-filter-card">
-        <div className="sakhtyar-filter-row sakhtyar-filter-row-v53">
+        <div className="sakhtyar-filter-row">
           <Input
             allowClear
             size="large"
@@ -232,7 +180,6 @@ export function CasesPage() {
             value={search}
             onChange={(e) => setSearch(e.target.value)}
           />
-
           <Select
             size="large"
             value={statusFilter}
@@ -249,7 +196,6 @@ export function CasesPage() {
               { value: 'DRAFT', label: 'پیش‌نویس' },
             ]}
           />
-
           <Select
             size="large"
             value={sort}
@@ -260,45 +206,6 @@ export function CasesPage() {
               { value: 'AREA', label: 'بیشترین مساحت' },
             ]}
           />
-
-          <div className="sakhtyar-view-controls">
-            <Button
-              type={viewMode === 'cards' ? 'primary' : 'default'}
-              icon={<AppstoreOutlined />}
-              onClick={() => setViewMode('cards')}
-            >
-              کارتی
-            </Button>
-            <Button
-              type={viewMode === 'compact' ? 'primary' : 'default'}
-              icon={<BorderOutlined />}
-              onClick={() => setViewMode('compact')}
-            >
-              فشرده
-            </Button>
-            <Button
-              type={viewMode === 'list' ? 'primary' : 'default'}
-              icon={<BarsOutlined />}
-              onClick={() => setViewMode('list')}
-            >
-              لیستی
-            </Button>
-          </div>
-
-          {viewMode === 'cards' ? (
-            <Select
-              className="sakhtyar-column-selector"
-              size="large"
-              value={columnCount}
-              onChange={(value) => setColumnCount(value as ColumnCount)}
-              options={[
-                { value: 2, label: '۲ کارت در ردیف' },
-                { value: 3, label: '۳ کارت در ردیف' },
-                { value: 4, label: '۴ کارت در ردیف' },
-              ]}
-            />
-          ) : null}
-
           {canWrite && (
             <Button
               type="primary"
@@ -314,35 +221,22 @@ export function CasesPage() {
       </Card>
 
       {cases.isError ? (
-        <Alert
-          type="error"
-          showIcon
-          message="دریافت پرونده‌ها ناموفق بود."
-        />
+        <Alert type="error" showIcon message="دریافت پرونده‌ها ناموفق بود." />
       ) : null}
 
       {items.length === 0 && !cases.isLoading ? <Empty /> : null}
 
-      <Row
-        gutter={[16, 16]}
-        className={`sakhtyar-project-grid sakhtyar-view-${viewMode}`}
-      >
+      <Row gutter={[20, 20]}>
         {items.map((item, index) => {
           const status = statusMeta(item.status)
-          const fallback = localCovers[index % localCovers.length]
-          const cover = demoCover(item, index)
+          const cover = projectImage(item, index)
+          const fallback = PROJECT_IMAGES[index % PROJECT_IMAGES.length]
 
           return (
-            <Col
-              key={item.id}
-              xs={24}
-              md={layout.md}
-              lg={layout.lg}
-              xl={layout.xl}
-            >
+            <Col key={item.id} xs={24} md={12} xl={8}>
               <Card
                 hoverable
-                className={`sakhtyar-project-card sakhtyar-project-card-${viewMode}`}
+                className="sakhtyar-project-card"
                 cover={
                   <div className="sakhtyar-project-cover">
                     <img
@@ -354,26 +248,19 @@ export function CasesPage() {
                         e.currentTarget.src = fallback
                       }}
                     />
-                    <Tag className={`sakhtyar-status-badge sakhtyar-status-${item.status.toLowerCase()}`} color={status.color}>
-                      {status.label}
-                    </Tag>
+                    <Tag color={status.color}>{status.label}</Tag>
                   </div>
                 }
                 onClick={() => navigate(`/cases/${item.id}`)}
               >
-                <div className="sakhtyar-project-card-content">
-                  <div className="sakhtyar-project-title-block">
-                    <Typography.Title level={4}>
-                      {item.title}
-                    </Typography.Title>
-                    <Typography.Text type="secondary">
-                      <EnvironmentOutlined />{' '}
-                      {[item.district, item.city]
-                        .filter(Boolean)
-                        .join('، ') || 'موقعیت ثبت نشده'}
-                    </Typography.Text>
-                  </div>
-
+                <Space direction="vertical" size={13} style={{ width: '100%' }}>
+                  <Typography.Title level={4} style={{ margin: 0 }}>
+                    {item.title}
+                  </Typography.Title>
+                  <Typography.Text type="secondary">
+                    <EnvironmentOutlined />{' '}
+                    {[item.district, item.city].filter(Boolean).join('، ') || 'موقعیت ثبت نشده'}
+                  </Typography.Text>
                   <div className="sakhtyar-project-meta">
                     <span>
                       <ExpandOutlined />
@@ -386,88 +273,34 @@ export function CasesPage() {
                     </span>
                     <span>
                       <ClockCircleOutlined />
-                      <small>آخرین بروزرسانی</small>
-                      <strong>
-                        {new Date(item.updatedAt).toLocaleDateString('fa-IR')}
-                      </strong>
+                      <small>بروزرسانی</small>
+                      <strong>{new Date(item.updatedAt).toLocaleDateString('fa-IR')}</strong>
                     </span>
                   </div>
-
-                  <Button
-                    block={viewMode !== 'list'}
-                    className="sakhtyar-card-cta"
-                    onClick={(event) => {
-                      event.stopPropagation()
-                      navigate(`/cases/${item.id}`)
-                    }}
-                  >
+                  <Button block size="large" className="sakhtyar-card-cta">
                     مشاهده پرونده
                   </Button>
-                </div>
+                </Space>
               </Card>
             </Col>
           )
         })}
       </Row>
 
-      <Modal
-        open={open && canWrite}
-        title="ایجاد پرونده جدید"
-        onCancel={() => setOpen(false)}
-        footer={null}
-        destroyOnHidden
-      >
-        <Form<CreateCase>
-          layout="vertical"
-          onFinish={(values) => createCase.mutate(values)}
-          requiredMark={false}
-        >
-          <Form.Item
-            label="عنوان پرونده"
-            name="title"
-            rules={[
-              {
-                required: true,
-                message: 'عنوان پرونده الزامی است',
-              },
-            ]}
-          >
+      <Modal open={open && canWrite} title="ایجاد پرونده جدید" onCancel={() => setOpen(false)} footer={null} destroyOnHidden>
+        <Form<CreateCase> layout="vertical" onFinish={(values) => createCase.mutate(values)} requiredMark={false}>
+          <Form.Item label="عنوان پرونده" name="title" rules={[{ required: true, message: 'عنوان پرونده الزامی است' }]}>
             <Input size="large" />
           </Form.Item>
-
           <Row gutter={12}>
-            <Col span={12}>
-              <Form.Item label="شهر" name="city">
-                <Input size="large" />
-              </Form.Item>
-            </Col>
-            <Col span={12}>
-              <Form.Item label="منطقه" name="district">
-                <Input size="large" />
-              </Form.Item>
-            </Col>
+            <Col span={12}><Form.Item label="شهر" name="city"><Input size="large" /></Form.Item></Col>
+            <Col span={12}><Form.Item label="منطقه" name="district"><Input size="large" /></Form.Item></Col>
           </Row>
-
-          <Form.Item label="آدرس" name="address">
-            <Input.TextArea rows={3} />
-          </Form.Item>
-
+          <Form.Item label="آدرس" name="address"><Input.TextArea rows={3} /></Form.Item>
           <Form.Item label="مساحت زمین (متر مربع)" name="landAreaM2">
-            <InputNumber
-              style={{ width: '100%' }}
-              size="large"
-              min={1}
-            />
+            <InputNumber style={{ width: '100%' }} size="large" min={1} />
           </Form.Item>
-
-          <Button
-            type="primary"
-            htmlType="submit"
-            size="large"
-            block
-            className="sakhtyar-primary-action"
-            loading={createCase.isPending}
-          >
+          <Button type="primary" htmlType="submit" size="large" block className="sakhtyar-primary-action" loading={createCase.isPending}>
             ایجاد پرونده
           </Button>
         </Form>

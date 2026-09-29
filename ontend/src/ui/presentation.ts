@@ -39,17 +39,15 @@ export function safeDisplayName(
     .replace(/[;:،,|\\/\s]+$/, '')
     .trim()
 
-  if (!normalized) return fallback
-
-  const lower = normalized.toLowerCase()
-  const corrupted =
+  const looksCorrupted =
     /[ÃÂØÙÛ�]|â€|Æ|Ð|Ñ/.test(normalized) ||
     normalized.length > 180
 
+  if (!normalized || looksCorrupted) return fallback
+
   if (
-    corrupted ||
-    lower === 'admin' ||
-    lower === 'system administrator'
+    normalized.toLowerCase() === 'admin' ||
+    normalized.toLowerCase() === 'system administrator'
   ) {
     return fallback
   }

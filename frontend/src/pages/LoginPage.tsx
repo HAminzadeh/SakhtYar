@@ -1,13 +1,23 @@
 import {
-  ApartmentOutlined,
   ArrowLeftOutlined,
   LockOutlined,
   UserAddOutlined,
   UserOutlined,
 } from '@ant-design/icons'
-import { Alert, Button, Card, Form, Input, Space, Typography } from 'antd'
+import {
+  Alert,
+  Button,
+  Card,
+  Form,
+  Input,
+  Typography,
+} from 'antd'
 import { useState } from 'react'
-import { Link, Navigate, useNavigate } from 'react-router-dom'
+import {
+  Link,
+  Navigate,
+  useNavigate,
+} from 'react-router-dom'
 import { useAuth } from '../auth/AuthProvider'
 
 type LoginValues = {
@@ -18,17 +28,24 @@ type LoginValues = {
 export function LoginPage() {
   const { user, login } = useAuth()
   const navigate = useNavigate()
-  const [error, setError] = useState<string | null>(null)
-  const [submitting, setSubmitting] = useState(false)
+  const [error, setError] =
+    useState<string | null>(null)
+  const [submitting, setSubmitting] =
+    useState(false)
 
   if (user) return <Navigate to="/cases" replace />
 
-  const submit = async (values: LoginValues) => {
+  const submit = async (
+    values: LoginValues,
+  ) => {
     setError(null)
     setSubmitting(true)
 
     try {
-      await login(values.username.trim(), values.password)
+      await login(
+        values.username.trim(),
+        values.password,
+      )
       navigate('/cases', { replace: true })
     } catch (err) {
       setError(
@@ -42,105 +59,153 @@ export function LoginPage() {
   }
 
   return (
-    <div className="sakhtyar-login">
-      <section className="sakhtyar-login-scene">
-        <div className="sakhtyar-login-scene-shade" />
-        <div className="sakhtyar-login-message">
-          <div className="sakhtyar-login-wordmark">ساخت‌یار</div>
-          <div className="sakhtyar-login-tagline">
-            سامانه هوشمند مشارکت در ساخت
+    <div className="sakhtyar-login-v56">
+      <section className="sakhtyar-login-v56__hero">
+        <div className="sakhtyar-login-v56__shade" />
+
+        <div className="sakhtyar-login-v56__brand">
+          <div className="sakhtyar-login-v56__brandline">
+            <img
+              src="/assets/sakhtyar/brand/sakhtyar-mark.svg"
+              alt=""
+              className="sakhtyar-login-v56__mark"
+            />
+            <div>
+              <div className="sakhtyar-login-v56__wordmark">
+                ساخت‌یار
+              </div>
+              <div className="sakhtyar-login-v56__subbrand">
+                سامانه هوشمند مشارکت در ساخت
+              </div>
+            </div>
           </div>
-          <div className="sakhtyar-login-accent" />
-          <p>
-            مدیریت حرفه‌ای پروژه‌های ساختمانی، از ارزیابی ملک و توافق با مالکین
-            تا قرارداد و اجرای پروژه، در یک پلتفرم یکپارچه.
-          </p>
+
+          <Typography.Title>
+            از ارزیابی ملک تا ساخت،
+            <br />
+            همه‌چیز در یک مسیر روشن
+          </Typography.Title>
+
+          <Typography.Paragraph>
+            پرونده، مالکین، مدارک، نقشه، تصاویر
+            پروژه و دستیار هوشمند را در یک محیط
+            یکپارچه و حرفه‌ای مدیریت کنید.
+          </Typography.Paragraph>
+
+          <div className="sakhtyar-login-v56__features">
+            <span>پرونده‌های مشارکت</span>
+            <span>گالری مراحل پروژه</span>
+            <span>نقشه و اطلاعات ملک</span>
+            <span>کنترل دسترسی‌ها</span>
+          </div>
         </div>
       </section>
 
-      <section className="sakhtyar-login-form-side">
-        <Card className="sakhtyar-login-card" bordered={false}>
-          <Space direction="vertical" size={26} style={{ width: '100%' }}>
-            <div className="sakhtyar-login-card-brand">
-              <span className="sakhtyar-login-logo">
-                <ApartmentOutlined />
-              </span>
-              <Typography.Title level={2}>ساخت‌یار</Typography.Title>
-              <Typography.Text type="secondary">
-                سامانه هوشمند مشارکت در ساخت
-              </Typography.Text>
+      <section className="sakhtyar-login-v56__panel">
+        <Card
+          className="sakhtyar-login-v56__card"
+          bordered={false}
+        >
+          <div className="sakhtyar-login-v56__cardhead">
+            <img
+              src="/assets/sakhtyar/brand/sakhtyar-mark.svg"
+              alt=""
+              className="sakhtyar-login-v56__cardmark"
+            />
+            <div className="sakhtyar-login-v56__cardword">
+              ساخت‌یار
+            </div>
+            <Typography.Title level={2}>
+              خوش آمدید
+            </Typography.Title>
+            <Typography.Text type="secondary">
+              برای ورود، اطلاعات حساب خود را وارد
+              کنید.
+            </Typography.Text>
+          </div>
+
+          {error ? (
+            <Alert
+              type="error"
+              showIcon
+              message={error}
+              style={{ marginBottom: 14 }}
+            />
+          ) : null}
+
+          <Form<LoginValues>
+            layout="vertical"
+            onFinish={submit}
+            requiredMark={false}
+            autoComplete="on"
+            initialValues={{ username: 'admin' }}
+          >
+            <Form.Item
+              label="نام کاربری"
+              name="username"
+              rules={[
+                {
+                  required: true,
+                  whitespace: true,
+                  message: 'نام کاربری الزامی است',
+                },
+              ]}
+            >
+              <Input
+                size="large"
+                prefix={<UserOutlined />}
+                autoComplete="username"
+                disabled={submitting}
+                placeholder="نام کاربری"
+              />
+            </Form.Item>
+
+            <Form.Item
+              label="رمز عبور"
+              name="password"
+              rules={[
+                {
+                  required: true,
+                  message: 'رمز عبور الزامی است',
+                },
+              ]}
+            >
+              <Input.Password
+                size="large"
+                prefix={<LockOutlined />}
+                autoComplete="current-password"
+                disabled={submitting}
+                placeholder="رمز عبور"
+              />
+            </Form.Item>
+
+            <Button
+              type="primary"
+              htmlType="submit"
+              size="large"
+              block
+              loading={submitting}
+              icon={<ArrowLeftOutlined />}
+              className="sakhtyar-login-v56__submit sakhtyar-animated-primary"
+            >
+              ورود به ساخت‌یار
+            </Button>
+
+            <div className="sakhtyar-login-v56__divider">
+              <span>یا</span>
             </div>
 
-            {error ? <Alert type="error" showIcon message={error} /> : null}
-
-            <Form<LoginValues>
-              layout="vertical"
-              onFinish={submit}
-              requiredMark={false}
-              autoComplete="on"
-              initialValues={{ username: 'admin' }}
-            >
-              <Form.Item
-                label="نام کاربری"
-                name="username"
-                rules={[
-                  {
-                    required: true,
-                    whitespace: true,
-                    message: 'نام کاربری الزامی است',
-                  },
-                ]}
+            <Link to="/register">
+              <Button
+                size="large"
+                block
+                icon={<UserAddOutlined />}
+                className="sakhtyar-login-v56__register"
               >
-                <Input
-                  size="large"
-                  prefix={<UserOutlined />}
-                  autoComplete="username"
-                  disabled={submitting}
-                />
-              </Form.Item>
-
-              <Form.Item
-                label="رمز عبور"
-                name="password"
-                rules={[
-                  {
-                    required: true,
-                    message: 'رمز عبور الزامی است',
-                  },
-                ]}
-              >
-                <Input.Password
-                  size="large"
-                  prefix={<LockOutlined />}
-                  autoComplete="current-password"
-                  disabled={submitting}
-                />
-              </Form.Item>
-
-              <Form.Item style={{ marginBottom: 12 }}>
-                <Button
-                  type="primary"
-                  htmlType="submit"
-                  size="large"
-                  block
-                  loading={submitting}
-                  icon={<ArrowLeftOutlined />}
-                >
-                  ورود به ساخت‌یار
-                </Button>
-              </Form.Item>
-
-              <Link to="/register">
-                <Button
-                  size="large"
-                  block
-                  icon={<UserAddOutlined />}
-                >
-                  ایجاد حساب جدید
-                </Button>
-              </Link>
-            </Form>
-          </Space>
+                ایجاد حساب جدید
+              </Button>
+            </Link>
+          </Form>
         </Card>
       </section>
     </div>

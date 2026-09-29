@@ -15,7 +15,6 @@ import {
   Button,
   Card,
   Col,
-  Form,
   Input,
   List,
   Row,
@@ -28,6 +27,7 @@ import { useEffect, useState } from 'react'
 import { api } from '../api/client'
 import type { AuthSessionItem, Me } from '../api/types'
 import { useAuth } from '../auth/AuthProvider'
+import { PageHero } from '../ui/PageHero'
 import {
   roleLabel,
   safeDisplayName,
@@ -115,43 +115,42 @@ export function AccountPage() {
   )
 
   return (
-    <div className="sakhtyar-page-stack">
-      <section className="sakhtyar-account-hero">
-        <div className="sakhtyar-account-profile">
+    <div className="sakhtyar-page-stack sakhtyar-account-page-v54">
+      <PageHero
+        image="/assets/sakhtyar/heroes/account-hero.jpg"
+        title="حساب کاربری و امنیت"
+        subtitle="پروفایل، رمز عبور و نشست‌های فعال حساب شما"
+        icon={<SafetyCertificateOutlined />}
+      />
+
+      <div className="sakhtyar-account-identity-strip">
+        <Space size={12}>
           <Avatar
-            size={74}
+            size={44}
             className="sakhtyar-account-avatar"
             icon={<UserOutlined />}
           />
 
           <div>
-            <Typography.Title level={2}>
-              حساب کاربری و امنیت
-            </Typography.Title>
-            <Typography.Paragraph>
-              مدیریت پروفایل، رمز عبور و دستگاه‌های متصل
-            </Typography.Paragraph>
+            <strong>{shownName}</strong>
+            <div>@{user?.username}</div>
           </div>
-        </div>
+        </Space>
 
-        <div className="sakhtyar-account-summary">
-          <strong>{shownName}</strong>
-          <span>@{user?.username}</span>
-          <Space wrap>
-            <Tag
-              color="blue"
-              icon={<SafetyCertificateOutlined />}
-            >
-              {roleLabel(user?.role)}
-            </Tag>
-            <Tag color="green">
-              {userStatusLabel(user?.status)}
-            </Tag>
-          </Space>
-        </div>
-      </section>
+        <Space wrap>
+          <Tag
+            color="blue"
+            icon={<SafetyCertificateOutlined />}
+          >
+            {roleLabel(user?.role)}
+          </Tag>
+          <Tag color="green">
+            {userStatusLabel(user?.status)}
+          </Tag>
+        </Space>
+      </div>
 
-      <Row gutter={[20, 20]}>
+      <Row gutter={[14, 14]}>
         <Col xs={24} xl={14}>
           <Card
             title={
@@ -160,14 +159,14 @@ export function AccountPage() {
                 پروفایل
               </Space>
             }
-            className="sakhtyar-account-card"
+            className="sakhtyar-account-card sakhtyar-animated-card"
           >
             {updateProfile.isSuccess ? (
               <Alert
                 type="success"
                 showIcon
                 message="پروفایل ذخیره شد."
-                style={{ marginBottom: 18 }}
+                style={{ marginBottom: 12 }}
               />
             ) : null}
 
@@ -180,17 +179,16 @@ export function AccountPage() {
                     ? updateProfile.error.message
                     : 'ذخیره پروفایل ناموفق بود.'
                 }
-                style={{ marginBottom: 18 }}
+                style={{ marginBottom: 12 }}
               />
             ) : null}
 
-            <Row gutter={[16, 8]}>
+            <Row gutter={[12, 10]}>
               <Col xs={24} md={12}>
                 <label className="sakhtyar-field-caption">
                   نام کاربری
                 </label>
                 <Input
-                  size="large"
                   prefix={<UserOutlined />}
                   value={user?.username ?? ''}
                   disabled
@@ -202,7 +200,6 @@ export function AccountPage() {
                   نام نمایشی
                 </label>
                 <Input
-                  size="large"
                   prefix={<UserOutlined />}
                   value={displayName}
                   onChange={(e) =>
@@ -216,7 +213,6 @@ export function AccountPage() {
                   ایمیل
                 </label>
                 <Input
-                  size="large"
                   prefix={<MailOutlined />}
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
@@ -228,7 +224,6 @@ export function AccountPage() {
                   موبایل
                 </label>
                 <Input
-                  size="large"
                   prefix={<MobileOutlined />}
                   value={mobile}
                   onChange={(e) => setMobile(e.target.value)}
@@ -239,8 +234,8 @@ export function AccountPage() {
             <div className="sakhtyar-card-actions">
               <Button
                 type="primary"
-                size="large"
                 icon={<SaveOutlined />}
+                className="sakhtyar-animated-primary"
                 disabled={
                   !displayName.trim() ||
                   updateProfile.isPending
@@ -262,7 +257,7 @@ export function AccountPage() {
                 تغییر رمز عبور
               </Space>
             }
-            className="sakhtyar-account-card"
+            className="sakhtyar-account-card sakhtyar-animated-card"
           >
             {changePassword.isError ? (
               <Alert
@@ -273,13 +268,13 @@ export function AccountPage() {
                     ? changePassword.error.message
                     : 'تغییر رمز عبور ناموفق بود.'
                 }
-                style={{ marginBottom: 18 }}
+                style={{ marginBottom: 12 }}
               />
             ) : null}
 
             <Space
               direction="vertical"
-              size={14}
+              size={10}
               style={{ width: '100%' }}
             >
               <div>
@@ -287,7 +282,6 @@ export function AccountPage() {
                   رمز فعلی
                 </label>
                 <Input.Password
-                  size="large"
                   prefix={<LockOutlined />}
                   value={currentPassword}
                   onChange={(e) =>
@@ -301,7 +295,6 @@ export function AccountPage() {
                   رمز جدید
                 </label>
                 <Input.Password
-                  size="large"
                   prefix={<LockOutlined />}
                   value={newPassword}
                   onChange={(e) =>
@@ -315,7 +308,6 @@ export function AccountPage() {
                   تکرار رمز جدید
                 </label>
                 <Input.Password
-                  size="large"
                   prefix={<LockOutlined />}
                   status={
                     confirmPassword &&
@@ -332,9 +324,9 @@ export function AccountPage() {
 
               <Button
                 type="primary"
-                size="large"
                 block
                 icon={<KeyOutlined />}
+                className="sakhtyar-animated-primary"
                 disabled={
                   !currentPassword ||
                   newPassword.length < 10 ||
@@ -361,6 +353,7 @@ export function AccountPage() {
         extra={
           <Button
             danger
+            size="small"
             icon={<LogoutOutlined />}
             disabled={revokeAll.isPending}
             onClick={() => revokeAll.mutate()}
@@ -368,7 +361,7 @@ export function AccountPage() {
             خروج از همه دستگاه‌ها
           </Button>
         }
-        className="sakhtyar-account-card"
+        className="sakhtyar-account-card sakhtyar-animated-card"
       >
         <List
           loading={sessions.isLoading}
@@ -382,6 +375,7 @@ export function AccountPage() {
                       <Button
                         key="revoke"
                         danger
+                        size="small"
                         onClick={() =>
                           revokeSession.mutate(session.id)
                         }
@@ -395,6 +389,7 @@ export function AccountPage() {
               <List.Item.Meta
                 avatar={
                   <Avatar
+                    size={36}
                     icon={<DesktopOutlined />}
                     className="sakhtyar-session-avatar"
                   />

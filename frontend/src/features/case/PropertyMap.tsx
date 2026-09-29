@@ -77,7 +77,7 @@ function propertyPayload(
   }
 }
 
-export function PropertyMap({ caseId }: { caseId: string }) {
+export function PropertyMap({ caseId, compact = false }: { caseId: string; compact?: boolean }) {
   const queryClient = useQueryClient()
   const mapContainerRef = useRef<HTMLDivElement | null>(null)
   const mapRef = useRef<MapInstance | null>(null)
@@ -516,7 +516,7 @@ export function PropertyMap({ caseId }: { caseId: string }) {
             <Box
               ref={mapContainerRef}
               sx={{
-                height: { xs: 420, md: 560 },
+                height: compact ? { xs: 280, md: 320 } : { xs: 330, md: 390 },
                 borderRadius: 2,
                 overflow: 'hidden',
                 bgcolor: 'grey.100',

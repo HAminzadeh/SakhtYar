@@ -4,6 +4,7 @@ import {
   PlusOutlined,
   SearchOutlined,
   SafetyCertificateOutlined,
+  TeamOutlined,
   UserOutlined,
 } from '@ant-design/icons'
 import {
@@ -28,6 +29,7 @@ import type {
   UserRole,
   UserStatus,
 } from '../api/types'
+import { PageHero } from '../ui/PageHero'
 import {
   roleLabel,
   safeDisplayName,
@@ -48,6 +50,93 @@ const statuses: Array<{ value: UserStatus; label: string }> = [
   { value: 'SUSPENDED', label: 'تعلیق‌شده' },
 ]
 
+const nowIso = () => new Date().toISOString()
+const hoursAgo = (hours: number) =>
+  new Date(Date.now() - hours * 60 * 60 * 1000).toISOString()
+
+const demoUsers: UserAdminItem[] = [
+  {
+    id: 'demo-project-manager',
+    username: 'project.manager',
+    displayName: 'مهدی رضوانی',
+    email: 'project.manager@demo.local',
+    mobile: '09120000001',
+    role: 'PROJECT_MANAGER',
+    status: 'ACTIVE',
+    permissions: ['CASE_READ', 'CASE_WRITE', 'PROPERTY_READ', 'PROPERTY_WRITE', 'OWNER_READ', 'OWNER_WRITE', 'DOCUMENT_READ', 'DOCUMENT_WRITE'],
+    failedLoginAttempts: 0,
+    lockedUntil: null,
+    lastLoginAt: hoursAgo(2),
+    passwordChangedAt: hoursAgo(240),
+    createdAt: hoursAgo(1500),
+    updatedAt: nowIso(),
+  },
+  {
+    id: 'demo-analyst',
+    username: 'analyst.demo',
+    displayName: 'سارا محمدی',
+    email: 'analyst@demo.local',
+    mobile: '09120000002',
+    role: 'ANALYST',
+    status: 'ACTIVE',
+    permissions: ['CASE_READ', 'PROPERTY_READ', 'OWNER_READ', 'DOCUMENT_READ', 'AGENT_USE'],
+    failedLoginAttempts: 0,
+    lockedUntil: null,
+    lastLoginAt: hoursAgo(5),
+    passwordChangedAt: hoursAgo(400),
+    createdAt: hoursAgo(1200),
+    updatedAt: nowIso(),
+  },
+  {
+    id: 'demo-legal',
+    username: 'legal.demo',
+    displayName: 'آرمان سلیمی',
+    email: 'legal@demo.local',
+    mobile: '09120000003',
+    role: 'LEGAL_EXPERT',
+    status: 'ACTIVE',
+    permissions: ['CASE_READ', 'PROPERTY_READ', 'OWNER_READ', 'DOCUMENT_READ', 'DOCUMENT_WRITE'],
+    failedLoginAttempts: 0,
+    lockedUntil: null,
+    lastLoginAt: hoursAgo(24),
+    passwordChangedAt: hoursAgo(600),
+    createdAt: hoursAgo(1600),
+    updatedAt: nowIso(),
+  },
+  {
+    id: 'demo-readonly',
+    username: 'viewer.demo',
+    displayName: 'نگار کریمی',
+    email: 'viewer@demo.local',
+    mobile: '09120000004',
+    role: 'READ_ONLY',
+    status: 'ACTIVE',
+    permissions: ['CASE_READ', 'PROPERTY_READ', 'OWNER_READ', 'DOCUMENT_READ'],
+    failedLoginAttempts: 0,
+    lockedUntil: null,
+    lastLoginAt: hoursAgo(52),
+    passwordChangedAt: hoursAgo(720),
+    createdAt: hoursAgo(1900),
+    updatedAt: nowIso(),
+  },
+  {
+    id: 'demo-pending',
+    username: 'pending.demo',
+    displayName: 'رضا اکبری',
+    email: 'pending@demo.local',
+    mobile: '09120000005',
+    role: 'PROJECT_MANAGER',
+    status: 'PENDING',
+    permissions: ['CASE_READ'],
+    failedLoginAttempts: 0,
+    lockedUntil: null,
+    lastLoginAt: null,
+    passwordChangedAt: hoursAgo(24),
+    createdAt: hoursAgo(48),
+    updatedAt: nowIso(),
+  },
+]
+
 type EditForm = {
   displayName: string
   email?: string
@@ -59,6 +148,10 @@ type EditForm = {
 type CreateForm = EditForm & {
   username: string
   password: string
+}
+
+function isDemoUser(user: UserAdminItem) {
+  return user.id.startsWith('demo-')
 }
 
 export function UsersPage() {
@@ -74,6 +167,18 @@ export function UsersPage() {
     queryKey: ['admin-users'],
     queryFn: () => api<UserAdminItem[]>('/api/v1/admin/users'),
   })
+
+  const combinedUsers = useMemo(() => {
+    const real = users.data ?? []
+    const realUsernames = new Set(real.map((user) => user.username))
+
+    return [
+      ...real,
+      ...demoUsers.filter(
+        (demo) => !realUsernames.has(demo.username),
+      ),
+    ]
+  }, [users.data])
 
   const updateUser = useMutation({
     mutationFn: (values: EditForm) =>
@@ -125,7 +230,7 @@ export function UsersPage() {
   const filtered = useMemo(() => {
     const q = search.trim().toLocaleLowerCase('fa')
 
-    return (users.data ?? []).filter((user) => {
+    return combinedUsers.filter((user) => {
       const matchesSearch =
         !q ||
         [user.displayName, user.username, user.email]
@@ -142,26 +247,31 @@ export function UsersPage() {
 
       return matchesSearch && matchesRole && matchesStatus
     })
-  }, [users.data, search, roleFilter, statusFilter])
+  }, [combinedUsers, search, roleFilter, statusFilter])
 
   const columns = [
     {
       title: 'کاربر',
       key: 'user',
       render: (_: unknown, user: UserAdminItem) => (
-        <Space size={12}>
+        <Space size={10}>
           <Avatar
-            size={46}
+            size={40}
             className="sakhtyar-user-avatar"
             icon={<UserOutlined />}
           />
           <div>
-            <Typography.Text strong>
-              {safeDisplayName(
-                user.displayName,
-                roleLabel(user.role) || user.username,
-              )}
-            </Typography.Text>
+            <Space size={6}>
+              <Typography.Text strong>
+                {safeDisplayName(
+                  user.displayName,
+                  roleLabel(user.role) || user.username,
+                )}
+              </Typography.Text>
+              {isDemoUser(user) ? (
+                <Tag color="purple">نمونه</Tag>
+              ) : null}
+            </Space>
             <div className="sakhtyar-user-secondary">
               @{user.username}
             </div>
@@ -198,6 +308,13 @@ export function UsersPage() {
                 ? 'gold'
                 : 'default'
           }
+          className={
+            status === 'ACTIVE'
+              ? 'sakhtyar-status-active'
+              : status === 'PENDING'
+                ? 'sakhtyar-status-pending'
+                : ''
+          }
         >
           {userStatusLabel(status)}
         </Tag>
@@ -215,47 +332,42 @@ export function UsersPage() {
       title: 'عملیات',
       key: 'actions',
       render: (_: unknown, user: UserAdminItem) => (
-        <Space>
-          <Button
-            icon={<EditOutlined />}
-            onClick={() => setEditing(user)}
-          >
-            ویرایش
-          </Button>
-          <Button
-            icon={<KeyOutlined />}
-            onClick={() => setResetTarget(user)}
-          >
-            رمز
-          </Button>
-        </Space>
+        isDemoUser(user) ? (
+          <Tag>نمونه نمایشی</Tag>
+        ) : (
+          <Space>
+            <Button
+              size="small"
+              icon={<EditOutlined />}
+              onClick={() => setEditing(user)}
+            >
+              ویرایش
+            </Button>
+            <Button
+              size="small"
+              icon={<KeyOutlined />}
+              onClick={() => setResetTarget(user)}
+            >
+              رمز
+            </Button>
+          </Space>
+        )
       ),
     },
   ]
 
   return (
-    <div className="sakhtyar-page-stack">
-      <section className="sakhtyar-hero sakhtyar-hero-users">
-        <div className="sakhtyar-hero-overlay" />
-        <div className="sakhtyar-hero-copy">
-          <span className="sakhtyar-hero-icon">
-            <UserOutlined />
-          </span>
-          <div>
-            <Typography.Title level={1}>
-              کاربران و دسترسی‌ها
-            </Typography.Title>
-            <Typography.Paragraph>
-              مدیریت کاربران، نقش‌ها، وضعیت حساب و بازنشانی رمز عبور
-            </Typography.Paragraph>
-          </div>
-        </div>
-      </section>
+    <div className="sakhtyar-page-stack sakhtyar-users-page-v54">
+      <PageHero
+        image="/assets/sakhtyar/heroes/users-hero.jpg"
+        title="کاربران و دسترسی‌ها"
+        subtitle="مدیریت کاربران، نقش‌ها، وضعیت حساب و بازنشانی رمز عبور"
+        icon={<TeamOutlined />}
+      />
 
       <Card className="sakhtyar-filter-card">
         <div className="sakhtyar-filter-row">
           <Input
-            size="large"
             allowClear
             prefix={<SearchOutlined />}
             placeholder="جستجو در نام، نام کاربری یا ایمیل..."
@@ -264,7 +376,6 @@ export function UsersPage() {
           />
 
           <Select
-            size="large"
             value={roleFilter}
             onChange={setRoleFilter}
             options={[
@@ -274,7 +385,6 @@ export function UsersPage() {
           />
 
           <Select
-            size="large"
             value={statusFilter}
             onChange={setStatusFilter}
             options={[
@@ -285,8 +395,8 @@ export function UsersPage() {
 
           <Button
             type="primary"
-            size="large"
             icon={<PlusOutlined />}
+            className="sakhtyar-animated-primary"
             onClick={() => setCreateOpen(true)}
           >
             ایجاد کاربر
@@ -296,13 +406,13 @@ export function UsersPage() {
 
       {users.isError ? (
         <Alert
-          type="error"
+          type="warning"
           showIcon
-          message="دریافت کاربران ناموفق بود."
+          message="دریافت کاربران واقعی ناموفق بود؛ کاربران نمونه همچنان نمایش داده می‌شوند."
         />
       ) : null}
 
-      <Card className="sakhtyar-table-card">
+      <Card className="sakhtyar-table-card sakhtyar-animated-card">
         <Table
           rowKey="id"
           loading={users.isLoading}
@@ -343,30 +453,29 @@ export function UsersPage() {
               name="displayName"
               rules={[{ required: true }]}
             >
-              <Input size="large" />
+              <Input />
             </Form.Item>
 
             <Form.Item label="ایمیل" name="email">
-              <Input size="large" />
+              <Input />
             </Form.Item>
 
             <Form.Item label="موبایل" name="mobile">
-              <Input size="large" />
+              <Input />
             </Form.Item>
 
             <Form.Item label="نقش" name="role">
-              <Select size="large" options={roles} />
+              <Select options={roles} />
             </Form.Item>
 
             <Form.Item label="وضعیت" name="status">
-              <Select size="large" options={statuses} />
+              <Select options={statuses} />
             </Form.Item>
 
             <Button
               type="primary"
               htmlType="submit"
               block
-              size="large"
               loading={updateUser.isPending}
             >
               ذخیره تغییرات
@@ -395,7 +504,7 @@ export function UsersPage() {
             name="username"
             rules={[{ required: true }]}
           >
-            <Input size="large" />
+            <Input />
           </Form.Item>
 
           <Form.Item
@@ -403,15 +512,15 @@ export function UsersPage() {
             name="displayName"
             rules={[{ required: true }]}
           >
-            <Input size="large" />
+            <Input />
           </Form.Item>
 
           <Form.Item label="ایمیل" name="email">
-            <Input size="large" />
+            <Input />
           </Form.Item>
 
           <Form.Item label="موبایل" name="mobile">
-            <Input size="large" />
+            <Input />
           </Form.Item>
 
           <Form.Item
@@ -419,22 +528,21 @@ export function UsersPage() {
             name="password"
             rules={[{ required: true, min: 10 }]}
           >
-            <Input.Password size="large" />
+            <Input.Password />
           </Form.Item>
 
           <Form.Item label="نقش" name="role">
-            <Select size="large" options={roles} />
+            <Select options={roles} />
           </Form.Item>
 
           <Form.Item label="وضعیت" name="status">
-            <Select size="large" options={statuses} />
+            <Select options={statuses} />
           </Form.Item>
 
           <Button
             type="primary"
             htmlType="submit"
             block
-            size="large"
             loading={createUser.isPending}
           >
             ایجاد کاربر
@@ -467,14 +575,13 @@ export function UsersPage() {
               },
             ]}
           >
-            <Input.Password size="large" />
+            <Input.Password />
           </Form.Item>
 
           <Button
             type="primary"
             htmlType="submit"
             block
-            size="large"
             loading={reset.isPending}
           >
             بازنشانی رمز

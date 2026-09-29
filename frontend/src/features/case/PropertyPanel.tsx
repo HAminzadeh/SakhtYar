@@ -1,16 +1,25 @@
-import { ApartmentRoundedIcon, DescriptionRoundedIcon, LocationOnRoundedIcon, SaveRoundedIcon, StraightenRoundedIcon } from '../../ui/antdIcons'
+import {
+  AppstoreOutlined,
+  EnvironmentOutlined,
+  FileTextOutlined,
+  HomeOutlined,
+  SaveOutlined,
+  UnorderedListOutlined,
+} from '@ant-design/icons'
 import {
   Alert,
-  Box,
   Button,
-  Grid,
-  MenuItem,
-  Stack,
-  TextField,
+  Card,
+  Col,
+  Input,
+  Row,
+  Select,
+  Space,
+  Tabs,
   Typography,
-} from '../../ui/antdCompat'
+} from 'antd'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { useEffect, useState } from 'react'
+import { useEffect, useMemo, useState, type ReactNode } from 'react'
 import { ApiError, api } from '../../api/client'
 import type { CaseItem, PropertyItem } from '../../api/types'
 import { useAuth } from '../../auth/AuthProvider'
@@ -24,12 +33,7 @@ import {
   propertyTypeOptions,
   type OptionItem,
 } from '../../domain/propertyOptions'
-import { FieldGroup } from '../../ui/FieldGroup'
-import {
-  FieldCell,
-  ResponsiveFieldGrid,
-} from '../../ui/ResponsiveFieldGrid'
-import { SectionCard } from '../../ui/SectionCard'
+import { PropertyMap } from './PropertyMap'
 
 type PropertyForm = {
   province: string
@@ -59,10 +63,7 @@ type PropertyForm = {
   longitude: string
 }
 
-function attributeString(
-  item: PropertyItem | null | undefined,
-  key: string,
-) {
+function attr(item: PropertyItem | null | undefined, key: string) {
   const value = item?.attributes?.[key]
   return typeof value === 'string' ? value : ''
 }
@@ -119,10 +120,10 @@ function fromProperty(item: PropertyItem): PropertyForm {
     orientation: item.orientation ?? '',
     propertyType: item.propertyType ?? '',
     buildingCondition: item.buildingCondition ?? '',
-    deedType: attributeString(item, 'deedType'),
-    ownershipStatus: attributeString(item, 'ownershipStatus'),
-    cornerPosition: attributeString(item, 'cornerPosition'),
-    landUse: attributeString(item, 'landUse'),
+    deedType: attr(item, 'deedType'),
+    ownershipStatus: attr(item, 'ownershipStatus'),
+    cornerPosition: attr(item, 'cornerPosition'),
+    landUse: attr(item, 'landUse'),
     registryMainNo: item.registryMainNo ?? '',
     registrySubNo: item.registrySubNo ?? '',
     registrySection: item.registrySection ?? '',
@@ -132,44 +133,34 @@ function fromProperty(item: PropertyItem): PropertyForm {
   }
 }
 
-function nullableNumber(value: string) {
-  const trimmed = value.trim()
-  return trimmed === '' ? null : Number(trimmed)
+function n(value: string) {
+  const x = value.trim()
+  return x === '' ? null : Number(x)
 }
 
-function nullableInteger(value: string) {
-  const number = nullableNumber(value)
-  return number == null ? null : Math.trunc(number)
+function i(value: string) {
+  const x = n(value)
+  return x == null ? null : Math.trunc(x)
 }
 
-function SelectField({
+function opts(items: OptionItem[]) {
+  return items
+    .filter((x) => x.value !== '')
+    .map((x) => ({ value: x.value, label: x.label }))
+}
+
+function Field({
   label,
-  value,
-  onChange,
-  options,
+  children,
 }: {
   label: string
-  value: string
-  onChange: (value: string) => void
-  options: OptionItem[]
+  children: ReactNode
 }) {
   return (
-    <TextField
-      select
-      fullWidth
-      label={label}
-      value={value}
-      onChange={(event) => onChange(event.target.value)}
-    >
-      {options.map((option) => (
-        <MenuItem
-          key={option.value || `${label}-empty`}
-          value={option.value}
-        >
-          {option.label}
-        </MenuItem>
-      ))}
-    </TextField>
+    <div className="sakhtyar-property-field">
+      <label>{label}</label>
+      {children}
+    </div>
   )
 }
 
@@ -190,7 +181,9 @@ export function PropertyPanel({
     queryKey: ['property', caseId],
     queryFn: async (): Promise<PropertyItem | null> => {
       try {
-        return await api<PropertyItem>(`/api/v1/cases/${caseId}/property`)
+        return await api<PropertyItem>(
+          `/api/v1/cases/${caseId}/property`,
+        )
       } catch (error) {
         if (error instanceof ApiError && error.status === 404) return null
         throw error
@@ -200,12 +193,14 @@ export function PropertyPanel({
   })
 
   useEffect(() => {
-    if (property.data) {
-      setForm(fromProperty(property.data))
-    } else if (property.data === null) {
-      setForm(fromCase(caseItem))
-    }
+    if (property.data) setForm(fromProperty(property.data))
+    else if (property.data === null) setForm(fromCase(caseItem))
   }, [property.data, caseItem])
+
+  const setField = (key: keyof PropertyForm, value: string) => {
+    setSaved(false)
+    setForm((current) => ({ ...current, [key]: value }))
+  }
 
   const save = useMutation({
     mutationFn: () =>
@@ -217,13 +212,13 @@ export function PropertyPanel({
           district: form.district.trim() || null,
           neighborhood: form.neighborhood.trim() || null,
           address: form.address.trim() || null,
-          landAreaM2: nullableNumber(form.landAreaM2),
-          frontageM: nullableNumber(form.frontageM),
-          passageWidthM: nullableNumber(form.passageWidthM),
-          buildingAreaM2: nullableNumber(form.buildingAreaM2),
-          constructionYear: nullableInteger(form.constructionYear),
-          existingFloors: nullableInteger(form.existingFloors),
-          existingUnits: nullableInteger(form.existingUnits),
+          landAreaM2: n(form.landAreaM2),
+          frontageM: n(form.frontageM),
+          passageWidthM: n(form.passageWidthM),
+          buildingAreaM2: n(form.buildingAreaM2),
+          constructionYear: i(form.constructionYear),
+          existingFloors: i(form.existingFloors),
+          existingUnits: i(form.existingUnits),
           orientation: form.orientation || null,
           propertyType: form.propertyType || null,
           buildingCondition: form.buildingCondition || null,
@@ -231,9 +226,10 @@ export function PropertyPanel({
           registrySubNo: form.registrySubNo.trim() || null,
           registrySection: form.registrySection.trim() || null,
           postalCode: form.postalCode.trim() || null,
-          latitude: nullableNumber(form.latitude),
-          longitude: nullableNumber(form.longitude),
+          latitude: n(form.latitude),
+          longitude: n(form.longitude),
           attributes: {
+            ...(property.data?.attributes ?? {}),
             deedType: form.deedType || null,
             ownershipStatus: form.ownershipStatus || null,
             cornerPosition: form.cornerPosition || null,
@@ -252,394 +248,217 @@ export function PropertyPanel({
     },
   })
 
-  const setField = (key: keyof PropertyForm, value: string) => {
-    setSaved(false)
-    setForm((current) => ({ ...current, [key]: value }))
-  }
+  const invalidNumbers = useMemo(() => {
+    const checks = [
+      n(form.landAreaM2),
+      n(form.frontageM),
+      n(form.passageWidthM),
+      n(form.buildingAreaM2),
+    ]
+    return checks.some((value) => value != null && (!Number.isFinite(value) || value <= 0))
+  }, [form])
 
-  const landArea = nullableNumber(form.landAreaM2)
-  const frontage = nullableNumber(form.frontageM)
-  const passageWidth = nullableNumber(form.passageWidthM)
-  const buildingArea = nullableNumber(form.buildingAreaM2)
-  const year = nullableInteger(form.constructionYear)
-  const floors = nullableInteger(form.existingFloors)
-  const units = nullableInteger(form.existingUnits)
-  const latitude = nullableNumber(form.latitude)
-  const longitude = nullableNumber(form.longitude)
+  const input = (
+    key: keyof PropertyForm,
+    label: string,
+    rows?: number,
+  ) => (
+    <Field label={label}>
+      {rows ? (
+        <Input.TextArea
+          rows={rows}
+          value={form[key]}
+          onChange={(e) => setField(key, e.target.value)}
+        />
+      ) : (
+        <Input
+          size="large"
+          value={form[key]}
+          onChange={(e) => setField(key, e.target.value)}
+        />
+      )}
+    </Field>
+  )
 
-  const invalidNumbers =
-    (landArea != null && (!Number.isFinite(landArea) || landArea <= 0)) ||
-    (frontage != null && (!Number.isFinite(frontage) || frontage <= 0)) ||
-    (passageWidth != null &&
-      (!Number.isFinite(passageWidth) || passageWidth <= 0)) ||
-    (buildingArea != null &&
-      (!Number.isFinite(buildingArea) || buildingArea <= 0)) ||
-    (year != null && (year < 1000 || year > 2500)) ||
-    (floors != null && (floors < 0 || floors > 200)) ||
-    (units != null && (units < 0 || units > 10000)) ||
-    (latitude != null &&
-      (!Number.isFinite(latitude) || latitude < -90 || latitude > 90)) ||
-    (longitude != null &&
-      (!Number.isFinite(longitude) || longitude < -180 || longitude > 180))
+  const select = (
+    key: keyof PropertyForm,
+    label: string,
+    values: OptionItem[],
+  ) => (
+    <Field label={label}>
+      <Select
+        size="large"
+        allowClear
+        style={{ width: '100%' }}
+        value={form[key] || undefined}
+        onChange={(value) => setField(key, value ?? '')}
+        options={opts(values)}
+      />
+    </Field>
+  )
+
+  const location = (
+    <div className="sakhtyar-property-location-grid">
+      <Card
+        className="sakhtyar-property-subcard sakhtyar-property-location-info"
+        title={
+          <Space>
+            <EnvironmentOutlined />
+            موقعیت و آدرس ملک
+          </Space>
+        }
+      >
+        <Row gutter={[12, 12]}>
+          <Col xs={24} sm={12}>{input('province', 'استان')}</Col>
+          <Col xs={24} sm={12}>{input('city', 'شهر')}</Col>
+          <Col xs={24} sm={12}>{input('district', 'منطقه')}</Col>
+          <Col xs={24} sm={12}>{input('neighborhood', 'محله')}</Col>
+          <Col xs={24} sm={12}>{input('latitude', 'عرض جغرافیایی')}</Col>
+          <Col xs={24} sm={12}>{input('longitude', 'طول جغرافیایی')}</Col>
+          <Col span={24}>{input('address', 'آدرس کامل', 3)}</Col>
+        </Row>
+      </Card>
+
+      <div className="sakhtyar-property-location-map">
+        <PropertyMap caseId={caseId} compact />
+      </div>
+    </div>
+  )
+
+  const dimensions = (
+    <Card className="sakhtyar-property-subcard">
+      <Row gutter={[14, 14]}>
+        <Col xs={24} sm={12} lg={8}>{input('landAreaM2', 'مساحت زمین (متر مربع)')}</Col>
+        <Col xs={24} sm={12} lg={8}>{input('frontageM', 'بر ملک (متر)')}</Col>
+        <Col xs={24} sm={12} lg={8}>{input('passageWidthM', 'عرض گذر (متر)')}</Col>
+        <Col xs={24} sm={12} lg={8}>{input('buildingAreaM2', 'زیربنای موجود (متر مربع)')}</Col>
+        <Col xs={24} sm={12} lg={8}>{input('constructionYear', 'سال ساخت')}</Col>
+        <Col xs={24} sm={12} lg={8}>{input('existingFloors', 'تعداد طبقات موجود')}</Col>
+        <Col xs={24} sm={12} lg={8}>{input('existingUnits', 'تعداد واحدهای موجود')}</Col>
+        <Col xs={24} sm={12} lg={8}>{select('orientation', 'جهت ملک', orientationOptions)}</Col>
+        <Col xs={24} sm={12} lg={8}>{select('cornerPosition', 'موقعیت ملک', cornerPositionOptions)}</Col>
+      </Row>
+    </Card>
+  )
+
+  const typeAndLegal = (
+    <Card className="sakhtyar-property-subcard">
+      <Row gutter={[14, 14]}>
+        <Col xs={24} sm={12} lg={8}>{select('propertyType', 'نوع ملک', propertyTypeOptions)}</Col>
+        <Col xs={24} sm={12} lg={8}>{select('buildingCondition', 'وضعیت بنا', buildingConditionOptions)}</Col>
+        <Col xs={24} sm={12} lg={8}>{select('landUse', 'کاربری', landUseOptions)}</Col>
+        <Col xs={24} sm={12} lg={8}>{select('deedType', 'نوع سند', deedTypeOptions)}</Col>
+        <Col xs={24} sm={12} lg={8}>{select('ownershipStatus', 'وضعیت مالکیت', ownershipStatusOptions)}</Col>
+      </Row>
+    </Card>
+  )
+
+  const registry = (
+    <Card className="sakhtyar-property-subcard">
+      <Row gutter={[14, 14]}>
+        <Col xs={24} sm={12}>{input('registryMainNo', 'پلاک اصلی')}</Col>
+        <Col xs={24} sm={12}>{input('registrySubNo', 'پلاک فرعی')}</Col>
+        <Col xs={24} sm={12}>{input('registrySection', 'بخش ثبتی')}</Col>
+        <Col xs={24} sm={12}>{input('postalCode', 'کد پستی')}</Col>
+      </Row>
+    </Card>
+  )
+
+  const extra = (
+    <Card className="sakhtyar-property-subcard">
+      <Typography.Title level={4}>اطلاعات تکمیلی</Typography.Title>
+      <Typography.Text type="secondary">
+        فیلدهای انعطاف‌پذیر ذخیره‌شده در JSONB
+        {property.data
+          ? ` — نسخه ${property.data.attributesSchemaVersion}`
+          : ''}
+      </Typography.Text>
+      <pre className="sakhtyar-json-preview">
+        {JSON.stringify(property.data?.attributes ?? {}, null, 2)}
+      </pre>
+    </Card>
+  )
 
   return (
-    <Stack spacing={2}>
-      {!canWrite && (
-        <Alert severity="info">
-          دسترسی شما فقط برای مشاهده مشخصات ملک است.
-        </Alert>
-      )}
+    <Space direction="vertical" size={14} style={{ width: '100%' }}>
+      {!canWrite ? (
+        <Alert type="info" showIcon message="دسترسی شما فقط برای مشاهده مشخصات ملک است." />
+      ) : null}
 
-      {property.isError && (
-        <Alert severity="error">
-          دریافت مشخصات ملک ناموفق بود.
-        </Alert>
-      )}
+      {property.isError ? (
+        <Alert type="error" showIcon message="دریافت مشخصات ملک ناموفق بود." />
+      ) : null}
 
-      {property.data === null && (
-        <Alert severity="info">
-          برای این پرونده هنوز رکورد ملک ایجاد نشده است. با ذخیره فرم،
-          رکورد Property ایجاد می‌شود.
-        </Alert>
-      )}
+      {saved ? (
+        <Alert type="success" showIcon message="مشخصات ملک با موفقیت ذخیره شد." />
+      ) : null}
 
-      {saved && (
-        <Alert severity="success">
-          مشخصات ملک با موفقیت ذخیره شد.
-        </Alert>
-      )}
+      {save.isError ? (
+        <Alert
+          type="error"
+          showIcon
+          message={
+            save.error instanceof Error
+              ? save.error.message
+              : 'ذخیره مشخصات ملک ناموفق بود.'
+          }
+        />
+      ) : null}
 
-      {save.isError && (
-        <Alert severity="error">
-          {save.error instanceof Error
-            ? save.error.message
-            : 'ذخیره مشخصات ملک ناموفق بود.'}
-        </Alert>
-      )}
+      {invalidNumbers ? (
+        <Alert type="warning" showIcon message="یکی از مقادیر عددی واردشده معتبر نیست." />
+      ) : null}
 
-      <SectionCard
-        title="موقعیت و آدرس"
-        description="اطلاعات مکانی و ثبتی پایه ملک"
-        icon={<LocationOnRoundedIcon />}
-      >
-        <FieldGroup
-          title="موقعیت"
-          description="اطلاعاتی که در نقشه، جستجو و گزارش‌ها استفاده می‌شوند."
-        >
-          <ResponsiveFieldGrid>
-            <FieldCell>
-              <TextField
-                fullWidth
-                label="استان"
-                value={form.province}
-                onChange={(e) => setField('province', e.target.value)}
-              />
-            </FieldCell>
-            <FieldCell>
-              <TextField
-                fullWidth
-                label="شهر"
-                value={form.city}
-                onChange={(e) => setField('city', e.target.value)}
-              />
-            </FieldCell>
-            <FieldCell>
-              <TextField
-                fullWidth
-                label="منطقه"
-                value={form.district}
-                onChange={(e) => setField('district', e.target.value)}
-              />
-            </FieldCell>
-            <FieldCell>
-              <TextField
-                fullWidth
-                label="محله"
-                value={form.neighborhood}
-                onChange={(e) => setField('neighborhood', e.target.value)}
-              />
-            </FieldCell>
-            <FieldCell>
-              <TextField
-                fullWidth
-                label="عرض جغرافیایی"
-                type="number"
-                value={form.latitude}
-                onChange={(e) => setField('latitude', e.target.value)}
-              />
-            </FieldCell>
-            <FieldCell>
-              <TextField
-                fullWidth
-                label="طول جغرافیایی"
-                type="number"
-                value={form.longitude}
-                onChange={(e) => setField('longitude', e.target.value)}
-              />
-            </FieldCell>
-            <FieldCell wide>
-              <TextField
-                fullWidth
-                label="آدرس کامل"
-                multiline
-                minRows={3}
-                value={form.address}
-                onChange={(e) => setField('address', e.target.value)}
-              />
-            </FieldCell>
-          </ResponsiveFieldGrid>
-        </FieldGroup>
-      </SectionCard>
-
-      <SectionCard
-        title="ابعاد و ویژگی‌های ساختمانی"
-        description="ورودی‌های اصلی تحلیل ساخت، تراکم و ارزش ملک"
-        icon={<StraightenRoundedIcon />}
-      >
-        <ResponsiveFieldGrid>
-          <FieldCell>
-            <TextField
-              fullWidth
-              type="number"
-              label="مساحت زمین (متر مربع)"
-              value={form.landAreaM2}
-              onChange={(e) => setField('landAreaM2', e.target.value)}
-            />
-          </FieldCell>
-
-          <FieldCell>
-            <TextField
-              fullWidth
-              type="number"
-              label="بر ملک (متر)"
-              value={form.frontageM}
-              onChange={(e) => setField('frontageM', e.target.value)}
-            />
-          </FieldCell>
-
-          <FieldCell>
-            <TextField
-              fullWidth
-              type="number"
-              label="عرض گذر (متر)"
-              value={form.passageWidthM}
-              onChange={(e) => setField('passageWidthM', e.target.value)}
-            />
-          </FieldCell>
-
-          <FieldCell>
-            <TextField
-              fullWidth
-              type="number"
-              label="زیربنای موجود (متر مربع)"
-              value={form.buildingAreaM2}
-              onChange={(e) => setField('buildingAreaM2', e.target.value)}
-            />
-          </FieldCell>
-
-          <FieldCell>
-            <TextField
-              fullWidth
-              type="number"
-              label="سال ساخت"
-              value={form.constructionYear}
-              onChange={(e) => setField('constructionYear', e.target.value)}
-            />
-          </FieldCell>
-
-          <FieldCell>
-            <TextField
-              fullWidth
-              type="number"
-              label="تعداد طبقات موجود"
-              value={form.existingFloors}
-              onChange={(e) => setField('existingFloors', e.target.value)}
-            />
-          </FieldCell>
-
-          <FieldCell>
-            <TextField
-              fullWidth
-              type="number"
-              label="تعداد واحدهای موجود"
-              value={form.existingUnits}
-              onChange={(e) => setField('existingUnits', e.target.value)}
-            />
-          </FieldCell>
-
-          <FieldCell>
-            <SelectField
-              label="جهت ملک"
-              value={form.orientation}
-              onChange={(value) => setField('orientation', value)}
-              options={orientationOptions}
-            />
-          </FieldCell>
-
-          <FieldCell>
-            <SelectField
-              label="موقعیت ملک"
-              value={form.cornerPosition}
-              onChange={(value) => setField('cornerPosition', value)}
-              options={cornerPositionOptions}
-            />
-          </FieldCell>
-        </ResponsiveFieldGrid>
-      </SectionCard>
-
-      <SectionCard
-        title="نوع ملک و وضعیت حقوقی"
-        description="اطلاعات طبقه‌بندی‌شده برای تحلیل، فیلتر و قرارداد"
-        icon={<ApartmentRoundedIcon />}
-      >
-        <ResponsiveFieldGrid>
-          <FieldCell>
-            <SelectField
-              label="نوع ملک"
-              value={form.propertyType}
-              onChange={(value) => setField('propertyType', value)}
-              options={propertyTypeOptions}
-            />
-          </FieldCell>
-
-          <FieldCell>
-            <SelectField
-              label="وضعیت بنا"
-              value={form.buildingCondition}
-              onChange={(value) => setField('buildingCondition', value)}
-              options={buildingConditionOptions}
-            />
-          </FieldCell>
-
-          <FieldCell>
-            <SelectField
-              label="کاربری"
-              value={form.landUse}
-              onChange={(value) => setField('landUse', value)}
-              options={landUseOptions}
-            />
-          </FieldCell>
-
-          <FieldCell>
-            <SelectField
-              label="نوع سند"
-              value={form.deedType}
-              onChange={(value) => setField('deedType', value)}
-              options={deedTypeOptions}
-            />
-          </FieldCell>
-
-          <FieldCell>
-            <SelectField
-              label="وضعیت مالکیت"
-              value={form.ownershipStatus}
-              onChange={(value) => setField('ownershipStatus', value)}
-              options={ownershipStatusOptions}
-            />
-          </FieldCell>
-        </ResponsiveFieldGrid>
-      </SectionCard>
-
-      <SectionCard
-        title="اطلاعات ثبتی"
-        description="اطلاعات رسمی پرونده و شناسه‌های ملک"
-        icon={<DescriptionRoundedIcon />}
-      >
-        <ResponsiveFieldGrid>
-          <FieldCell>
-            <TextField
-              fullWidth
-              label="پلاک اصلی"
-              value={form.registryMainNo}
-              onChange={(e) => setField('registryMainNo', e.target.value)}
-            />
-          </FieldCell>
-
-          <FieldCell>
-            <TextField
-              fullWidth
-              label="پلاک فرعی"
-              value={form.registrySubNo}
-              onChange={(e) => setField('registrySubNo', e.target.value)}
-            />
-          </FieldCell>
-
-          <FieldCell>
-            <TextField
-              fullWidth
-              label="بخش ثبتی"
-              value={form.registrySection}
-              onChange={(e) => setField('registrySection', e.target.value)}
-            />
-          </FieldCell>
-
-          <FieldCell>
-            <TextField
-              fullWidth
-              label="کد پستی"
-              value={form.postalCode}
-              onChange={(e) => setField('postalCode', e.target.value)}
-            />
-          </FieldCell>
-        </ResponsiveFieldGrid>
-      </SectionCard>
-
-      {invalidNumbers && (
-        <Alert severity="warning">
-          یکی از مقادیر عددی واردشده معتبر نیست.
-        </Alert>
-      )}
-
-      <Box
-        sx={{
-          position: { xs: 'sticky', sm: 'static' },
-          bottom: { xs: 76, sm: 'auto' },
-          zIndex: 5,
-          p: { xs: 1, sm: 0 },
-          mx: { xs: -1, sm: 0 },
-          borderRadius: 2,
-          bgcolor: { xs: 'rgba(246,248,252,.96)', sm: 'transparent' },
-          backdropFilter: { xs: 'blur(10px)', sm: 'none' },
-        }}
-      >
-        <Stack direction="row" justifyContent="flex-end">
-          <Button
-            variant="contained"
-            size="large"
-            startIcon={<SaveRoundedIcon />}
-            onClick={() => save.mutate()}
-            disabled={!canWrite || save.isPending || invalidNumbers}
-            fullWidth={false}
-            sx={{ minWidth: { xs: '100%', sm: 210 } }}
-          >
-            {save.isPending ? 'در حال ذخیره...' : 'ذخیره مشخصات ملک'}
-          </Button>
-        </Stack>
-      </Box>
-
-      {property.data &&
-        Object.keys(property.data.attributes ?? {}).length > 0 && (
-          <SectionCard
-            title="اطلاعات تکمیلی"
-            description={`فیلدهای انعطاف‌پذیر ذخیره‌شده در JSONB — نسخه ${property.data.attributesSchemaVersion}`}
-          >
-            <Box
-              component="pre"
-              dir="ltr"
-              sx={{
-                m: 0,
-                p: 2,
-                borderRadius: 2,
-                bgcolor: 'action.hover',
-                overflow: 'auto',
-                fontSize: 13,
-                maxHeight: 320,
-              }}
+      <Card className="sakhtyar-property-tabs-card">
+        <Tabs
+          defaultActiveKey="location"
+          size="large"
+          tabBarExtraContent={
+            <Button
+              type="primary"
+              icon={<SaveOutlined />}
+              className="sakhtyar-primary-action"
+              disabled={!canWrite || save.isPending || invalidNumbers}
+              loading={save.isPending}
+              onClick={() => save.mutate()}
             >
-              {JSON.stringify(property.data.attributes, null, 2)}
-            </Box>
-          </SectionCard>
-        )}
-    </Stack>
+              ذخیره مشخصات
+            </Button>
+          }
+          items={[
+            {
+              key: 'location',
+              label: 'موقعیت و آدرس',
+              icon: <EnvironmentOutlined />,
+              children: location,
+            },
+            {
+              key: 'dimensions',
+              label: 'ابعاد و ویژگی‌ها',
+              icon: <AppstoreOutlined />,
+              children: dimensions,
+            },
+            {
+              key: 'type',
+              label: 'نوع ملک',
+              icon: <HomeOutlined />,
+              children: typeAndLegal,
+            },
+            {
+              key: 'registry',
+              label: 'اطلاعات ثبتی',
+              icon: <FileTextOutlined />,
+              children: registry,
+            },
+            {
+              key: 'extra',
+              label: 'اطلاعات تکمیلی',
+              icon: <UnorderedListOutlined />,
+              children: extra,
+            },
+          ]}
+        />
+      </Card>
+    </Space>
   )
 }
