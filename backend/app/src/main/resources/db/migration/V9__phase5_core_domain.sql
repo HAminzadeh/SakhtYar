@@ -9,7 +9,7 @@ ALTER TABLE construction_case
     ADD COLUMN metadata JSONB NOT NULL DEFAULT '{}'::jsonb;
 
 UPDATE construction_case
-SET project_code = 'PRJ-' || UPPER(SUBSTRING(REPLACE(id::text, '-', '') FROM 1 FOR 12))
+SET project_code = 'PRJ-' || UPPER(REPLACE(id::text, '-', ''))
 WHERE project_code IS NULL;
 
 ALTER TABLE construction_case
