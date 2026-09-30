@@ -30,6 +30,7 @@
     <module>modules/crawler</module>
     <module>modules/material</module>
     <module>modules/assembly</module>
+    <module>modules/scenario</module>
     <module>modules/analysis</module>
     <module>app</module>
   </modules>
@@ -122,6 +123,11 @@
       <dependency>
         <groupId>com.sakhtyar</groupId>
         <artifactId>sakhtyar-assembly</artifactId>
+        <version>${project.version}</version>
+      </dependency>
+      <dependency>
+        <groupId>com.sakhtyar</groupId>
+        <artifactId>sakhtyar-scenario</artifactId>
         <version>${project.version}</version>
       </dependency>
       <dependency>
