@@ -32,6 +32,7 @@
     <module>modules/assembly</module>
     <module>modules/scenario</module>
     <module>modules/regulation</module>
+    <module>modules/finance</module>
     <module>modules/analysis</module>
     <module>app</module>
   </modules>
@@ -134,6 +135,11 @@
       <dependency>
         <groupId>com.sakhtyar</groupId>
         <artifactId>sakhtyar-regulation</artifactId>
+        <version>${project.version}</version>
+      </dependency>
+      <dependency>
+        <groupId>com.sakhtyar</groupId>
+        <artifactId>sakhtyar-finance</artifactId>
         <version>${project.version}</version>
       </dependency>
       <dependency>

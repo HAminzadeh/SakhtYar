@@ -33,6 +33,7 @@
     <dependency><groupId>com.sakhtyar</groupId><artifactId>sakhtyar-assembly</artifactId></dependency>
     <dependency><groupId>com.sakhtyar</groupId><artifactId>sakhtyar-scenario</artifactId></dependency>
     <dependency><groupId>com.sakhtyar</groupId><artifactId>sakhtyar-regulation</artifactId></dependency>
+    <dependency><groupId>com.sakhtyar</groupId><artifactId>sakhtyar-finance</artifactId></dependency>
     <dependency><groupId>com.sakhtyar</groupId><artifactId>sakhtyar-analysis</artifactId></dependency>
 
     <dependency><groupId>org.springframework.boot</groupId><artifactId>spring-boot-starter-web</artifactId></dependency>
