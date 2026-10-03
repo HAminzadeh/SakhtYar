@@ -65,6 +65,37 @@ public class JurisdictionService {
     }
 
     @Transactional(readOnly=true)
+    public Set<UUID> matchingKnowledgeSources(UUID caseId){
+        JurisdictionContext x;
+        try {
+            x=forCase(caseId);
+        } catch (IllegalArgumentException ex) {
+            return new LinkedHashSet<>(jdbc.query("""
+              select id from knowledge_source
+              where enabled=true
+                and country_id is null
+                and administrative_division_id is null
+                and city_id is null
+              order by updated_at desc
+              """,(rs,n)->rs.getObject(1,UUID.class)));
+        }
+
+        return new LinkedHashSet<>(jdbc.query("""
+          select id from knowledge_source
+          where enabled=true
+            and (country_id is null or country_id=?)
+            and (administrative_division_id is null or administrative_division_id=?)
+            and (city_id is null or city_id=?)
+          order by
+            case when city_id is not null then 1
+                 when administrative_division_id is not null then 2
+                 when country_id is not null then 3
+                 else 4 end,
+            updated_at desc
+          """,(rs,n)->rs.getObject(1,UUID.class),x.countryId(),x.divisionId(),x.cityId()));
+    }
+
+    @Transactional(readOnly=true)
     public Set<UUID> matchingUrbanRules(UUID caseId){
         JurisdictionContext x=forCase(caseId);
         return new LinkedHashSet<>(jdbc.query("""

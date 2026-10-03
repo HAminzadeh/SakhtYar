@@ -130,7 +130,7 @@ export function CasesPage() {
   })
 
   const items = useMemo(() => {
-    const q = search.trim().toLocaleLowerCase('fa')
+    const q = search.trim().toLocaleLowerCase(document.documentElement.lang === 'fa' ? 'fa-IR' : 'en-US')
     let result = [...(cases.data ?? [])]
 
     if (q) {
@@ -138,7 +138,7 @@ export function CasesPage() {
         [item.title, item.city, item.district, item.address]
           .filter(Boolean)
           .some((value) =>
-            String(value).toLocaleLowerCase('fa').includes(q),
+            String(value).toLocaleLowerCase(document.documentElement.lang === 'fa' ? 'fa-IR' : 'en-US').includes(q),
           ),
       )
     }
@@ -380,7 +380,7 @@ export function CasesPage() {
                       <small>مساحت زمین</small>
                       <strong>
                         {item.landAreaM2
-                          ? `${item.landAreaM2.toLocaleString('fa-IR')} متر مربع`
+                          ? `${item.landAreaM2.toLocaleString(document.documentElement.lang === 'fa' ? 'fa-IR' : 'en-US')} متر مربع`
                           : 'ثبت نشده'}
                       </strong>
                     </span>
@@ -388,7 +388,7 @@ export function CasesPage() {
                       <ClockCircleOutlined />
                       <small>آخرین بروزرسانی</small>
                       <strong>
-                        {new Date(item.updatedAt).toLocaleDateString('fa-IR')}
+                        {new Date(item.updatedAt).toLocaleDateString(document.documentElement.lang === 'fa' ? 'fa-IR' : 'en-US')}
                       </strong>
                     </span>
                   </div>

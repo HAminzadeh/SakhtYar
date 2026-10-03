@@ -19,7 +19,9 @@ public class FeasibilityAssessmentEntity {
     @Enumerated(EnumType.STRING) @Column(nullable=false,length=40) private FeasibilityStatus status;
     @Column(name="readiness_score",nullable=false,precision=5,scale=2) private BigDecimal readinessScore;
     @Column(name="scenario_cost",nullable=false,precision=20,scale=2) private BigDecimal scenarioCost;
-    @Column(name="cost_currency_code",nullable=false,length=3) private String costCurrencyCode;
+    @Column(name="cost_currency_code",nullable=false,length=8) private String costCurrencyCode;
+    @Column(name="currency_id", insertable=false, updatable=false)
+    private UUID currencyId;
     @Column(name="land_area_m2",precision=20,scale=6) private BigDecimal landAreaM2;
     @Column(name="total_built_area_m2",precision=20,scale=6) private BigDecimal totalBuiltAreaM2;
     @Column(name="cost_per_land_m2",precision=20,scale=2) private BigDecimal costPerLandM2;
@@ -75,4 +77,6 @@ public class FeasibilityAssessmentEntity {
     public Map<String,Object> getInputSnapshot(){return inputSnapshot==null?Map.of():Map.copyOf(inputSnapshot);}
     public Map<String,Object> getResultSnapshot(){return resultSnapshot==null?Map.of():Map.copyOf(resultSnapshot);}
     public String getAssessedBy(){return assessedBy;} public Instant getAssessedAt(){return assessedAt;}
+
+    public UUID getCurrencyId(){return currencyId;}
 }

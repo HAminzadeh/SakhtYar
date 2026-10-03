@@ -217,6 +217,7 @@ a {
   overflow: hidden;
   border-radius: 25px;
   padding: 36px 44px;
+  /*noinspection CssUnknownTarget*/
   background:
     url("/assets/sakhtyar/hero-construction.jpg")
     left center / cover no-repeat;
@@ -539,6 +540,7 @@ a {
   overflow: hidden;
   border-radius: 25px;
   padding: 32px 40px;
+  /*noinspection CssUnknownTarget*/
   background:
     linear-gradient(
       270deg,
@@ -633,6 +635,7 @@ a {
   position: relative;
   min-height: 100vh;
   overflow: hidden;
+  /*noinspection CssUnknownTarget*/
   background:
     url("/assets/sakhtyar/login-construction.jpg")
     center / cover no-repeat;
@@ -1582,6 +1585,7 @@ a {
 }
 
 .sakhtyar-login-v54 .sakhtyar-login-scene {
+  /*noinspection CssUnknownTarget*/
   background:
     url("/assets/sakhtyar/heroes/login-hero.jpg")
     center / cover no-repeat !important;
@@ -2003,6 +2007,7 @@ select,
 .sakhtyar-login-v56__hero {
   position: relative;
   min-height: 100vh;
+  /*noinspection CssUnknownTarget*/
   background:
     url("/assets/sakhtyar/heroes/login-hero.jpg")
     center / cover no-repeat;
@@ -2530,3 +2535,28 @@ select,
 }
 
 /* === SakhtYar UI V5.6 END === */
+/* === SakhtYar Theme Engine 5.13.5.1 START === */
+html{--sy-bg:#f3f7fc;--sy-surface:#fff;--sy-surface-2:#f8fbff;--sy-text:#10203b;--sy-muted:#6b7a90;--sy-border:#e2e8f0;--sy-primary:#2563eb;--sy-primary-soft:#eaf2ff;--sy-shadow:rgba(31,64,108,.10)}
+html[data-theme-resolved="dark"]{--sy-bg:#0b1220;--sy-surface:#111827;--sy-surface-2:#171f2e;--sy-text:#e5ecf7;--sy-muted:#94a3b8;--sy-border:#293548;--sy-primary:#60a5fa;--sy-primary-soft:#172b46;--sy-shadow:rgba(0,0,0,.34)}
+html[data-theme-resolved="ocean"]{--sy-bg:#effaff;--sy-surface:#fff;--sy-surface-2:#f2fbff;--sy-text:#123247;--sy-muted:#52758a;--sy-border:#cfeaf4;--sy-primary:#0284c7;--sy-primary-soft:#e0f5ff;--sy-shadow:rgba(2,132,199,.12)}
+html[data-theme-resolved="emerald"]{--sy-bg:#f0fdf8;--sy-surface:#fff;--sy-surface-2:#f5fffb;--sy-text:#123d32;--sy-muted:#5e7f75;--sy-border:#d3eee4;--sy-primary:#059669;--sy-primary-soft:#dff9ef;--sy-shadow:rgba(5,150,105,.12)}
+html[data-theme-resolved="sunset"]{--sy-bg:#fff7ed;--sy-surface:#fff;--sy-surface-2:#fffaf5;--sy-text:#4a2b1d;--sy-muted:#856959;--sy-border:#f4d8c2;--sy-primary:#ea580c;--sy-primary-soft:#ffeadb;--sy-shadow:rgba(234,88,12,.12)}
+html[data-theme-resolved="midnight"]{--sy-bg:#090a14;--sy-surface:#121425;--sy-surface-2:#181a2f;--sy-text:#f2eeff;--sy-muted:#aaa2c4;--sy-border:#2b2a45;--sy-primary:#8b5cf6;--sy-primary-soft:#272143;--sy-shadow:rgba(0,0,0,.40)}
+html,body,#root,.sakhtyar-shell{background-color:var(--sy-bg)!important;color:var(--sy-text)!important;transition:background-color .22s ease,color .22s ease}
+body{background:radial-gradient(circle at 100% 0%,color-mix(in srgb,var(--sy-primary) 10%,transparent),transparent 34rem),var(--sy-bg)!important}
+.sakhtyar-topbar{background:color-mix(in srgb,var(--sy-surface) 94%,transparent)!important;border-color:var(--sy-border)!important;box-shadow:0 4px 22px var(--sy-shadow)!important}
+.sakhtyar-brand-copy strong,.sakhtyar-hero-copy h1,.sakhtyar-owner-primary strong,.sakhtyar-account-profile h2{color:var(--sy-text)!important}
+.sakhtyar-brand-copy small,.sakhtyar-project-meta small,.sakhtyar-owner-primary small,.sakhtyar-account-profile p{color:var(--sy-muted)!important}
+.sakhtyar-filter-card,.sakhtyar-table-card,.sakhtyar-tabs-card,.sakhtyar-account-card,.sakhtyar-project-card,.sakhtyar-settings-card,.sakhtyar-property-subcard,.sakhtyar-property-tabs-card{background:var(--sy-surface)!important;border-color:var(--sy-border)!important;box-shadow:0 12px 34px var(--sy-shadow)!important}
+.sakhtyar-project-meta,.sakhtyar-project-meta span+span{border-color:var(--sy-border)!important}
+.sakhtyar-project-meta strong{color:var(--sy-text)!important}
+.sakhtyar-profile-avatar,.sakhtyar-user-avatar,.sakhtyar-owner-avatar{background:var(--sy-primary-soft)!important;color:var(--sy-primary)!important}
+.sakhtyar-theme-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(138px,1fr));gap:10px;width:100%}
+.sakhtyar-theme-option{appearance:none;min-height:92px;padding:12px;display:grid;gap:10px;text-align:start;cursor:pointer;border:1px solid var(--sy-border);border-radius:16px;color:var(--sy-text);background:var(--sy-surface-2);transition:transform .16s ease,border-color .16s ease,box-shadow .16s ease}
+.sakhtyar-theme-option:hover{transform:translateY(-2px);border-color:var(--sy-primary)}
+.sakhtyar-theme-option.is-selected{border-color:var(--sy-primary);box-shadow:0 0 0 3px color-mix(in srgb,var(--sy-primary) 16%,transparent)}
+.sakhtyar-theme-swatches{display:flex;gap:6px}.sakhtyar-theme-swatches i{width:26px;height:26px;border-radius:9px;border:1px solid rgba(127,127,127,.18)}
+html[data-theme-resolved="dark"] .sakhtyar-login-v56__panel,html[data-theme-resolved="midnight"] .sakhtyar-login-v56__panel{background:var(--sy-bg)!important}
+html[data-theme-resolved="dark"] .sakhtyar-login-v56__card,html[data-theme-resolved="midnight"] .sakhtyar-login-v56__card{background:var(--sy-surface)!important;border-color:var(--sy-border)!important}
+html[data-theme-resolved="dark"] .sakhtyar-login-v56__divider span,html[data-theme-resolved="midnight"] .sakhtyar-login-v56__divider span{background:var(--sy-surface)!important}
+/* === SakhtYar Theme Engine 5.13.5.1 END === */

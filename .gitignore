@@ -61,3 +61,6 @@ jar-check/
 /.local/docker-images/
 
 /.local/patch-backups/
+
+# TypeScript incremental build metadata
+*.tsbuildinfo

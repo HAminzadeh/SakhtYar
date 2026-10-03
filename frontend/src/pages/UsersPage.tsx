@@ -228,7 +228,7 @@ export function UsersPage() {
   })
 
   const filtered = useMemo(() => {
-    const q = search.trim().toLocaleLowerCase('fa')
+    const q = search.trim().toLocaleLowerCase(document.documentElement.lang === 'fa' ? 'fa-IR' : 'en-US')
 
     return combinedUsers.filter((user) => {
       const matchesSearch =
@@ -236,7 +236,7 @@ export function UsersPage() {
         [user.displayName, user.username, user.email]
           .filter(Boolean)
           .some((value) =>
-            String(value).toLocaleLowerCase('fa').includes(q),
+            String(value).toLocaleLowerCase(document.documentElement.lang === 'fa' ? 'fa-IR' : 'en-US').includes(q),
           )
 
       const matchesRole =
@@ -325,7 +325,7 @@ export function UsersPage() {
       dataIndex: 'lastLoginAt',
       render: (value?: string | null) =>
         value
-          ? new Date(value).toLocaleString('fa-IR')
+          ? new Date(value).toLocaleString(document.documentElement.lang === 'fa' ? 'fa-IR' : 'en-US')
           : 'ثبت نشده',
     },
     {

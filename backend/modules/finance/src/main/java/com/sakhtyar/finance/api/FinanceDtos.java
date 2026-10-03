@@ -23,7 +23,7 @@ public final class FinanceDtos {
             @NotNull UUID feasibilityAssessmentId,
             @NotNull @DecimalMin(value="0.000001") BigDecimal sellableAreaM2,
             @NotNull @DecimalMin("0.0") BigDecimal expectedSalePricePerM2,
-            @NotBlank @Size(min=3,max=3) String currencyCode,
+            @NotBlank @Size(min=3,max=8) String currencyCode,
             @NotNull @DecimalMin("0.0") BigDecimal otherRevenue,
             @NotNull @DecimalMin("0.0") BigDecimal additionalCost,
             @NotNull @DecimalMin("0.0") BigDecimal financingCost,

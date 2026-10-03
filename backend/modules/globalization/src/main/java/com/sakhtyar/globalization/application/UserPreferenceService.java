@@ -3,6 +3,7 @@ package com.sakhtyar.globalization.application;
 import static com.sakhtyar.globalization.domain.GlobalDtos.*;
 import com.sakhtyar.identity.domain.UserRepository;
 import java.time.Instant;
+import java.time.ZoneId;
 import java.util.UUID;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.security.core.Authentication;
@@ -43,17 +44,37 @@ public class UserPreferenceService {
         validateRef("global_country",r.countryId());
         validateRef("global_currency",r.currencyId());
         String theme=r.theme()==null?"SYSTEM":r.theme().trim().toUpperCase();
-        if(!theme.matches("SYSTEM|LIGHT|DARK")) throw new IllegalArgumentException("Invalid theme.");
-        jdbc.update("""
+        if(!theme.matches("SYSTEM|LIGHT|DARK|OCEAN|EMERALD|SUNSET|MIDNIGHT")) throw new IllegalArgumentException("Invalid theme.");
+
+        String timezone=clean(r.timezone());
+        if(timezone!=null) {
+            try { ZoneId.of(timezone); }
+            catch(Exception ex) { throw new IllegalArgumentException("Invalid timezone: "+timezone); }
+        }
+
+        int updated=jdbc.update("""
           insert into user_preference(user_id,language_id,country_id,currency_id,timezone,theme,date_format,number_format,first_day_of_week,updated_at)
           values(?,?,?,?,?,?,?,?,?,?)
           on conflict(user_id) do update set
             language_id=excluded.language_id,country_id=excluded.country_id,currency_id=excluded.currency_id,
             timezone=excluded.timezone,theme=excluded.theme,date_format=excluded.date_format,
             number_format=excluded.number_format,first_day_of_week=excluded.first_day_of_week,updated_at=excluded.updated_at
-          """,userId,r.languageId(),r.countryId(),r.currencyId(),clean(r.timezone()),theme,
+          """,userId,r.languageId(),r.countryId(),r.currencyId(),timezone,theme,
           clean(r.dateFormat()),clean(r.numberFormat()),r.firstDayOfWeek(),Instant.now());
-        return get(a);
+
+        if(updated!=1) throw new IllegalStateException("User preference update did not persist.");
+        Preference persisted=get(a);
+
+        if(r.languageId()!=null && !r.languageId().equals(persisted.languageId()))
+            throw new IllegalStateException("Language preference round-trip verification failed.");
+        if(r.currencyId()!=null && !r.currencyId().equals(persisted.currencyId()))
+            throw new IllegalStateException("Currency preference round-trip verification failed.");
+        if(!theme.equalsIgnoreCase(persisted.theme()))
+            throw new IllegalStateException("Theme preference round-trip verification failed.");
+        if(timezone!=null && !timezone.equals(persisted.timezone()))
+            throw new IllegalStateException("Timezone preference round-trip verification failed.");
+
+        return persisted;
     }
 
     private void ensure(UUID userId){

@@ -14,7 +14,9 @@ public class SensitivityAnalysisEntity {
     @Column(name="financial_analysis_id",nullable=false) private UUID financialAnalysisId;
     @Column(name="case_id",nullable=false) private UUID caseId;
     @Column(name="scenario_id",nullable=false) private UUID scenarioId;
-    @Column(name="currency_code",nullable=false,length=3) private String currencyCode;
+    @Column(name="currency_code",nullable=false,length=8) private String currencyCode;
+    @Column(name="currency_id", insertable=false, updatable=false)
+    private UUID currencyId;
     @Column(name="point_count",nullable=false) private int pointCount;
     @Column(name="best_profit",precision=20,scale=2) private BigDecimal bestProfit;
     @Column(name="worst_profit",precision=20,scale=2) private BigDecimal worstProfit;
@@ -53,4 +55,6 @@ public class SensitivityAnalysisEntity {
     public Map<String,Object> getInputSnapshot(){return inputSnapshot==null?Map.of():Map.copyOf(inputSnapshot);}
     public Map<String,Object> getSummarySnapshot(){return summarySnapshot==null?Map.of():Map.copyOf(summarySnapshot);}
     public String getCalculatedBy(){return calculatedBy;} public Instant getCalculatedAt(){return calculatedAt;}
+
+    public UUID getCurrencyId(){return currencyId;}
 }

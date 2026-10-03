@@ -2,6 +2,7 @@ package com.sakhtyar.agents.input;
 
 import com.sakhtyar.agents.glossary.PersianGlossaryService;
 import com.sakhtyar.knowledge.domain.*;
+import com.sakhtyar.globalization.application.JurisdictionService;
 import java.util.*;
 import java.util.UUID;
 import org.springframework.stereotype.Service;
@@ -13,19 +14,25 @@ public class InputGatewayKnowledgeResolver {
     private final PersianGlossaryService legacyGlossary;
     private final KnowledgeTermRepository termRepository;
     private final KnowledgeTermAliasRepository aliasRepository;
+    private final JurisdictionService jurisdictionService;
 
     public InputGatewayKnowledgeResolver(
             PersianGlossaryService legacyGlossary,
             KnowledgeTermRepository termRepository,
-            KnowledgeTermAliasRepository aliasRepository
+            KnowledgeTermAliasRepository aliasRepository,
+            JurisdictionService jurisdictionService
     ) {
         this.legacyGlossary=legacyGlossary;
         this.termRepository=termRepository;
         this.aliasRepository=aliasRepository;
+        this.jurisdictionService=jurisdictionService;
     }
 
     @Transactional(readOnly=true)
-    public Resolution resolve(String normalizedText) {
+    public Resolution resolve(String normalizedText, UUID caseId) {
+        Set<UUID> allowedSources = caseId == null
+                ? Set.of()
+                : jurisdictionService.matchingKnowledgeSources(caseId);
         LinkedHashMap<String,Object> recognized=new LinkedHashMap<>();
         LinkedHashSet<String> ambiguous=new LinkedHashSet<>();
 
@@ -43,6 +50,7 @@ public class InputGatewayKnowledgeResolver {
         HashMap<String,UUID> owner=new HashMap<>();
 
         for (KnowledgeTermEntity term:terms) {
+            if (!sourceAllowed(term.getSourceId(), allowedSources, caseId)) continue;
             byId.put(term.getId(),term);
             String surface=PersianInputNormalizer.normalize(term.getNameFa());
             if (!surface.isBlank() && containsPhrase(normalizedText,surface)) {
@@ -55,6 +63,7 @@ public class InputGatewayKnowledgeResolver {
             if (alias.getLocale()!=null && !alias.getLocale().toLowerCase().startsWith("fa")) continue;
             KnowledgeTermEntity term=byId.get(alias.getTermId());
             if (term==null) continue;
+            if (!sourceAllowed(alias.getSourceId(), allowedSources, caseId)) continue;
 
             String surface=PersianInputNormalizer.normalize(alias.getAliasNormalized());
             if (!surface.isBlank() && containsPhrase(normalizedText,surface)) {
@@ -92,6 +101,12 @@ public class InputGatewayKnowledgeResolver {
         if (term.getConfidence()!=null) details.put("confidence",term.getConfidence());
 
         recognized.put(displaySurface,Map.copyOf(details));
+    }
+
+    private boolean sourceAllowed(UUID sourceId, Set<UUID> allowedSources, UUID caseId) {
+        if (sourceId == null) return true;
+        if (caseId == null) return false;
+        return allowedSources.contains(sourceId);
     }
 
     private boolean containsPhrase(String text,String phrase) {

@@ -8,6 +8,7 @@ import {
 } from 'react'
 import { api } from '../api/client'
 import type { Me, Permission } from '../api/types'
+import { useI18n } from '../i18n/LanguageProvider'
 
 type AuthContextValue = {
   user: Me | null
@@ -21,13 +22,26 @@ type AuthContextValue = {
 const AuthContext = createContext<AuthContextValue | null>(null)
 
 export function AuthProvider({ children }: { children: ReactNode }) {
+  const { applyUserPreference } = useI18n()
   const [user, setUser] = useState<Me | null>(null)
   const [loading, setLoading] = useState(true)
+
+  const syncUiPreference = async () => {
+    try {
+      const preference = await api<{ languageCode?: string | null; theme?: string | null }>(
+        '/api/v1/global/preferences/me',
+      )
+      applyUserPreference(preference)
+    } catch {
+      // Keep the pre-auth browser preference when no server preference is available.
+    }
+  }
 
   const refresh = async () => {
     try {
       const me = await api<Me>('/api/v1/auth/me')
       setUser(me)
+      await syncUiPreference()
     } catch {
       setUser(null)
     }
@@ -43,6 +57,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       body: JSON.stringify({ username, password }),
     })
     setUser(me)
+    await syncUiPreference()
   }
 
   const logout = async () => {

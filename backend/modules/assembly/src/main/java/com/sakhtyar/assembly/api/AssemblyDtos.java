@@ -38,7 +38,7 @@ public final class AssemblyDtos {
     public record CalculateCostRequest(
             @NotNull @DecimalMin("0.000001") BigDecimal quantity,
             @NotNull MaterialPriceType priceType,
-            @NotBlank @Size(min = 3, max = 3) String currencyCode,
+            @NotBlank @Size(min=3,max=8) String currencyCode,
             @Size(max = 160) String province,
             @Size(max = 160) String city
     ) {}

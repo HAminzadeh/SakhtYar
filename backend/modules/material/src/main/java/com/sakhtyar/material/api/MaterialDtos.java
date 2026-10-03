@@ -37,7 +37,7 @@ public final class MaterialDtos {
             UUID variantId,
             @NotNull MaterialPriceType priceType,
             @NotNull @DecimalMin(value = "0.01") BigDecimal amount,
-            @NotBlank @Size(min = 3, max = 3) String currencyCode,
+            @NotBlank @Size(min=3,max=8) String currencyCode,
             @NotBlank @Size(max = 40) String unitCode,
             @NotNull @DecimalMin(value = "0.000001") BigDecimal quantityBasis,
             @Size(max = 160) String province,

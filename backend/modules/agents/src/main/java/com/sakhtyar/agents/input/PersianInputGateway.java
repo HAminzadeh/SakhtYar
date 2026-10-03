@@ -47,7 +47,7 @@ public class PersianInputGateway {
         Canonicalization canonical=
                 canonicalizer.canonicalize(normalized,explicitParameters);
 
-        Resolution resolution=knowledgeResolver.resolve(normalized);
+        Resolution resolution=knowledgeResolver.resolve(normalized,caseId);
 
         ArrayList<InputClarification> clarifications=
                 new ArrayList<>(canonical.clarifications());

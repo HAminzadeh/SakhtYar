@@ -15,7 +15,9 @@ public class FinancialAnalysisEntity {
     @Column(name="case_id",nullable=false) private UUID caseId;
     @Column(name="property_id",nullable=false) private UUID propertyId;
     @Column(name="scenario_id",nullable=false) private UUID scenarioId;
-    @Column(name="currency_code",nullable=false,length=3) private String currencyCode;
+    @Column(name="currency_code",nullable=false,length=8) private String currencyCode;
+    @Column(name="currency_id", insertable=false, updatable=false)
+    private UUID currencyId;
     @Column(name="sellable_area_m2",nullable=false,precision=20,scale=6) private BigDecimal sellableAreaM2;
     @Column(name="expected_sale_price_per_m2",nullable=false,precision=20,scale=2) private BigDecimal expectedSalePricePerM2;
     @Column(name="other_revenue",nullable=false,precision=20,scale=2) private BigDecimal otherRevenue;
@@ -70,4 +72,6 @@ public class FinancialAnalysisEntity {
     public Map<String,Object> getInputSnapshot(){return inputSnapshot==null?Map.of():Map.copyOf(inputSnapshot);}
     public Map<String,Object> getResultSnapshot(){return resultSnapshot==null?Map.of():Map.copyOf(resultSnapshot);}
     public String getCalculatedBy(){return calculatedBy;} public Instant getCalculatedAt(){return calculatedAt;}
+
+    public UUID getCurrencyId(){return currencyId;}
 }

@@ -17,8 +17,9 @@ import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.security.web.SecurityFilterChain;
 import org.springframework.security.web.authentication.HttpStatusEntryPoint;
-import org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter;
 import org.springframework.security.web.csrf.CookieCsrfTokenRepository;
+import org.springframework.security.web.csrf.CsrfFilter;
+import org.springframework.security.web.csrf.CsrfTokenRequestAttributeHandler;
 import org.springframework.web.cors.CorsConfiguration;
 import org.springframework.web.cors.CorsConfigurationSource;
 import org.springframework.web.cors.UrlBasedCorsConfigurationSource;
@@ -92,6 +93,15 @@ public class SecurityConfig {
                 CookieCsrfTokenRepository.withHttpOnlyFalse();
         csrfRepository.setCookiePath("/");
 
+        /*
+         * SakhtYar is a JSON SPA. Use the plain header token resolver so the
+         * XSRF-TOKEN cookie / X-XSRF-TOKEN header pair is deterministic.
+         * This avoids the SPA BREACH/XOR mismatch introduced by newer
+         * Spring Security defaults.
+         */
+        CsrfTokenRequestAttributeHandler csrfRequestHandler =
+                new CsrfTokenRequestAttributeHandler();
+
         http
                 .cors(Customizer.withDefaults())
                 .exceptionHandling(exceptions -> exceptions
@@ -101,9 +111,11 @@ public class SecurityConfig {
                 )
                 .csrf(csrf -> csrf
                         .csrfTokenRepository(csrfRepository)
+                        .csrfTokenRequestHandler(csrfRequestHandler)
                         .ignoringRequestMatchers(
                                 "/api/v1/auth/login",
                                 "/api/v1/auth/register",
+                                "/api/v1/auth/refresh",
                                 "/api/v1/auth/mobile/**"
                         )
                 )
@@ -243,7 +255,7 @@ public class SecurityConfig {
                 )
                 .addFilterBefore(
                         jwtFilter,
-                        UsernamePasswordAuthenticationFilter.class
+                        CsrfFilter.class
                 );
 
         return http.build();

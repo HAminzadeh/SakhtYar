@@ -16,10 +16,13 @@ public class GlobalController {
     private final JurisdictionService jurisdiction;
     private final GeoNamesImporter importer;
     private final FxService fx;
+    private final MasterDataAdminService masterDataAdmin;
 
     public GlobalController(CatalogService catalog,UserPreferenceService prefs,
-        JurisdictionService jurisdiction,GeoNamesImporter importer,FxService fx){
-        this.catalog=catalog;this.prefs=prefs;this.jurisdiction=jurisdiction;this.importer=importer;this.fx=fx;
+        JurisdictionService jurisdiction,GeoNamesImporter importer,FxService fx,
+        MasterDataAdminService masterDataAdmin){
+        this.catalog=catalog;this.prefs=prefs;this.jurisdiction=jurisdiction;
+        this.importer=importer;this.fx=fx;this.masterDataAdmin=masterDataAdmin;
     }
 
     @GetMapping("/catalog/languages") public List<LanguageItem> languages(){return catalog.languages();}
@@ -48,6 +51,12 @@ public class GlobalController {
 
     @PostMapping("/master-data/import/geonames")
     public Map<String,Long> importGeoNames(){return importer.importAll();}
+
+    @PostMapping("/master-data/import/geonames/async")
+    public Map<String,Object> importGeoNamesAsync(){return masterDataAdmin.startGeoNamesImport();}
+
+    @GetMapping("/master-data/status")
+    public Map<String,Object> masterDataStatus(){return masterDataAdmin.status();}
 
     @PostMapping("/fx-rates")
     public Map<String,UUID> addFx(@RequestBody FxRequest r){return Map.of("id",fx.add(r));}

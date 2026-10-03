@@ -417,7 +417,7 @@ export function AccountPage() {
                 }
                 description={`${session.ipAddress || 'IP نامشخص'} · آخرین استفاده: ${new Date(
                   session.lastUsedAt,
-                ).toLocaleString('fa-IR')}`}
+                ).toLocaleString(document.documentElement.lang === 'fa' ? 'fa-IR' : 'en-US')}`}
               />
             </List.Item>
           )}

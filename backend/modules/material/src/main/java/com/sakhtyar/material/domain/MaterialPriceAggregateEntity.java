@@ -22,8 +22,10 @@ public class MaterialPriceAggregateEntity {
     @Column(name = "price_type", nullable = false, length = 40)
     private MaterialPriceType priceType;
 
-    @Column(name = "currency_code", nullable = false, length = 3)
+    @Column(name = "currency_code", nullable = false, length = 8)
     private String currencyCode;
+    @Column(name="currency_id", insertable=false, updatable=false)
+    private UUID currencyId;
 
     @Column(name = "unit_code", nullable = false, length = 40)
     private String unitCode;
@@ -106,4 +108,6 @@ public class MaterialPriceAggregateEntity {
     public Instant getPeriodEnd() { return periodEnd; }
     public String getAlgorithmVersion() { return algorithmVersion; }
     public Instant getCalculatedAt() { return calculatedAt; }
+
+    public UUID getCurrencyId(){return currencyId;}
 }
