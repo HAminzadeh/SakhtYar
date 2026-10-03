@@ -8,6 +8,7 @@ import com.sakhtyar.agents.core.AgentStatus;
 import com.sakhtyar.agents.core.AgentType;
 import com.sakhtyar.agents.core.SakhtyarAgent;
 import com.sakhtyar.agents.glossary.PersianGlossaryService;
+import com.sakhtyar.agents.input.PersianInputNormalizer;
 import com.sakhtyar.agents.provider.AiModelProvider;
 import com.sakhtyar.agents.provider.AiModelRegistry;
 import com.sakhtyar.agents.provider.PersianAgentPromptService;
@@ -557,34 +558,8 @@ public class PersianAgent implements SakhtyarAgent {
     }
 
     private String normalize(String text) {
-        if (text == null) {
-            return "";
-        }
-
-        StringBuilder value = new StringBuilder();
-        for (char c : text.trim().toCharArray()) {
-            value.append(switch (c) {
-                case '\u06F0', '\u0660' -> '0';
-                case '\u06F1', '\u0661' -> '1';
-                case '\u06F2', '\u0662' -> '2';
-                case '\u06F3', '\u0663' -> '3';
-                case '\u06F4', '\u0664' -> '4';
-                case '\u06F5', '\u0665' -> '5';
-                case '\u06F6', '\u0666' -> '6';
-                case '\u06F7', '\u0667' -> '7';
-                case '\u06F8', '\u0668' -> '8';
-                case '\u06F9', '\u0669' -> '9';
-                case '\u0643' -> '\u06A9';
-                case '\u064A' -> '\u06CC';
-                default -> c;
-            });
-        }
-
-        return value.toString()
-                .replaceAll("\\s+", " ")
-                .trim();
+        return PersianInputNormalizer.normalize(text);
     }
-
     private String safeMessage(RuntimeException ex) {
         String value = ex.getMessage();
         return value == null || value.isBlank()

@@ -6,4 +6,5 @@ import org.springframework.data.jpa.repository.JpaRepository;
 
 public interface KnowledgeTermAliasRepository extends JpaRepository<KnowledgeTermAliasEntity, UUID> {
     List<KnowledgeTermAliasEntity> findByTermIdOrderByAliasAsc(UUID termId);
+    List<KnowledgeTermAliasEntity> findByStatusOrderByAliasNormalizedAsc(KnowledgeReviewStatus status);
 }

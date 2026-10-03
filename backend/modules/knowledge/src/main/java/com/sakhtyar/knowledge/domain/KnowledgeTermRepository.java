@@ -8,4 +8,5 @@ import org.springframework.data.jpa.repository.JpaRepository;
 public interface KnowledgeTermRepository extends JpaRepository<KnowledgeTermEntity, UUID> {
     Optional<KnowledgeTermEntity> findByCodeIgnoreCase(String code);
     List<KnowledgeTermEntity> findAllByOrderByUpdatedAtDesc();
+    List<KnowledgeTermEntity> findByStatusOrderByNameFaAsc(KnowledgeReviewStatus status);
 }
