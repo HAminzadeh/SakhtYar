@@ -17,6 +17,7 @@
     <module>modules/shared-kernel</module>
     <module>modules/audit</module>
     <module>modules/identity</module>
+    <module>modules/globalization</module>
     <module>modules/casefile</module>
     <module>modules/property</module>
     <module>modules/owner</module>
@@ -61,6 +62,11 @@
       <dependency>
         <groupId>com.sakhtyar</groupId>
         <artifactId>sakhtyar-identity</artifactId>
+        <version>${project.version}</version>
+      </dependency>
+      <dependency>
+        <groupId>com.sakhtyar</groupId>
+        <artifactId>sakhtyar-globalization</artifactId>
         <version>${project.version}</version>
       </dependency>
       <dependency>

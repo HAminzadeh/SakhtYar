@@ -18,6 +18,7 @@
     <dependency><groupId>com.sakhtyar</groupId><artifactId>sakhtyar-shared-kernel</artifactId></dependency>
     <dependency><groupId>com.sakhtyar</groupId><artifactId>sakhtyar-audit</artifactId></dependency>
     <dependency><groupId>com.sakhtyar</groupId><artifactId>sakhtyar-identity</artifactId></dependency>
+    <dependency><groupId>com.sakhtyar</groupId><artifactId>sakhtyar-globalization</artifactId></dependency>
     <dependency><groupId>com.sakhtyar</groupId><artifactId>sakhtyar-casefile</artifactId></dependency>
     <dependency><groupId>com.sakhtyar</groupId><artifactId>sakhtyar-property</artifactId></dependency>
     <dependency><groupId>com.sakhtyar</groupId><artifactId>sakhtyar-owner</artifactId></dependency>

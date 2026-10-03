@@ -131,6 +131,16 @@ public class SecurityConfig {
                         ).permitAll()
 
                         .requestMatchers(
+                                HttpMethod.GET,
+                                "/api/v1/global/catalog/**"
+                        ).permitAll()
+
+                        .requestMatchers(
+                                "/api/v1/global/master-data/**",
+                                "/api/v1/global/fx-rates"
+                        ).hasAuthority("USER_MANAGE")
+
+                        .requestMatchers(
                                 "/api/v1/admin/users/**"
                         ).hasAuthority("USER_MANAGE")
 

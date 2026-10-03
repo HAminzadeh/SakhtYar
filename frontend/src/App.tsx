@@ -8,6 +8,7 @@ import { CasesPage } from './pages/CasesPage'
 import { LoginPage } from './pages/LoginPage'
 import { RegisterPage } from './pages/RegisterPage'
 import { UsersPage } from './pages/UsersPage'
+import { PreferencesPage } from './pages/PreferencesPage'
 
 export default function App() {
   return (
@@ -18,6 +19,7 @@ export default function App() {
       <Route element={<ProtectedRoute />}>
         <Route element={<AppShell />}>
           <Route path="/account" element={<AccountPage />} />
+        <Route path="/settings" element={<PreferencesPage />} />
 
           <Route element={<PermissionRoute permission="CASE_READ" />}>
             <Route path="/cases" element={<CasesPage />} />

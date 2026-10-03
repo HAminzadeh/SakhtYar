@@ -30,6 +30,7 @@ import { DocumentsPanel } from '../features/case/DocumentsPanel'
 import { OwnersPanel } from '../features/case/OwnersPanel'
 import { ProjectGalleryPanel } from '../features/case/ProjectGalleryPanel'
 import { PropertyPanel } from '../features/case/PropertyPanel'
+import { GlobalLocationSelector } from '../features/case/GlobalLocationSelector'
 
 type CaseTab =
   | 'overview'
@@ -196,10 +197,13 @@ const item = caseQuery.data
       label: 'مشخصات ملک',
       icon: <ApartmentOutlined />,
       children: (
-        <PropertyPanel
-          caseId={id}
-          caseItem={item}
-        />
+        <>
+          <GlobalLocationSelector caseId={id} />
+          <PropertyPanel
+            caseId={id}
+            caseItem={item}
+          />
+        </>
       ),
     },
     {

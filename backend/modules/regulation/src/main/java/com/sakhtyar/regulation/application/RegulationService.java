@@ -4,6 +4,7 @@ import static com.sakhtyar.regulation.api.RegulationDtos.*;
 
 import com.sakhtyar.audit.application.AuditService;
 import com.sakhtyar.knowledge.domain.KnowledgeSourceRepository;
+import com.sakhtyar.globalization.application.JurisdictionService;
 import com.sakhtyar.property.domain.*;
 import com.sakhtyar.regulation.domain.*;
 import com.sakhtyar.scenario.domain.*;
@@ -25,15 +26,17 @@ public class RegulationService {
     private final ConstructionScenarioRepository scenarioRepo;
     private final KnowledgeSourceRepository sourceRepo;
     private final AuditService auditService;
+    private final JurisdictionService jurisdictionService;
     private final UrbanRuleEvaluator evaluator = new UrbanRuleEvaluator();
 
     public RegulationService(UrbanRuleRepository ruleRepo,UrbanEvaluationRepository evaluationRepo,
             UrbanEvaluationResultRepository resultRepo,PropertyRepository propertyRepo,
             ConstructionScenarioRepository scenarioRepo,KnowledgeSourceRepository sourceRepo,
-            AuditService auditService) {
+            AuditService auditService,JurisdictionService jurisdictionService) {
         this.ruleRepo=ruleRepo; this.evaluationRepo=evaluationRepo; this.resultRepo=resultRepo;
         this.propertyRepo=propertyRepo; this.scenarioRepo=scenarioRepo; this.sourceRepo=sourceRepo;
         this.auditService=auditService;
+        this.jurisdictionService=jurisdictionService;
     }
 
     @Transactional(readOnly=true)
@@ -80,12 +83,12 @@ public class RegulationService {
         }
 
         LocalDate today=LocalDate.now();
+        Set<UUID> jurisdictionRuleIds=jurisdictionService.matchingUrbanRules(property.getCaseId());
         List<UrbanRuleEntity> applicable=ruleRepo.findAllByOrderByPriorityAscCodeAsc().stream()
             .filter(UrbanRuleEntity::isActive)
             .filter(x->x.getValidFrom()==null||!today.isBefore(x.getValidFrom()))
             .filter(x->x.getValidTo()==null||!today.isAfter(x.getValidTo()))
-            .filter(x->matches(x.getJurisdictionProvince(),property.getProvince()))
-            .filter(x->matches(x.getJurisdictionCity(),property.getCity()))
+            .filter(x->jurisdictionRuleIds.contains(x.getId()))
             .filter(x->matches(x.getJurisdictionDistrict(),property.getDistrict()))
             .filter(x->matches(x.getPropertyType(),property.getPropertyType()))
             .toList();

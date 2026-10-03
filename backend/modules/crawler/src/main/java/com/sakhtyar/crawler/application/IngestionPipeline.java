@@ -5,6 +5,7 @@ import com.sakhtyar.crawler.api.CrawlerDtos.JobResponse;
 import com.sakhtyar.crawler.domain.*;
 import com.sakhtyar.crawler.infrastructure.*;
 import com.sakhtyar.knowledge.domain.*;
+import com.sakhtyar.globalization.application.JurisdictionService;
 import java.net.URI;
 import java.time.Instant;
 import java.util.*;
@@ -26,6 +27,7 @@ public class IngestionPipeline {
     private final UrlDiscovery urlDiscovery;
     private final ChangeDetector changeDetector;
     private final AuditService auditService;
+    private final JurisdictionService jurisdictionService;
 
     public IngestionPipeline(
             CrawlSourceService sourceService,
@@ -37,7 +39,8 @@ public class IngestionPipeline {
             ContentExtractor contentExtractor,
             UrlDiscovery urlDiscovery,
             ChangeDetector changeDetector,
-            AuditService auditService
+            AuditService auditService,
+            JurisdictionService jurisdictionService
     ) {
         this.sourceService = sourceService;
         this.jobRepository = jobRepository;
@@ -49,6 +52,7 @@ public class IngestionPipeline {
         this.urlDiscovery = urlDiscovery;
         this.changeDetector = changeDetector;
         this.auditService = auditService;
+        this.jurisdictionService = jurisdictionService;
     }
 
     public JobResponse run(UUID sourceId, Integer maxPagesOverride, Authentication authentication) {
@@ -131,6 +135,7 @@ public class IngestionPipeline {
                                     source, document, extracted, actor
                             );
                             candidateRepository.save(candidate);
+                            jurisdictionService.stampCandidateFromCrawler(candidate.getId(), source.getId());
                             document.linkCandidate(candidate.getId());
                             documentRepository.save(document);
                             job.candidateCreated();

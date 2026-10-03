@@ -3,6 +3,7 @@ package com.sakhtyar.crawler.api;
 import com.sakhtyar.crawler.api.CrawlerDtos.*;
 import com.sakhtyar.crawler.application.CrawlSourceService;
 import com.sakhtyar.crawler.application.IngestionPipeline;
+import com.sakhtyar.crawler.application.JurisdictionCrawlerService;
 import jakarta.validation.Valid;
 import java.util.List;
 import java.util.UUID;
@@ -15,10 +16,16 @@ public class CrawlerController {
 
     private final CrawlSourceService sourceService;
     private final IngestionPipeline pipeline;
+    private final JurisdictionCrawlerService jurisdictionCrawler;
 
-    public CrawlerController(CrawlSourceService sourceService, IngestionPipeline pipeline) {
+    public CrawlerController(
+            CrawlSourceService sourceService,
+            IngestionPipeline pipeline,
+            JurisdictionCrawlerService jurisdictionCrawler
+    ) {
         this.sourceService = sourceService;
         this.pipeline = pipeline;
+        this.jurisdictionCrawler = jurisdictionCrawler;
     }
 
     @GetMapping("/sources")
@@ -55,6 +62,19 @@ public class CrawlerController {
     ) {
         return pipeline.run(
                 id,
+                request == null ? null : request.maxPagesOverride(),
+                authentication
+        );
+    }
+
+    @PostMapping("/cases/{caseId}/run")
+    public List<JobResponse> runForCase(
+            @PathVariable UUID caseId,
+            @Valid @RequestBody(required = false) RunSourceRequest request,
+            Authentication authentication
+    ) {
+        return jurisdictionCrawler.runForCase(
+                caseId,
                 request == null ? null : request.maxPagesOverride(),
                 authentication
         );

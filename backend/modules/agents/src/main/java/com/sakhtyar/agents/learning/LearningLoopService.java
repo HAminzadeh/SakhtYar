@@ -8,6 +8,7 @@ import com.sakhtyar.audit.application.AuditService;
 import com.sakhtyar.knowledge.api.KnowledgeDtos.CreateCandidateRequest;
 import com.sakhtyar.knowledge.application.KnowledgeService;
 import com.sakhtyar.knowledge.domain.*;
+import com.sakhtyar.globalization.application.JurisdictionService;
 import java.time.Instant;
 import java.util.*;
 import org.springframework.security.core.Authentication;
@@ -21,17 +22,20 @@ public class LearningLoopService {
     private final PersianInputRequestRepository inputRepository;
     private final KnowledgeService knowledgeService;
     private final AuditService auditService;
+    private final JurisdictionService jurisdictionService;
 
     public LearningLoopService(
             LearningEventRepository repository,
             PersianInputRequestRepository inputRepository,
             KnowledgeService knowledgeService,
-            AuditService auditService
+            AuditService auditService,
+            JurisdictionService jurisdictionService
     ) {
         this.repository=repository;
         this.inputRepository=inputRepository;
         this.knowledgeService=knowledgeService;
         this.auditService=auditService;
+        this.jurisdictionService=jurisdictionService;
     }
 
     @Transactional
@@ -151,6 +155,13 @@ public class LearningLoopService {
             );
         }
 
+        jurisdictionService.stampLearning(
+                event.getId(),
+                event.getKnowledgeCandidateId(),
+                caseId,
+                learningLanguage(request)
+        );
+
         auditService.record(
                 "LEARNING_EVENT",
                 event.getId(),
@@ -186,6 +197,16 @@ public class LearningLoopService {
                 .stream()
                 .map(LearningEventResponse::from)
                 .toList();
+    }
+
+    private String learningLanguage(FeedbackRequest request) {
+        String value = String.join(
+                " ",
+                request.correctedValue() == null ? "" : request.correctedValue(),
+                request.originalValue() == null ? "" : request.originalValue(),
+                request.note() == null ? "" : request.note()
+        );
+        return value.matches(".*[\u0600-\u06FF].*") ? "fa" : "en";
     }
 
     private String candidateRawInput(FeedbackRequest request) {

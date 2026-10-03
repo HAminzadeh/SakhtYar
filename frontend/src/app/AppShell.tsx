@@ -23,9 +23,12 @@ import {
   roleLabel,
   safeDisplayName,
 } from '../ui/presentation'
+import { LanguageSwitcher } from '../ui/LanguageSwitcher'
+import { useI18n } from '../i18n/LanguageProvider'
 
 export function AppShell() {
   const { user, logout, hasPermission } = useAuth()
+  const { t } = useI18n()
   const navigate = useNavigate()
   const location = useLocation()
 
@@ -105,6 +108,10 @@ export function AppShell() {
         </nav>
 
         <div className="sakhtyar-profile-panel">
+          <LanguageSwitcher />
+          <Button type="text" onClick={() => navigate('/settings')}>
+            {t('settings')}
+          </Button>
           <Badge dot offset={[-2, 4]}>
             <Button
               className="sakhtyar-notification"
