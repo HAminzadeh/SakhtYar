@@ -7,6 +7,7 @@ import {
 } from '@ant-design/icons'
 import {
   Alert,
+  App as AntdApp,
   Button,
   Card,
   Checkbox,
@@ -37,6 +38,7 @@ import {
   api,
 } from '../../api/client'
 import type { OwnerItem } from '../../api/types'
+import { useI18n } from '../../i18n/LanguageProvider'
 
 type OwnerForm = {
   firstName: string
@@ -71,6 +73,10 @@ export function OwnersPanel({
 }) {
   const queryClient =
     useQueryClient()
+  const { message } = AntdApp.useApp()
+  const { language } = useI18n()
+  const [ownerError, setOwnerError] =
+    useState<string | null>(null)
   const [open, setOpen] =
     useState(false)
   const [editing, setEditing] =
@@ -119,6 +125,67 @@ export function OwnersPanel({
     [owners],
   )
 
+  const editingPercent = editing
+    ? percent(
+        editing.ownershipNumerator,
+        editing.ownershipDenominator,
+      )
+    : 0
+
+  const basePercentForEdit =
+    Math.max(0, totalPercent - editingPercent)
+
+  const shareError = (
+    numerator?: number,
+    denominator?: number,
+  ) => {
+    if (!numerator || !denominator) return null
+
+    if (numerator < 1 || denominator < 1) {
+      return language === 'fa'
+        ? 'صورت و مخرج سهم باید حداقل ۱ باشند.'
+        : 'Share numerator and denominator must be at least 1.'
+    }
+
+    if (numerator > denominator) {
+      return language === 'fa'
+        ? 'صورت سهم نمی‌تواند از مخرج سهم بیشتر باشد.'
+        : 'Share numerator cannot be greater than denominator.'
+    }
+
+    const proposed = percent(numerator, denominator)
+    const projected = basePercentForEdit + proposed
+
+    if (projected > 100.000001) {
+      const remaining = Math.max(0, 100 - basePercentForEdit)
+
+      return language === 'fa'
+        ? `با این سهم، مجموع مالکیت ${faPercent(projected)}٪ می‌شود و از ۱۰۰٪ بیشتر است. حداکثر سهم قابل ثبت ${faPercent(remaining)}٪ است.`
+        : `This share makes total ownership ${projected.toFixed(2)}%, which exceeds 100%. The maximum available share is ${remaining.toFixed(2)}%.`
+    }
+
+    return null
+  }
+
+  const handleOwnerSubmit = (values: OwnerForm) => {
+    const error = shareError(
+      values.ownershipNumerator,
+      values.ownershipDenominator,
+    )
+
+    if (error) {
+      setOwnerError(error)
+      form.setFields([
+        { name: 'ownershipNumerator', errors: [error] },
+        { name: 'ownershipDenominator', errors: [error] },
+      ])
+      message.error(error)
+      return
+    }
+
+    setOwnerError(null)
+    saveOwner.mutate(values)
+  }
   const primaryContact =
     owners.find(
       (owner) =>
@@ -160,6 +227,8 @@ export function OwnersPanel({
       )
     },
     onSuccess: () => {
+      setOwnerError(null)
+      message.success(language === 'fa' ? (editing ? 'اطلاعات مالک با موفقیت ویرایش شد.' : 'مالک با موفقیت ثبت شد.') : (editing ? 'Owner updated successfully.' : 'Owner added successfully.'))
       setOpen(false)
       setEditing(null)
       form.resetFields()
@@ -169,6 +238,25 @@ export function OwnersPanel({
           caseId,
         ],
       })
+    },
+    onError: (error) => {
+      const text =
+        error instanceof ApiError
+          ? error.message
+          : language === 'fa'
+            ? 'ذخیره مالک ناموفق بود.'
+            : 'Failed to save owner.'
+
+      const localized =
+        language === 'fa' &&
+        text === 'Total ownership shares cannot exceed 100 percent.'
+          ? 'جمع سهم مالکین نمی‌تواند بیشتر از ۱۰۰٪ باشد.'
+          : language === 'fa' &&
+              text === 'Ownership numerator cannot be greater than denominator.'
+            ? 'صورت سهم نمی‌تواند از مخرج سهم بیشتر باشد.'
+            : text
+
+      setOwnerError(localized)
     },
   })
 
@@ -191,6 +279,11 @@ export function OwnersPanel({
     })
 
   const openCreate = () => {
+    if (totalPercent >= 99.999999) {
+      message.warning(language === 'fa' ? 'مجموع سهم مالکین ۱۰۰٪ است و سهم خالی برای مالک جدید وجود ندارد.' : 'Ownership already totals 100%; there is no remaining share for a new owner.')
+      return
+    }
+    setOwnerError(null)
     setEditing(null)
     form.setFieldsValue({
       firstName: '',
@@ -207,6 +300,7 @@ export function OwnersPanel({
   const openEdit = (
     owner: OwnerItem,
   ) => {
+    setOwnerError(null)
     setEditing(owner)
     form.setFieldsValue({
       firstName: owner.firstName,
@@ -345,12 +439,22 @@ export function OwnersPanel({
           className="sakhtyar-animated-primary"
           onClick={openCreate}
           disabled={
-            ownersQuery.data === null
+            ownersQuery.data === null ||
+            totalPercent >= 99.999999
           }
         >
           افزودن مالک
         </Button>
       </div>
+
+      {ownersQuery.isError ? (
+        <Alert
+          type="error"
+          showIcon
+          message={language === 'fa' ? 'دریافت فهرست مالکین ناموفق بود.' : 'Failed to load owners.'}
+          style={{ marginBottom: 12 }}
+        />
+      ) : null}
 
       {ownersQuery.data === null ? (
         <Alert
@@ -460,15 +564,30 @@ export function OwnersPanel({
         }
         destroyOnHidden
       >
-        <Form<OwnerForm>
-          form={form}
-          layout="vertical"
-          onFinish={(values) =>
-            saveOwner.mutate(
-              values,
-            )
-          }
-        >
+        <>
+          {ownerError ? (
+            <Alert
+              type="error"
+              showIcon
+              closable
+              message={ownerError}
+              style={{ marginBottom: 12 }}
+              onClose={() => setOwnerError(null)}
+            />
+          ) : null}
+
+          <Form<OwnerForm>
+            form={form}
+            layout="vertical"
+            onFinish={handleOwnerSubmit}
+            onValuesChange={() => {
+              setOwnerError(null)
+              form.setFields([
+                { name: 'ownershipNumerator', errors: [] },
+                { name: 'ownershipDenominator', errors: [] },
+              ])
+            }}
+          >
           <Row gutter={12}>
             <Col span={12}>
               <Form.Item
@@ -579,7 +698,8 @@ export function OwnersPanel({
           >
             ذخیره مالک
           </Button>
-        </Form>
+          </Form>
+        </>
       </Modal>
     </div>
   )

@@ -1,7 +1,18 @@
+export type ApiErrorDetail = {
+  path: string
+  status: number
+  code?: string
+  message: string
+  fieldErrors?: Record<string, string>
+}
+
 export class ApiError extends Error {
   constructor(
     message: string,
     public readonly status: number,
+    public readonly code?: string,
+    public readonly fieldErrors?: Record<string, string>,
+    public readonly path?: string,
   ) {
     super(message)
   }
@@ -13,19 +24,57 @@ function unsafe(method: string) {
   return !['GET', 'HEAD', 'OPTIONS'].includes(method.toUpperCase())
 }
 
-async function csrfToken() {
+type CsrfHeader = {
+  headerName: string
+  token: string
+}
+
+function readCookie(name: string) {
+  const prefix = `${encodeURIComponent(name)}=`
+  const item = document.cookie
+    .split(';')
+    .map((value) => value.trim())
+    .find((value) => value.startsWith(prefix))
+
+  if (!item) return null
+
+  return decodeURIComponent(item.substring(prefix.length))
+}
+
+async function csrfToken(): Promise<CsrfHeader | null> {
+  // This GET forces Spring Security SPA CSRF support to create/refresh
+  // the browser-readable XSRF-TOKEN cookie.
   const response = await fetch('/api/v1/auth/csrf', {
     method: 'GET',
     credentials: 'include',
     cache: 'no-store',
   })
 
-  if (!response.ok) {
+  if (!response.ok) return null
+
+  const body = (await response.json()) as {
+    headerName?: string
+    token?: string
+  }
+
+  // IMPORTANT:
+  // With Spring Security SPA/BREACH support, the token returned through
+  // CsrfToken#getToken() can be encoded for response rendering, while
+  // JavaScript has access to the plain token stored in XSRF-TOKEN.
+  // Unsafe requests must therefore echo the cookie token in the header.
+  const rawCookieToken = readCookie('XSRF-TOKEN')
+
+  if (!rawCookieToken) {
+    console.error(
+      '[SakhtYar CSRF] XSRF-TOKEN cookie was not available after /auth/csrf',
+    )
     return null
   }
 
-  const body = (await response.json()) as { token?: string }
-  return body.token ?? null
+  return {
+    headerName: body.headerName ?? 'X-XSRF-TOKEN',
+    token: rawCookieToken,
+  }
 }
 
 async function verifyAuthenticated() {
@@ -45,14 +94,12 @@ async function refreshAccess() {
         credentials: 'include',
         cache: 'no-store',
       })
-
       if (!response.ok) return false
       return verifyAuthenticated()
     })().finally(() => {
       refreshPromise = null
     })
   }
-
   return refreshPromise
 }
 
@@ -72,10 +119,8 @@ async function performFetch(path: string, init: RequestInit) {
     path.startsWith('/api/v1/auth/mobile/')
 
   if (unsafe(method) && !csrfExempt) {
-    const token = await csrfToken()
-    if (token) {
-      headers.set('X-XSRF-TOKEN', token)
-    }
+    const csrf = await csrfToken()
+    if (csrf) headers.set(csrf.headerName, csrf.token)
   }
 
   return fetch(path, {
@@ -100,28 +145,42 @@ async function rawRequest(
 
   let response = await performFetch(path, init)
 
-  // After the backend ordering fix, 401 genuinely means authentication failed.
-  if (
-    response.status === 401 &&
-    retryAfterRefresh &&
-    !authEndpoint
-  ) {
+  if (response.status === 401 && retryAfterRefresh && !authEndpoint) {
     const refreshed = await refreshAccess()
-    if (refreshed) {
-      response = await performFetch(path, init)
-    }
+    if (refreshed) response = await performFetch(path, init)
   }
 
-  // 403 now represents authorization/CSRF. One fresh-token retry is safe.
-  if (
-    response.status === 403 &&
-    unsafe(method) &&
-    !authEndpoint
-  ) {
+  if (response.status === 403 && unsafe(method) && !authEndpoint) {
     response = await performFetch(path, init)
   }
 
   return response
+}
+
+function emitMutationError(
+  path: string,
+  init: RequestInit,
+  error: ApiError,
+) {
+  const method = (init.method ?? 'GET').toUpperCase()
+  if (!unsafe(method)) return
+
+  if (
+    path.startsWith('/api/v1/auth/login') ||
+    path.startsWith('/api/v1/auth/register')
+  ) return
+
+  window.dispatchEvent(
+    new CustomEvent<ApiErrorDetail>('sakhtyar:api-error', {
+      detail: {
+        path,
+        status: error.status,
+        code: error.code,
+        message: error.message,
+        fieldErrors: error.fieldErrors,
+      },
+    }),
+  )
 }
 
 export async function api<T>(
@@ -130,36 +189,47 @@ export async function api<T>(
 ): Promise<T> {
   const response = await rawRequest(path, init, true)
 
-  if (response.status === 204) {
-    return undefined as T
-  }
+  if (response.status === 204) return undefined as T
 
   if (!response.ok) {
     let message =
       response.status === 401
-        ? 'Authentication failed or the session expired.'
+        ? 'Authentication is required or the session is not valid.'
         : response.status === 403
-          ? 'The request was rejected by authorization or CSRF protection.'
+          ? 'Access denied or CSRF validation failed.'
           : `HTTP ${response.status}`
+
+    let code: string | undefined
+    let fieldErrors: Record<string, string> | undefined
 
     try {
       const body = (await response.json()) as {
         message?: string
         detail?: string
         title?: string
+        code?: string
+        fieldErrors?: Record<string, string>
       }
       message = body.message ?? body.detail ?? body.title ?? message
+      code = body.code
+      fieldErrors = body.fieldErrors
     } catch {
-      // Keep fallback message.
+      // Keep fallback.
     }
 
-    throw new ApiError(message, response.status)
+    const error = new ApiError(
+      message,
+      response.status,
+      code,
+      fieldErrors,
+      path,
+    )
+
+    emitMutationError(path, init, error)
+    throw error
   }
 
   const contentType = response.headers.get('content-type') ?? ''
-  if (!contentType.includes('application/json')) {
-    return response as T
-  }
-
+  if (!contentType.includes('application/json')) return response as T
   return response.json() as Promise<T>
 }

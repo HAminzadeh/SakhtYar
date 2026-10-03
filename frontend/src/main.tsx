@@ -6,13 +6,14 @@ import { BrowserRouter } from 'react-router-dom'
 import App from './App'
 import { AuthProvider } from './auth/AuthProvider'
 import { LanguageProvider,useI18n } from './i18n/LanguageProvider'
+import { ApiFeedbackBridge } from './ui/ApiFeedbackBridge'
 import './styles/global.css'
 
 const queryClient=new QueryClient({defaultOptions:{queries:{retry:1,staleTime:10_000}}})
 function LocalizedApp(){
   const {direction,antdLocale,antdTheme}=useI18n()
   return <ConfigProvider direction={direction} locale={antdLocale} theme={antdTheme}>
-    <AntApp><QueryClientProvider client={queryClient}><BrowserRouter><AuthProvider><App/></AuthProvider></BrowserRouter></QueryClientProvider></AntApp>
+    <AntApp><ApiFeedbackBridge/><QueryClientProvider client={queryClient}><BrowserRouter><AuthProvider><App/></AuthProvider></BrowserRouter></QueryClientProvider></AntApp>
   </ConfigProvider>
 }
 createRoot(document.getElementById('root')!).render(<StrictMode><LanguageProvider><LocalizedApp/></LanguageProvider></StrictMode>)

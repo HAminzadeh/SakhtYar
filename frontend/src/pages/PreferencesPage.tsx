@@ -211,6 +211,10 @@ export function PreferencesPage() {
           ? language === 'fa'
             ? 'درخواست ذخیره توسط CSRF/Security رد شد. توکن امنیتی تازه‌سازی و درخواست دوباره امتحان شد، اما همچنان 403 دریافت شد.'
             : 'The save request was rejected by CSRF/Security. The security token was refreshed and retried, but the server still returned 403.'
+          : error instanceof ApiError && error.status === 401
+            ? language === 'fa'
+              ? `ذخیره تنظیمات به علت احراز هویت رد شد: ${error.message}`
+              : `Settings save was rejected by authentication: ${error.message}`
           : error instanceof ApiError
             ? `${error.message} (${error.status})`
           : error instanceof Error
