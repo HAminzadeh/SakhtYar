@@ -195,6 +195,14 @@ http
                         ).hasAuthority("USER_MANAGE")
 
                         .requestMatchers(
+                                "/api/v1/admin/ai/**"
+                        ).hasAuthority("AI_MANAGE")
+
+                        .requestMatchers(
+                                "/api/v1/admin/operations/**"
+                        ).hasAuthority("OPERATIONS_READ")
+
+                        .requestMatchers(
                                 "/api/v1/admin/users/**"
                         ).hasAuthority("USER_MANAGE")
 

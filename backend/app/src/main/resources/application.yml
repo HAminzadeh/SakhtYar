@@ -89,6 +89,12 @@ app:
     secret-key: ${MINIO_SECRET_KEY:change-me-minio}
     bucket: ${MINIO_BUCKET:sakhtyar-documents}
 
+  operations:
+    prometheus-url: ${PROMETHEUS_URL:http://localhost:9090}
+    loki-url: ${LOKI_URL:http://localhost:3100}
+    tempo-url: ${TEMPO_URL:http://localhost:3200}
+    grafana-url: ${GRAFANA_URL:http://localhost:13001}
+
   ai:
     enabled: ${SAKHTYAR_AI_ENABLED:true}
     provider: ${SAKHTYAR_AI_PROVIDER:ollama}

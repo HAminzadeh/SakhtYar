@@ -61,6 +61,10 @@ services:
 
       CORS_ALLOWED_ORIGINS: https://${SAKHTYAR_DOMAIN}
       OTEL_EXPORTER_OTLP_TRACES_ENDPOINT: http://tempo:4318/v1/traces
+      PROMETHEUS_URL: http://prometheus:9090
+      LOKI_URL: http://loki:3100
+      TEMPO_URL: http://tempo:3200
+      GRAFANA_URL: http://grafana:3000
     expose:
       - "8080"
     depends_on:
@@ -294,6 +298,11 @@ services:
     container_name: sakhtyar-prometheus
     restart: unless-stopped
     profiles: ["observability"]
+    command:
+      - --config.file=/etc/prometheus/prometheus.yml
+      - --storage.tsdb.path=/prometheus
+      - --web.enable-remote-write-receiver
+      - --web.enable-lifecycle
     volumes:
       - ./deploy/prometheus/prometheus.yml:/etc/prometheus/prometheus.yml:ro
       - sakhtyar_prometheus_data:/prometheus

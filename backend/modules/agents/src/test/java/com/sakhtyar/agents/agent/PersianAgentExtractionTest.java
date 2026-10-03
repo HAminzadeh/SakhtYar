@@ -9,7 +9,7 @@ import com.sakhtyar.agents.core.AgentExecutionContext;
 import com.sakhtyar.agents.core.AgentRequest;
 import com.sakhtyar.agents.core.AgentResult;
 import com.sakhtyar.agents.glossary.PersianGlossaryService;
-import com.sakhtyar.agents.provider.AiModelRegistry;
+import com.sakhtyar.agents.provider.AiGateway;
 import com.sakhtyar.agents.provider.PersianAgentPromptService;
 import java.math.BigDecimal;
 import java.util.Map;
@@ -22,16 +22,17 @@ class PersianAgentExtractionTest {
     @Test
     void extractsExplicitPropertyFactsEvenWithoutAiProvider() {
         PersianGlossaryService glossary = mock(PersianGlossaryService.class);
-        AiModelRegistry modelRegistry = mock(AiModelRegistry.class);
+        AiGateway aiGateway = mock(AiGateway.class);
         PersianAgentPromptService promptService =
                 mock(PersianAgentPromptService.class);
 
-        when(modelRegistry.activeProvider()).thenReturn(Optional.empty());
+        when(aiGateway.generate(anyString(), org.mockito.ArgumentMatchers.any()))
+                .thenReturn(Optional.empty());
         when(glossary.recognizedTerms(anyString())).thenReturn(Map.of());
 
         PersianAgent agent = new PersianAgent(
                 glossary,
-                modelRegistry,
+                aiGateway,
                 promptService
         );
 
@@ -67,16 +68,17 @@ class PersianAgentExtractionTest {
     @Test
     void doesNotTreatAllowedFloorsAsExistingFloors() {
         PersianGlossaryService glossary = mock(PersianGlossaryService.class);
-        AiModelRegistry modelRegistry = mock(AiModelRegistry.class);
+        AiGateway aiGateway = mock(AiGateway.class);
         PersianAgentPromptService promptService =
                 mock(PersianAgentPromptService.class);
 
-        when(modelRegistry.activeProvider()).thenReturn(Optional.empty());
+        when(aiGateway.generate(anyString(), org.mockito.ArgumentMatchers.any()))
+                .thenReturn(Optional.empty());
         when(glossary.recognizedTerms(anyString())).thenReturn(Map.of());
 
         PersianAgent agent = new PersianAgent(
                 glossary,
-                modelRegistry,
+                aiGateway,
                 promptService
         );
 

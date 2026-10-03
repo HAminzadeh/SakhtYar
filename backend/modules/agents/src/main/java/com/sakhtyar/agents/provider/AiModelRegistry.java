@@ -28,6 +28,13 @@ public class AiModelRegistry {
         this.providers = Map.copyOf(values);
     }
 
+    public Optional<AiModelProvider> provider(String id) {
+        if (id == null || id.isBlank()) return Optional.empty();
+        return Optional.ofNullable(providers.get(id.trim().toLowerCase()));
+    }
+
+    public List<String> registeredProviderIds() { return providers.keySet().stream().sorted().toList(); }
+
     public Optional<AiModelProvider> activeProvider() {
         if (!properties.isEnabled()) {
             return Optional.empty();

@@ -53,7 +53,11 @@ public class GlobalController {
     public Map<String,Long> importGeoNames(){return importer.importAll();}
 
     @PostMapping("/master-data/import/geonames/async")
-    public Map<String,Object> importGeoNamesAsync(){return masterDataAdmin.startGeoNamesImport();}
+    public Map<String,Object> importGeoNamesAsync(
+        @RequestParam(defaultValue="quick") String mode
+    ){
+        return masterDataAdmin.startGeoNamesImport(mode);
+    }
 
     @GetMapping("/master-data/status")
     public Map<String,Object> masterDataStatus(){return masterDataAdmin.status();}

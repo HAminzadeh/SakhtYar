@@ -24,6 +24,13 @@ management:
         otlp:
           endpoint: http://localhost:4318/v1/traces
 
+  metrics:
+    distribution:
+      percentiles-histogram:
+        http.server.requests: true
+      slo:
+        http.server.requests: 50ms,100ms,250ms,500ms,1s,2s,5s
+
 app:
   storage:
     endpoint: http://localhost:9000

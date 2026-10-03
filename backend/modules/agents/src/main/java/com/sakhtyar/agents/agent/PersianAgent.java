@@ -10,7 +10,7 @@ import com.sakhtyar.agents.core.SakhtyarAgent;
 import com.sakhtyar.agents.glossary.PersianGlossaryService;
 import com.sakhtyar.agents.input.PersianInputNormalizer;
 import com.sakhtyar.agents.provider.AiModelProvider;
-import com.sakhtyar.agents.provider.AiModelRegistry;
+import com.sakhtyar.agents.provider.AiGateway;
 import com.sakhtyar.agents.provider.PersianAgentPromptService;
 import com.sakhtyar.agents.support.AgentValues;
 import java.math.BigDecimal;
@@ -20,7 +20,6 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
-import java.util.Optional;
 import java.util.Set;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
@@ -125,16 +124,16 @@ public class PersianAgent implements SakhtyarAgent {
     );
 
     private final PersianGlossaryService glossary;
-    private final AiModelRegistry modelRegistry;
+    private final AiGateway aiGateway;
     private final PersianAgentPromptService promptService;
 
     public PersianAgent(
             PersianGlossaryService glossary,
-            AiModelRegistry modelRegistry,
+            AiGateway aiGateway,
             PersianAgentPromptService promptService
     ) {
         this.glossary = glossary;
-        this.modelRegistry = modelRegistry;
+        this.aiGateway = aiGateway;
         this.promptService = promptService;
     }
 
@@ -164,61 +163,34 @@ public class PersianAgent implements SakhtyarAgent {
         long inputTokens = 0L;
         long outputTokens = 0L;
 
-        Optional<AiModelProvider> activeProvider = modelRegistry.activeProvider();
-        if (activeProvider.isPresent()) {
-            AiModelProvider provider = activeProvider.get();
-            providerId = provider.providerId();
-            modelId = provider.modelId();
-
-            try {
-                if (provider.available()) {
-                    AiModelProvider.AiModelResponse response = provider.generate(
-                            new AiModelProvider.AiModelRequest(
-                                    promptService.systemPrompt(),
-                                    normalizedText,
-                                    Map.of(
-                                            "existingParameters", request.parameters(),
-                                            "recognizedGlossaryTerms",
-                                            glossary.recognizedTerms(normalizedText)
-                                    )
+        try {
+            var execution = aiGateway.generate(
+                    "PERSIAN",
+                    new AiModelProvider.AiModelRequest(
+                            promptService.systemPrompt(),
+                            normalizedText,
+                            Map.of(
+                                    "existingParameters", request.parameters(),
+                                    "recognizedGlossaryTerms",
+                                    glossary.recognizedTerms(normalizedText)
                             )
-                    );
-
-                    Map<String, Object> aiData = response.structuredData();
-                    Map<String, Object> aiParameters =
-                            AgentValues.map(aiData.get("parameters"));
-                    normalizedParameters.putAll(sanitizeAiParameters(aiParameters));
-
-                    AgentIntent aiIntent =
-                            parseIntent(AgentValues.text(aiData, "intent"));
-                    if (fallbackIntent == AgentIntent.PROPERTY_ANALYSIS
-                            && aiIntent != null) {
-                        intent = aiIntent;
-                    }
-
-                    parserMode = "LOCAL_AI";
-                    modelId = response.model();
-                    inputTokens = response.inputTokens();
-                    outputTokens = response.outputTokens();
-                } else {
-                    warnings.add(
-                            "Ollama در دسترس نیست یا مدل «"
-                                    + provider.modelId()
-                                    + "» هنوز دانلود نشده؛ تحلیل قواعدی استفاده شد."
-                    );
-                }
-            } catch (RuntimeException ex) {
-                warnings.add(
-                        "مدل محلی پاسخ معتبر نداد؛ تحلیل قواعدی جایگزین شد. جزئیات: "
-                                + safeMessage(ex)
-                );
-            }
-        } else {
-            warnings.add(
-                    "Provider هوش مصنوعی فعال نیست؛ تحلیل قواعدی استفاده شد."
+                    )
             );
+            if (execution.isPresent()) {
+                AiGateway.GatewayExecution gateway = execution.get();
+                AiModelProvider.AiModelResponse response = gateway.response();
+                providerId = gateway.provider();
+                modelId = response.model();
+                Map<String,Object> aiData=response.structuredData();
+                normalizedParameters.putAll(sanitizeAiParameters(AgentValues.map(aiData.get("parameters"))));
+                AgentIntent aiIntent=parseIntent(AgentValues.text(aiData,"intent"));
+                if(fallbackIntent==AgentIntent.PROPERTY_ANALYSIS && aiIntent!=null) intent=aiIntent;
+                parserMode=gateway.fallbackUsed()?"AI_FALLBACK":"AI_ROUTED";
+                inputTokens=response.inputTokens(); outputTokens=response.outputTokens();
+            } else warnings.add("هیچ Provider اجرایی سالم برای این Agent پیدا نشد؛ تحلیل قواعدی استفاده شد.");
+        } catch (RuntimeException ex) {
+            warnings.add("AI Gateway پاسخ معتبر نداد؛ تحلیل قواعدی جایگزین شد. جزئیات: "+safeMessage(ex));
         }
-
         // Deterministic extraction wins where Java can parse the statement safely.
         normalizedParameters.putAll(deterministicParameters);
 
@@ -237,12 +209,12 @@ public class PersianAgent implements SakhtyarAgent {
             data.put("aiOutputTokens", outputTokens);
         }
 
-        double confidence = "LOCAL_AI".equals(parserMode)
+        double confidence = parserMode.startsWith("AI_")
                 ? (normalizedParameters.isEmpty() ? 0.82d : 0.92d)
                 : (normalizedParameters.isEmpty() ? 0.60d : 0.82d);
 
-        String message = "LOCAL_AI".equals(parserMode)
-                ? "متن فارسی با مدل محلی تحلیل و به داده استاندارد تبدیل شد."
+        String message = parserMode.startsWith("AI_")
+                ? "متن فارسی از طریق AI Gateway تحلیل و به داده استاندارد تبدیل شد."
                 : "متن فارسی با تحلیل قواعدی نرمال‌سازی و هدف درخواست تشخیص داده شد.";
 
         return new AgentResult(

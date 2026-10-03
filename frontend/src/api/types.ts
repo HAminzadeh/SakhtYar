@@ -10,6 +10,8 @@ export type Permission =
   | 'AGENT_USE'
   | 'GLOSSARY_MANAGE'
   | 'USER_MANAGE'
+  | 'AI_MANAGE'
+  | 'OPERATIONS_READ'
   | 'AUDIT_READ'
 
 export type UserRole =

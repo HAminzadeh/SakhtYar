@@ -12,5 +12,7 @@ public enum Permission {
     AGENT_USE,
     GLOSSARY_MANAGE,
     USER_MANAGE,
+    AI_MANAGE,
+    OPERATIONS_READ,
     AUDIT_READ
 }

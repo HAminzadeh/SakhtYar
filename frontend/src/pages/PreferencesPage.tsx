@@ -17,6 +17,7 @@ import { ApiError, api } from '../api/client'
 import { useAuth } from '../auth/AuthProvider'
 import { useI18n } from '../i18n/LanguageProvider'
 import { themeChoices, type ThemeCode } from '../ui/themePresets'
+import { MasterDataAdminPanel } from '../ui/MasterDataAdminPanel'
 
 type Item = {
   id: string
@@ -448,48 +449,7 @@ export function PreferencesPage() {
         </Space>
       </Card>
 
-      {canAdmin ? (
-        <Card className="sakhtyar-settings-card">
-          <Typography.Title level={3}>{t('masterData')}</Typography.Title>
-          <Typography.Paragraph type="secondary">
-            {t('masterDataHint')}
-          </Typography.Paragraph>
-
-          <Row gutter={[12, 12]} style={{ marginBottom: 16 }}>
-            <Col xs={12} md={6}>
-              <Statistic title={t('countries')} value={masterData.data?.countryCount ?? 0} />
-            </Col>
-            <Col xs={12} md={6}>
-              <Statistic title={t('divisions')} value={masterData.data?.divisionCount ?? 0} />
-            </Col>
-            <Col xs={12} md={6}>
-              <Statistic title={t('cities')} value={masterData.data?.cityCount ?? 0} />
-            </Col>
-            <Col xs={12} md={6}>
-              <Statistic title={t('currencies')} value={masterData.data?.currencyCount ?? 0} />
-            </Col>
-          </Row>
-
-          <Button
-            type="primary"
-            loading={importMasterData.isPending || masterData.data?.running}
-            disabled={Boolean(masterData.data?.running)}
-            onClick={() => importMasterData.mutate()}
-          >
-            {masterData.data?.running ? t('importRunning') : t('startImport')}
-          </Button>
-
-          {masterData.data?.recentImports?.[0] ? (
-            <Typography.Paragraph type="secondary" style={{ marginTop: 12 }}>
-              {masterData.data.recentImports[0].dataset}
-              {' — '}
-              {masterData.data.recentImports[0].status}
-              {' · '}
-              {masterData.data.recentImports[0].recordCount.toLocaleString()}
-            </Typography.Paragraph>
-          ) : null}
-        </Card>
-      ) : null}
+      {canAdmin ? <MasterDataAdminPanel /> : null}
     </div>
   )
 }

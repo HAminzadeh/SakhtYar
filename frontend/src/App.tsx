@@ -9,6 +9,8 @@ import { LoginPage } from './pages/LoginPage'
 import { RegisterPage } from './pages/RegisterPage'
 import { UsersPage } from './pages/UsersPage'
 import { PreferencesPage } from './pages/PreferencesPage'
+import { AiManagementPage } from './pages/AiManagementPage'
+import { OperationsPage } from './pages/OperationsPage'
 
 export default function App() {
   return (
@@ -28,6 +30,12 @@ export default function App() {
 
           <Route element={<PermissionRoute permission="USER_MANAGE" />}>
             <Route path="/admin/users" element={<UsersPage />} />
+          </Route>
+          <Route element={<PermissionRoute permission="AI_MANAGE" />}>
+            <Route path="/admin/ai" element={<AiManagementPage />} />
+          </Route>
+          <Route element={<PermissionRoute permission="OPERATIONS_READ" />}>
+            <Route path="/admin/operations" element={<OperationsPage />} />
           </Route>
         </Route>
       </Route>

@@ -3,6 +3,8 @@ import {
   FolderOpenOutlined,
   PoweroffOutlined,
   SafetyCertificateOutlined,
+  RobotOutlined,
+  DashboardOutlined,
   UserOutlined,
 } from '@ant-design/icons'
 import {
@@ -93,6 +95,18 @@ export function AppShell() {
               }
             >
               کاربران
+            </Button>
+          )}
+
+          {hasPermission('AI_MANAGE') && (
+            <Button type={active('/admin/ai') ? 'primary' : 'default'} icon={<RobotOutlined />} onClick={() => navigate('/admin/ai')}>
+              مدیریت AI
+            </Button>
+          )}
+
+          {hasPermission('OPERATIONS_READ') && (
+            <Button type={active('/admin/operations') ? 'primary' : 'default'} icon={<DashboardOutlined />} onClick={() => navigate('/admin/operations')}>
+              عملیات
             </Button>
           )}
 
