@@ -2602,7 +2602,7 @@ html[data-theme-resolved="dark"] .sakhtyar-login-v56__divider span,html[data-the
 .sakhtyar-dependency-grid{display:grid;gap:10px}.sakhtyar-dependency-item{display:flex;align-items:center;gap:12px;padding:12px 14px;border-radius:12px;background:rgba(127,127,127,.06)}
 .sakhtyar-help-content{display:grid;gap:14px}.sakhtyar-help-article{padding:16px;border-radius:14px;background:rgba(127,127,127,.055)}.sakhtyar-help-article h4{margin-top:0!important}
 @media(max-width:768px){.sakhtyar-dashboard-toolbar,.sakhtyar-section-actions,.sakhtyar-chart-header,.sakhtyar-provider-card-head{align-items:flex-start;flex-direction:column}.sakhtyar-service-map,.sakhtyar-provider-grid,.sakhtyar-routing-grid{grid-template-columns:1fr}}
-/* Phase 5.14 v4 — visual quality pass */
+/* Phase 5.14 v4 â€” visual quality pass */
 .sakhtyar-dashboard-hero {
   position: relative;
   border-radius: 20px !important;
@@ -2854,4 +2854,22 @@ html[data-theme-resolved="dark"] .sakhtyar-login-v56__divider span,html[data-the
   .sakhtyar-dashboard-hero {
     border-radius: 16px !important;
   }
+}
+/* SAKHTYAR_KNOWLEDGE_ADMIN_V1 */
+.sakhtyar-knowledge-admin .ant-tabs-nav {
+  margin-bottom: 18px;
+}
+
+.sakhtyar-knowledge-admin .ant-statistic-content {
+  font-variant-numeric: tabular-nums;
+}
+
+.sakhtyar-knowledge-admin textarea {
+  direction: ltr;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", monospace;
+  line-height: 1.65;
+}
+
+.sakhtyar-knowledge-admin .ant-drawer-body ol {
+  padding-inline-start: 24px;
 }

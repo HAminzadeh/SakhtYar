@@ -6,6 +6,7 @@ import {
   RobotOutlined,
   DashboardOutlined,
   UserOutlined,
+  BookOutlined,
 } from '@ant-design/icons'
 import {
   Avatar,
@@ -110,6 +111,15 @@ export function AppShell() {
             </Button>
           )}
 
+          {hasPermission('USER_MANAGE') && (
+            <Button
+              type={active('/admin/knowledge') ? 'primary' : 'default'}
+              icon={<BookOutlined />}
+              onClick={() => navigate('/admin/knowledge')}
+            >
+              مرکز دانش
+            </Button>
+          )}
           <Button
             type={
               active('/account') ? 'primary' : 'default'

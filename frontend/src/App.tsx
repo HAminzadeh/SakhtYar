@@ -11,6 +11,7 @@ import { UsersPage } from './pages/UsersPage'
 import { PreferencesPage } from './pages/PreferencesPage'
 import { AiManagementPage } from './pages/AiManagementPage'
 import { OperationsPage } from './pages/OperationsPage'
+import { KnowledgeAdminPage } from './pages/KnowledgeAdminPage'
 
 export default function App() {
   return (
@@ -36,6 +37,9 @@ export default function App() {
           </Route>
           <Route element={<PermissionRoute permission="OPERATIONS_READ" />}>
             <Route path="/admin/operations" element={<OperationsPage />} />
+          </Route>
+          <Route element={<PermissionRoute permission="USER_MANAGE" />}>
+            <Route path="/admin/knowledge" element={<KnowledgeAdminPage />} />
           </Route>
         </Route>
       </Route>
