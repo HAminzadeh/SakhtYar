@@ -64,3 +64,4 @@ jar-check/
 
 # TypeScript incremental build metadata
 *.tsbuildinfo
+.local/knowledge-export/
