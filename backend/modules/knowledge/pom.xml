@@ -42,5 +42,9 @@
       <artifactId>spring-boot-starter-test</artifactId>
       <scope>test</scope>
     </dependency>
-  </dependencies>
+      <dependency>
+      <groupId>com.sakhtyar</groupId>
+      <artifactId>sakhtyar-document</artifactId>
+    </dependency>
+</dependencies>
 </project>
