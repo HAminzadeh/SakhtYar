@@ -29,12 +29,16 @@ dist/
 .vite/
 **/.vite/
 
+# TypeScript incremental build metadata
+*.tsbuildinfo
+
 # =========================
 # Environment files
 # =========================
 .env
 .env.local
 .env.*.local
+.env.observability.local
 
 # Keep examples
 !.env.example
@@ -46,6 +50,7 @@ dist/
 *.log
 *.tmp
 *.temp
+*.part
 *.dump
 *.dumpstream
 
@@ -53,15 +58,15 @@ dist/
 # OS
 # =========================
 .DS_Store
-Thumbs.db.env.observability.local
+Thumbs.db
+
+# =========================
+# Local generated artifacts
+# =========================
+.local/
+
+# =========================
+# Local runtime/build artifacts
+# =========================
 sakhtyar-running-app.jar
 jar-check/
-.env.observability.local
-
-/.local/docker-images/
-
-/.local/patch-backups/
-
-# TypeScript incremental build metadata
-*.tsbuildinfo
-.local/knowledge-export/

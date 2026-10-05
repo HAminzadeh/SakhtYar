@@ -8,6 +8,7 @@ import {
   Drawer,
   Form,
   Input,
+  InputNumber,
   Progress,
   Row,
   Select,
@@ -16,6 +17,7 @@ import {
   Table,
   Tabs,
   Tag,
+  Switch,
   Typography,
   Upload,
 } from 'antd'
@@ -29,6 +31,7 @@ import {
   CloudUploadOutlined,
   CheckCircleOutlined,
   SafetyCertificateOutlined,
+  FolderOpenOutlined,
 } from '@ant-design/icons'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { useMemo, useState } from 'react'
@@ -102,6 +105,36 @@ type ExportKit = {
   branch: string
 }
 
+type DeepExportKit = {
+  scriptName: string
+  script: string
+  runCommand: string
+  sendCommand: string
+  outputDir: string
+  masterZip: string
+  bundlePattern: string
+  sourcePath: string
+  repository: string
+  branch: string
+  profile: string
+  maxBundleMb: number
+  imageDpi: number
+  renderPageImages: boolean
+  ocrFallback: boolean
+  includeOriginals: boolean
+}
+type ExportJob = {
+  id: string
+  kind: 'STANDARD' | 'DEEP'
+  status: 'QUEUED' | 'RUNNING' | 'COMPLETED' | 'FAILED'
+  outputDirectory: string
+  startedAt?: string | null
+  finishedAt?: string | null
+  exitCode?: number | null
+  errorMessage?: string | null
+  log: string
+  outputFiles: string[]
+}
 type DatasetPackage = {
   id: string
   originalFilename: string
@@ -143,6 +176,9 @@ const helpFa: Record<string, { title: string; body: string }> = {
   exportPackage: {
     title: 'راهنمای بسته استخراج برای ChatGPT',
     body: 'از این تب اسکریپت مکانیکی Export را دانلود کنید. اسکریپت فایل‌های PDF/PPT/PPTX را به متن و JSONL تبدیل می‌کند، Duplicateها را با Hash شناسایی می‌کند و یک ZIP می‌سازد. هیچ تحلیل AI یا استخراج دانش روی سیستم شما انجام نمی‌شود.',
+  },  deepExport: {
+    title: 'راهنمای استخراج عمیق v2',
+    body: 'برای بازتحلیل کامل، متن، OCR، جدول‌ها، تصاویر صفحات و فایل اصلی در بسته‌های چندبخشی تولید می‌شوند.',
   },  datasets: {
     title: 'راهنمای Datasetها',
     body: 'هر Dataset یک نسخه مستقل از دانش ساخت‌یار است. فعال‌سازی مرحله‌ای جدا از Import است تا همیشه بتوان نسخه قبلی را نگه داشت یا Rollback کرد.',
@@ -173,6 +209,7 @@ const helpEn: typeof helpFa = {
   overview: { title: 'Overview help', body: 'Shows platform health, the active dataset, pending reviews, conflicts and citation coverage. Imported does not mean active.' },
   build: { title: 'Build help', body: 'Use Full for the first build and Incremental for later updates. The generated versioned command is sent to ChatGPT.' },
   exportPackage: { title: 'ChatGPT export package help', body: 'Download the mechanical corpus export script, run it locally, then send the resulting ZIP and prepared command to ChatGPT. No local AI analysis is performed.' },
+  deepExport: { title: 'Deep extraction v2 help', body: 'Produces a multi-part corpus for exhaustive page-by-page analysis.' },
   datasets: { title: 'Datasets help', body: 'Each dataset is a separate version of SakhtYar knowledge. Activation is a separate controlled step.' },
   review: { title: 'Review help', body: 'Classifications support bulk review. Rule candidates require stricter source and conflict controls.' },
   quality: { title: 'Quality help', body: 'Golden questions, search regression, citation coverage, staleness and source priority protect quality.' },
@@ -202,6 +239,15 @@ export function KnowledgeAdminPage() {
   const [commandResult, setCommandResult] = useState<CommandResult | null>(null)
   const [mode, setMode] = useState<'FULL' | 'INCREMENTAL'>('INCREMENTAL')
   const [baselineCommit, setBaselineCommit] = useState('')
+  const [deepMaxBundleMb, setDeepMaxBundleMb] = useState(120)
+  const [deepImageDpi, setDeepImageDpi] = useState(144)
+  const [deepRenderImages, setDeepRenderImages] = useState(true)
+  const [deepOcrFallback, setDeepOcrFallback] = useState(true)
+  const [deepIncludeOriginals, setDeepIncludeOriginals] = useState(true)
+  const [standardOutputDirectory, setStandardOutputDirectory] = useState('')
+  const [deepOutputDirectory, setDeepOutputDirectory] = useState('')
+  const [standardExportJobId, setStandardExportJobId] = useState<string | null>(null)
+  const [deepExportJobId, setDeepExportJobId] = useState<string | null>(null)
   const [form] = Form.useForm<Profile>()
 
   const status = useQuery({
@@ -224,6 +270,44 @@ export function KnowledgeAdminPage() {
     queryFn: () => api<ExportKit>('/api/v1/knowledge/admin/export-kit'),
   })
 
+  const deepExportKit = useQuery({
+    queryKey: [
+      'knowledge-deep-export-kit',
+      deepMaxBundleMb,
+      deepImageDpi,
+      deepRenderImages,
+      deepOcrFallback,
+      deepIncludeOriginals,
+    ],
+    queryFn: () => {
+      const qs = new URLSearchParams({
+        maxBundleMb: String(deepMaxBundleMb),
+        imageDpi: String(deepImageDpi),
+        renderPageImages: String(deepRenderImages),
+        ocrFallback: String(deepOcrFallback),
+        includeOriginals: String(deepIncludeOriginals),
+      })
+      return api<DeepExportKit>(`/api/v1/knowledge/admin/deep-export-kit?${qs.toString()}`)
+    },
+  })
+
+  const downloadDeepExportScript = () => {
+    if (!deepExportKit.data) return
+    const blob = new Blob([`\uFEFF${deepExportKit.data.script}`], {
+      type: 'text/plain;charset=utf-8',
+    })
+    const url = URL.createObjectURL(blob)
+    const anchor = document.createElement('a')
+    anchor.href = url
+    anchor.download = deepExportKit.data.scriptName
+    document.body.appendChild(anchor)
+    anchor.click()
+    anchor.remove()
+    URL.revokeObjectURL(url)
+    message.success(
+      fa ? 'اسکریپت Deep Export v2 دانلود شد.' : 'Deep Export v2 script downloaded.',
+    )
+  }
   const downloadExportScript = () => {
     if (!exportKit.data) return
     const blob = new Blob([`\uFEFF${exportKit.data.script}`], {
@@ -242,6 +326,64 @@ export function KnowledgeAdminPage() {
     )
   }
 
+  const standardExportJob = useQuery({
+    queryKey: ['knowledge-standard-export-job', standardExportJobId],
+    enabled: Boolean(standardExportJobId),
+    queryFn: () => api<ExportJob>(`/api/v1/knowledge/admin/export-jobs/${standardExportJobId}`),
+    refetchInterval: (query) => {
+      const row = query.state.data as ExportJob | undefined
+      return !row || ['QUEUED', 'RUNNING'].includes(row.status) ? 2000 : false
+    },
+  })
+
+  const deepExportJob = useQuery({
+    queryKey: ['knowledge-deep-export-job', deepExportJobId],
+    enabled: Boolean(deepExportJobId),
+    queryFn: () => api<ExportJob>(`/api/v1/knowledge/admin/export-jobs/${deepExportJobId}`),
+    refetchInterval: (query) => {
+      const row = query.state.data as ExportJob | undefined
+      return !row || ['QUEUED', 'RUNNING'].includes(row.status) ? 2000 : false
+    },
+  })
+
+  const runExport = useMutation({
+    mutationFn: (payload: {
+      kind: 'STANDARD' | 'DEEP'
+      outputDirectory: string
+      maxBundleMb?: number
+      imageDpi?: number
+      renderPageImages?: boolean
+      ocrFallback?: boolean
+      includeOriginals?: boolean
+    }) =>
+      api<ExportJob>('/api/v1/knowledge/admin/export-jobs', {
+        method: 'POST',
+        body: JSON.stringify(payload),
+      }),
+    onSuccess: (result) => {
+      if (result.kind === 'DEEP') setDeepExportJobId(result.id)
+      else setStandardExportJobId(result.id)
+      message.success(fa ? 'عملیات Export شروع شد.' : 'Export started.')
+    },
+    onError: (e) => message.error(e instanceof Error ? e.message : 'Export failed'),
+  })
+  const chooseOutputDirectory = async (
+    current: string,
+    setter: (value: string) => void,
+  ) => {
+    try {
+      const result = await api<{ selected: boolean; path: string }>(
+        '/api/v1/knowledge/admin/export-jobs/choose-directory',
+        {
+          method: 'POST',
+          body: JSON.stringify({ initialDirectory: current || null }),
+        },
+      )
+      if (result.selected && result.path) setter(result.path)
+    } catch (e) {
+      message.error(e instanceof Error ? e.message : 'Folder chooser failed')
+    }
+  }
   const datasetPackages = useQuery({
     queryKey: ['knowledge-dataset-packages'],
     queryFn: () => api<DatasetPackage[]>('/api/v1/knowledge/admin/dataset-packages'),
@@ -453,13 +595,41 @@ export function KnowledgeAdminPage() {
               }
             />
 
-            {exportKit.isLoading ? (
+                        <Card size="small" style={{ marginBottom: 18 }} title={fa ? 'تولید مستقیم بسته استخراج' : 'One-click Export Package'}>
+              <Typography.Paragraph type="secondary">
+                {fa ? 'مسیر پوشه خروجی را وارد کنید؛ ساخت‌یار خودش Export را اجرا می‌کند.' : 'Enter an output folder; SakhtYar runs the export automatically.'}
+              </Typography.Paragraph>
+              <Space.Compact style={{ width: '100%' }}>
+                <Input value={standardOutputDirectory} onChange={(e) => setStandardOutputDirectory(e.target.value)}
+                  placeholder={fa ? 'مثال: D:\\SakhtYarExports\\standard' : 'Example: D:\\SakhtYarExports\\standard'} />
+                                <Button
+                  icon={<FolderOpenOutlined />}
+                  onClick={() => chooseOutputDirectory(standardOutputDirectory, setStandardOutputDirectory)}
+                >
+                  {fa ? 'انتخاب پوشه' : 'Browse'}
+                </Button><Button type="primary" icon={<PlayCircleOutlined />}
+                  loading={runExport.isPending || ['QUEUED','RUNNING'].includes(standardExportJob.data?.status ?? '')}
+                  disabled={!standardOutputDirectory.trim()}
+                  onClick={() => runExport.mutate({ kind: 'STANDARD', outputDirectory: standardOutputDirectory.trim() })}>
+                  {fa ? 'تولید بسته' : 'Generate'}
+                </Button>
+              </Space.Compact>
+              {standardExportJob.data ? (
+                <div style={{ marginTop: 14 }}>
+                  <Space wrap>{statusTag(standardExportJob.data.status)}<Typography.Text code>{standardExportJob.data.outputDirectory}</Typography.Text></Space>
+                  {standardExportJob.data.errorMessage ? <Alert style={{marginTop:10}} type="error" showIcon message={standardExportJob.data.errorMessage} /> : null}
+                  {standardExportJob.data.outputFiles?.length ? <Alert style={{marginTop:10}} type="success" showIcon message={fa?'فایل خروجی آماده است':'Output ready'} description={standardExportJob.data.outputFiles.join('\n')} /> : null}
+                  <Input.TextArea style={{marginTop:10}} readOnly value={standardExportJob.data.log} autoSize={{minRows:5,maxRows:14}} />
+                </div>
+              ) : null}
+            </Card>
+{exportKit.isLoading ? (
               <Card loading />
             ) : exportKit.data ? (
               <>
-                <Row gutter={[16, 16]}>
+                <Row gutter={[16, 16]} style={{ display: 'none' }}>
                   <Col xs={24} lg={8}>
-                    <Card size="small" title={fa ? '۱. دریافت اسکریپت' : '1. Download script'}>
+                    <Card size="small" style={{ display: 'none' }} title={fa ? '۱. دریافت اسکریپت' : '1. Download script'}>
                       <Typography.Paragraph type="secondary">
                         {fa
                           ? 'اسکریپت را در ریشه Repository ذخیره کنید.'
@@ -479,7 +649,7 @@ export function KnowledgeAdminPage() {
                   </Col>
 
                   <Col xs={24} lg={8}>
-                    <Card size="small" title={fa ? '۲. اجرای Export' : '2. Run export'}>
+                    <Card size="small" style={{ display: 'none' }} title={fa ? '۲. اجرای Export' : '2. Run export'}>
                       <Typography.Paragraph type="secondary">
                         {fa
                           ? 'فرمان زیر را در PowerShell از ریشه پروژه اجرا کنید.'
@@ -503,7 +673,7 @@ export function KnowledgeAdminPage() {
                   </Col>
 
                   <Col xs={24} lg={8}>
-                    <Card size="small" title={fa ? '۳. ارسال برای ChatGPT' : '3. Send to ChatGPT'}>
+                    <Card size="small" title={fa ? 'ارسال فایل خروجی برای تحلیل' : 'Send output for analysis'}>
                       <Typography.Paragraph type="secondary">
                         {fa
                           ? 'ZIP ساخته‌شده را همراه با این دستور برای ChatGPT بفرستید.'
@@ -514,7 +684,7 @@ export function KnowledgeAdminPage() {
                         icon={<CopyOutlined />}
                         onClick={() => copy(exportKit.data!.sendCommand)}
                       >
-                        {fa ? 'کپی دستور ارسال' : 'Copy ChatGPT Command'}
+                        {fa ? 'کپی دستور تحلیل' : 'Copy analysis command'}
                       </Button>
                     </Card>
                   </Col>
@@ -564,7 +734,184 @@ export function KnowledgeAdminPage() {
         </div>
       ),
     },
-    {
+        {
+      key: 'deepExport',
+      label: fa ? 'استخراج عمیق v2' : 'Deep Export v2',
+      children: (
+        <div className="sakhtyar-page-stack">
+          <Card title={fa ? 'بسته استخراج عمیق برای بازتحلیل کامل' : 'Deep corpus package for exhaustive re-analysis'}>
+            <Alert
+              type="warning"
+              showIcon
+              style={{ marginBottom: 18 }}
+              message={fa ? 'تنظیمات و مسیر خروجی را مشخص کنید؛ ساخت‌یار Deep Corpus را به‌صورت خودکار تولید می‌کند.' : 'Choose the settings and output folder; SakhtYar generates the Deep Corpus automatically.'}
+              description={fa
+                ? 'برای PDFها متن native، OCR صفحات کم‌متن، بلوک‌های مختصات‌دار، جدول‌ها، تصویر صفحات و فایل اصلی در بسته‌های چندبخشی تولید می‌شوند.'
+                : 'PDF native/OCR text, positioned blocks, tables, page images and original files are packaged into multiple parts.'}
+            />
+
+            <Row gutter={[16, 16]}>
+              <Col xs={24} md={6}>
+                <Typography.Text>{fa ? 'حداکثر حجم تقریبی هر Part (MB)' : 'Approx. max bundle size (MB)'}</Typography.Text>
+                <InputNumber
+                  min={40}
+                  max={500}
+                  step={20}
+                  value={deepMaxBundleMb}
+                  onChange={(v) => setDeepMaxBundleMb(v ?? 120)}
+                  style={{ width: '100%', marginTop: 6 }}
+                />
+              </Col>
+              <Col xs={24} md={6}>
+                <Typography.Text>{fa ? 'DPI تصویر صفحات PDF' : 'PDF page image DPI'}</Typography.Text>
+                <InputNumber
+                  min={96}
+                  max={220}
+                  step={12}
+                  value={deepImageDpi}
+                  onChange={(v) => setDeepImageDpi(v ?? 144)}
+                  style={{ width: '100%', marginTop: 6 }}
+                />
+              </Col>
+              <Col xs={24} md={4}>
+                <Space direction="vertical">
+                  <Typography.Text>{fa ? 'تصویر صفحات' : 'Page images'}</Typography.Text>
+                  <Switch checked={deepRenderImages} onChange={setDeepRenderImages} />
+                </Space>
+              </Col>
+              <Col xs={24} md={4}>
+                <Space direction="vertical">
+                  <Typography.Text>{fa ? 'OCR صفحات کم‌متن' : 'Low-text OCR'}</Typography.Text>
+                  <Switch checked={deepOcrFallback} onChange={setDeepOcrFallback} />
+                </Space>
+              </Col>
+              <Col xs={24} md={4}>
+                <Space direction="vertical">
+                  <Typography.Text>{fa ? 'فایل اصلی' : 'Original source'}</Typography.Text>
+                  <Switch checked={deepIncludeOriginals} onChange={setDeepIncludeOriginals} />
+                </Space>
+              </Col>
+            </Row>
+
+            <Alert
+              style={{ marginTop: 16 }}
+              type="info"
+              showIcon
+              message={fa ? 'پروفایل پیشنهادی نهایی' : 'Recommended final profile'}
+              description={fa
+                ? 'Part Size = 120MB، DPI = 144، تصویر صفحات = روشن، OCR = روشن، فایل اصلی = روشن.'
+                : 'Part Size = 120MB, DPI = 144, Page Images = on, OCR = on, Original Source = on.'}
+            />
+
+                        <Card size="small" style={{ marginTop: 18, marginBottom: 18 }} title={fa ? 'تولید مستقیم Deep Corpus' : 'One-click Deep Corpus'}>
+              <Typography.Paragraph type="secondary">
+                {fa ? 'فقط مسیر پوشه خروجی را مشخص کنید؛ ساخت‌یار Master و Partها را خودش تولید می‌کند.' : 'Choose the output folder; SakhtYar creates the master and parts automatically.'}
+              </Typography.Paragraph>
+              <Space.Compact style={{ width: '100%' }}>
+                <Input value={deepOutputDirectory} onChange={(e) => setDeepOutputDirectory(e.target.value)}
+                  placeholder={fa ? 'مثال: D:\\SakhtYarExports\\deep-v2' : 'Example: D:\\SakhtYarExports\\deep-v2'} />
+                                <Button
+                  icon={<FolderOpenOutlined />}
+                  onClick={() => chooseOutputDirectory(deepOutputDirectory, setDeepOutputDirectory)}
+                >
+                  {fa ? 'انتخاب پوشه' : 'Browse'}
+                </Button><Button type="primary" icon={<PlayCircleOutlined />}
+                  loading={runExport.isPending || ['QUEUED','RUNNING'].includes(deepExportJob.data?.status ?? '')}
+                  disabled={!deepOutputDirectory.trim()}
+                  onClick={() => runExport.mutate({
+                    kind:'DEEP', outputDirectory:deepOutputDirectory.trim(),
+                    maxBundleMb:deepMaxBundleMb, imageDpi:deepImageDpi,
+                    renderPageImages:deepRenderImages, ocrFallback:deepOcrFallback,
+                    includeOriginals:deepIncludeOriginals
+                  })}>
+                  {fa ? 'تولید Deep Corpus' : 'Generate Deep Corpus'}
+                </Button>
+              </Space.Compact>
+              {deepExportJob.data ? (
+                <div style={{ marginTop: 14 }}>
+                  <Space wrap>{statusTag(deepExportJob.data.status)}<Typography.Text code>{deepExportJob.data.outputDirectory}</Typography.Text></Space>
+                  {deepExportJob.data.errorMessage ? <Alert style={{marginTop:10}} type="error" showIcon message={deepExportJob.data.errorMessage} /> : null}
+                  {deepExportJob.data.outputFiles?.length ? <Alert style={{marginTop:10}} type="success" showIcon message={fa?'فایل‌های خروجی آماده‌اند':'Output files are ready'} description={deepExportJob.data.outputFiles.join('\n')} /> : null}
+                  <Input.TextArea style={{marginTop:10}} readOnly value={deepExportJob.data.log} autoSize={{minRows:6,maxRows:16}} />
+                </div>
+              ) : null}
+            </Card>
+{deepExportKit.data ? (
+              <>
+                <Row gutter={[16, 16]} style={{ display: 'none',  marginTop: 18 }}>
+                  <Col xs={24} md={8}>
+                    <Button
+                      block
+                      type="primary"
+                      icon={<BookOutlined />}
+                      onClick={downloadDeepExportScript}
+                    >
+                      {fa ? 'دانلود Deep Export Script' : 'Download Deep Export Script'}
+                    </Button>
+                  </Col>
+                  <Col xs={24} md={8}>
+                    <Button
+                      block
+                      icon={<CopyOutlined />}
+                      onClick={() => copy(deepExportKit.data!.runCommand)}
+                    >
+                      {fa ? 'کپی دستور اجرا' : 'Copy run command'}
+                    </Button>
+                  </Col>
+                  <Col xs={24} md={8}>
+                    <Button
+                      block
+                      icon={<CopyOutlined />}
+                      onClick={() => copy(deepExportKit.data!.sendCommand)}
+                    >
+                      {fa ? 'کپی دستور ارسال فایل‌ها برای تحلیل' : 'Copy analysis handoff command'}
+                    </Button>
+                  </Col>
+                </Row>
+
+                <Card
+                  size="small"
+                  style={{ marginTop: 16 }}
+                  title={fa ? 'فایل‌هایی که باید برای تحلیل ارسال شوند' : 'Files to provide for analysis'}
+                >
+                  <Descriptions column={{ xs: 1, md: 2 }} size="small" bordered>
+                    <Descriptions.Item label="Master">
+                      <Typography.Text code>{deepExportKit.data.masterZip}</Typography.Text>
+                    </Descriptions.Item>
+                    <Descriptions.Item label={fa ? 'Partها' : 'Parts'}>
+                      <Typography.Text code>{deepExportKit.data.bundlePattern}</Typography.Text>
+                    </Descriptions.Item>
+                    <Descriptions.Item label={fa ? 'پروفایل' : 'Profile'}>
+                      {deepExportKit.data.profile}
+                    </Descriptions.Item>
+                    <Descriptions.Item label={fa ? 'مسیر خروجی' : 'Output'}>
+                      {deepExportKit.data.outputDir}
+                    </Descriptions.Item>
+                  </Descriptions>
+                </Card>
+
+                
+
+                <Card
+                  size="small"
+                  style={{ marginTop: 16 }}
+                  title={fa ? 'دستور ارسال Deep Corpus برای تحلیل' : 'Deep Corpus analysis handoff'}
+                >
+                  <Input.TextArea
+                    readOnly
+                    value={deepExportKit.data.sendCommand}
+                    autoSize={{ minRows: 14, maxRows: 28 }}
+                  />
+                </Card>
+              </>
+            ) : (
+              <Card loading />
+            )}
+          </Card>
+        </div>
+      ),
+    },
+{
       key: 'datasetImport',
       label: fa ? 'ورود Dataset' : 'Dataset Import',
       children: (

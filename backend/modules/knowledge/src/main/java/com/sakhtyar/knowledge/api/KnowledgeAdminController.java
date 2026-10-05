@@ -2,6 +2,8 @@ package com.sakhtyar.knowledge.api;
 
 import com.sakhtyar.knowledge.application.KnowledgeAdminService;
 import com.sakhtyar.knowledge.application.KnowledgeDatasetPackageService;
+import com.sakhtyar.knowledge.application.KnowledgeCorpusExportRunnerService;
+import com.sakhtyar.knowledge.application.KnowledgeDeepExportKitService;
 
 import java.util.List;
 import java.util.UUID;
@@ -18,13 +20,19 @@ import java.nio.charset.StandardCharsets;
 public class KnowledgeAdminController {
     private final KnowledgeAdminService service;
     private final KnowledgeDatasetPackageService packageService;
+    private final KnowledgeCorpusExportRunnerService exportRunnerService;
+    private final KnowledgeDeepExportKitService deepExportKitService;
 
     public KnowledgeAdminController(
             KnowledgeAdminService service,
-            KnowledgeDatasetPackageService packageService
+            KnowledgeDatasetPackageService packageService,
+            KnowledgeDeepExportKitService deepExportKitService,
+            KnowledgeCorpusExportRunnerService exportRunnerService
     ) {
         this.service = service;
         this.packageService = packageService;
+        this.exportRunnerService = exportRunnerService;
+        this.deepExportKitService = deepExportKitService;
     }
 
     @GetMapping("/status")
@@ -51,7 +59,53 @@ public class KnowledgeAdminController {
     public Map<String, Object> exportKit() {
         return service.exportKit();
     }
+    @GetMapping("/deep-export-kit")
+    public Map<String, Object> deepExportKit(
+            @RequestParam(defaultValue = "120") Integer maxBundleMb,
+            @RequestParam(defaultValue = "144") Integer imageDpi,
+            @RequestParam(defaultValue = "true") Boolean renderPageImages,
+            @RequestParam(defaultValue = "true") Boolean ocrFallback,
+            @RequestParam(defaultValue = "true") Boolean includeOriginals
+    ) {
+        return deepExportKitService.exportKit(
+                maxBundleMb,
+                imageDpi,
+                renderPageImages,
+                ocrFallback,
+                includeOriginals
+        );
+    }
 
+    @PostMapping("/export-jobs/choose-directory")
+    public Map<String,Object> chooseExportDirectory(
+            @RequestBody(required = false) ChooseDirectoryRequest r
+    ) {
+        return exportRunnerService.chooseOutputDirectory(r == null ? null : r.initialDirectory());
+    }
+
+    public record ChooseDirectoryRequest(String initialDirectory) {}
+    @PostMapping("/export-jobs")
+    public Map<String, Object> startExport(@RequestBody StartExportRequest r) {
+        return exportRunnerService.start(
+                r.kind(), r.outputDirectory(), r.maxBundleMb(), r.imageDpi(),
+                r.renderPageImages(), r.ocrFallback(), r.includeOriginals()
+        );
+    }
+
+    @GetMapping("/export-jobs/{jobId}")
+    public Map<String, Object> exportStatus(@PathVariable UUID jobId) {
+        return exportRunnerService.status(jobId);
+    }
+
+    public record StartExportRequest(
+            String kind,
+            String outputDirectory,
+            Integer maxBundleMb,
+            Integer imageDpi,
+            Boolean renderPageImages,
+            Boolean ocrFallback,
+            Boolean includeOriginals
+    ) {}
     @GetMapping("/runs")
     public List<Map<String, Object>> runs(@RequestParam(defaultValue = "20") int limit) {
         return service.recentRuns(limit);
