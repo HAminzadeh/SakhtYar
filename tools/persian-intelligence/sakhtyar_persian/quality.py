@@ -4,9 +4,9 @@ from dataclasses import dataclass, asdict
 
 P = "\u0600-\u06ff"
 _BAD = re.compile(r"[\ufffd\u0080-\u009f]")
-_INJECTED_ZHE = re.compile(rf"(?<=[{P}])ژ(?=[{P}])")
+_INJECTED_ZHE = re.compile(rf"(?<=[{P}])Ú˜(?=[{P}])")
 _SPLIT = re.compile(rf"\b[{P}]{{2,}}\s+[{P}]\b")
-_KNOWN = re.compile(r"(?:کژه|صژرف|ش\s+ورای|تهر\s+ان|منط\s+قه|ض\s+وابط|م\s+صوبه|مو\s+رخ|عن[.]وان|باال)")
+_KNOWN = re.compile(r"(?:Ú©Ú˜Ù‡|ØµÚ˜Ø±Ù|Ø´\s+ÙˆØ±Ø§ÛŒ|ØªÙ‡Ø±\s+Ø§Ù†|Ù…Ù†Ø·\s+Ù‚Ù‡|Ø¶\s+ÙˆØ§Ø¨Ø·|Ù…\s+ØµÙˆØ¨Ù‡|Ù…Ùˆ\s+Ø±Ø®|Ø¹Ù†[.]ÙˆØ§Ù†|Ø¨Ø§Ø§Ù„)")
 
 @dataclass(frozen=True)
 class Quality:
@@ -22,6 +22,8 @@ class Quality:
 
 def analyze(text: str) -> Quality:
     t = text or ""
+    if not t.strip():
+        return Quality(0.0, 0.0, 0, 0, 0, 0, True, True)
     letters = re.findall(r"[A-Za-z\u0600-\u06ff]", t)
     persian = re.findall(rf"[{P}]", t)
     ratio = len(persian) / max(1, len(letters))
