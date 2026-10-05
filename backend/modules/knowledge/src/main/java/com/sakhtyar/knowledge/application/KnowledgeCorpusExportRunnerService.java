@@ -7,6 +7,7 @@ import java.nio.file.*;
 import java.time.Instant;
 import java.util.*;
 import java.util.concurrent.*;
+
 import org.springframework.stereotype.Service;
 
 @Service
@@ -18,21 +19,21 @@ public class KnowledgeCorpusExportRunnerService {
     private final Map<UUID, ExportJob> jobs = new ConcurrentHashMap<>();
 
     public KnowledgeCorpusExportRunnerService(
-            KnowledgeAdminService adminService,
-            KnowledgeDeepExportKitService deepExportKitService
+        KnowledgeAdminService adminService,
+        KnowledgeDeepExportKitService deepExportKitService
     ) {
         this.adminService = adminService;
         this.deepExportKitService = deepExportKitService;
     }
 
-    public synchronized Map<String,Object> start(
-            String kind,
-            String outputDirectory,
-            Integer maxBundleMb,
-            Integer imageDpi,
-            Boolean renderPageImages,
-            Boolean ocrFallback,
-            Boolean includeOriginals
+    public synchronized Map<String, Object> start(
+        String kind,
+        String outputDirectory,
+        Integer maxBundleMb,
+        Integer imageDpi,
+        Boolean renderPageImages,
+        Boolean ocrFallback,
+        Boolean includeOriginals
     ) {
         String k = kind == null ? "" : kind.trim().toUpperCase(Locale.ROOT);
         if (!k.equals("STANDARD") && !k.equals("DEEP")) {
@@ -63,7 +64,7 @@ public class KnowledgeCorpusExportRunnerService {
         return job.toMap();
     }
 
-    public Map<String,Object> chooseOutputDirectory(String initialDirectory) {
+    public Map<String, Object> chooseOutputDirectory(String initialDirectory) {
         if (!System.getProperty("os.name", "").toLowerCase(Locale.ROOT).contains("win")) {
             throw new IllegalStateException("Native folder chooser is currently supported on Windows only.");
         }
@@ -73,38 +74,38 @@ public class KnowledgeCorpusExportRunnerService {
             String escaped = initial.replace("'", "''");
 
             String command = """
-                    Add-Type -AssemblyName System.Windows.Forms;
-                    $dialog = New-Object System.Windows.Forms.FolderBrowserDialog;
-                    $dialog.Description = 'Select SakhtYar export output folder';
-                    $dialog.ShowNewFolderButton = $true;
-                    if ('%s' -ne '' -and (Test-Path '%s')) { $dialog.SelectedPath = '%s'; }
-                    $result = $dialog.ShowDialog();
-                    if ($result -eq [System.Windows.Forms.DialogResult]::OK) {
-                        [Console]::OutputEncoding = [System.Text.Encoding]::UTF8;
-                        Write-Output $dialog.SelectedPath;
-                    }
-                    """.formatted(escaped, escaped, escaped);
+                Add-Type -AssemblyName System.Windows.Forms;
+                $dialog = New-Object System.Windows.Forms.FolderBrowserDialog;
+                $dialog.Description = 'Select SakhtYar export output folder';
+                $dialog.ShowNewFolderButton = $true;
+                if ('%s' -ne '' -and (Test-Path '%s')) { $dialog.SelectedPath = '%s'; }
+                $result = $dialog.ShowDialog();
+                if ($result -eq [System.Windows.Forms.DialogResult]::OK) {
+                    [Console]::OutputEncoding = [System.Text.Encoding]::UTF8;
+                    Write-Output $dialog.SelectedPath;
+                }
+                """.formatted(escaped, escaped, escaped);
 
             ProcessBuilder pb = new ProcessBuilder(
-                    "powershell",
-                    "-NoProfile",
-                    "-STA",
-                    "-ExecutionPolicy",
-                    "Bypass",
-                    "-Command",
-                    command
+                "powershell",
+                "-NoProfile",
+                "-STA",
+                "-ExecutionPolicy",
+                "Bypass",
+                "-Command",
+                command
             );
             pb.redirectErrorStream(true);
             Process process = pb.start();
 
             String selected;
             try (BufferedReader reader = new BufferedReader(
-                    new InputStreamReader(process.getInputStream(), StandardCharsets.UTF_8))) {
+                new InputStreamReader(process.getInputStream(), StandardCharsets.UTF_8))) {
                 selected = reader.lines()
-                        .map(String::trim)
-                        .filter(s -> !s.isBlank())
-                        .reduce((a, b) -> b)
-                        .orElse("");
+                    .map(String::trim)
+                    .filter(s -> !s.isBlank())
+                    .reduce((a, b) -> b)
+                    .orElse("");
             }
 
             int exit = process.waitFor();
@@ -112,7 +113,7 @@ public class KnowledgeCorpusExportRunnerService {
                 throw new IllegalStateException("Folder chooser exited with code " + exit);
             }
 
-            LinkedHashMap<String,Object> result = new LinkedHashMap<>();
+            LinkedHashMap<String, Object> result = new LinkedHashMap<>();
             result.put("selected", !selected.isBlank());
             result.put("path", selected);
             return result;
@@ -120,7 +121,8 @@ public class KnowledgeCorpusExportRunnerService {
             throw new IllegalStateException("Could not open folder chooser: " + rootMessage(e), e);
         }
     }
-    public Map<String,Object> status(UUID jobId) {
+
+    public Map<String, Object> status(UUID jobId) {
         ExportJob job = jobs.get(jobId);
         if (job == null) throw new IllegalArgumentException("Export job not found: " + jobId);
         return job.toMap();
@@ -135,9 +137,9 @@ public class KnowledgeCorpusExportRunnerService {
             Path runtime = repoRoot.resolve(".local").resolve("knowledge-export-runtime");
             Files.createDirectories(runtime);
 
-            Map<String,Object> kit = "DEEP".equals(job.kind)
-                    ? deepExportKitService.exportKit(bundle, dpi, render, ocr, originals)
-                    : adminService.exportKit();
+            Map<String, Object> kit = "DEEP".equals(job.kind)
+                ? deepExportKitService.exportKit(bundle, dpi, render, ocr, originals)
+                : adminService.exportKit();
 
             String script = String.valueOf(kit.get("script"));
             String sourcePath = String.valueOf(kit.get("sourcePath"));
@@ -145,18 +147,29 @@ public class KnowledgeCorpusExportRunnerService {
             Files.writeString(scriptPath, "\uFEFF" + script, StandardCharsets.UTF_8);
 
             List<String> cmd = new ArrayList<>(List.of(
-                    "powershell","-NoProfile","-ExecutionPolicy","Bypass",
-                    "-File",scriptPath.toString(),
-                    "-RepoRoot",repoRoot.toString(),
-                    "-SourcePath",sourcePath
+                "powershell", "-NoProfile", "-ExecutionPolicy", "Bypass",
+                "-File", scriptPath.toString(),
+                "-RepoRoot", repoRoot.toString(),
+                "-SourcePath", sourcePath
             ));
 
             if ("DEEP".equals(job.kind)) {
-                cmd.add("-MaxBundleMb"); cmd.add(Integer.toString(bundle));
-                cmd.add("-ImageDpi"); cmd.add(Integer.toString(dpi));
-                if (!render) { cmd.add("-RenderPageImages"); cmd.add("0"); }
-                if (!ocr) { cmd.add("-OcrFallback"); cmd.add("0"); }
-                if (!originals) { cmd.add("-IncludeOriginals"); cmd.add("0"); }
+                cmd.add("-MaxBundleMb");
+                cmd.add(Integer.toString(bundle));
+                cmd.add("-ImageDpi");
+                cmd.add(Integer.toString(dpi));
+                if (!render) {
+                    cmd.add("-RenderPageImages");
+                    cmd.add("0");
+                }
+                if (!ocr) {
+                    cmd.add("-OcrFallback");
+                    cmd.add("0");
+                }
+                if (!originals) {
+                    cmd.add("-IncludeOriginals");
+                    cmd.add("0");
+                }
             }
 
             append(job, "Starting " + job.kind + " export");
@@ -168,7 +181,7 @@ public class KnowledgeCorpusExportRunnerService {
             Process process = pb.start();
 
             try (BufferedReader reader = new BufferedReader(
-                    new InputStreamReader(process.getInputStream(), StandardCharsets.UTF_8))) {
+                new InputStreamReader(process.getInputStream(), StandardCharsets.UTF_8))) {
                 String line;
                 while ((line = reader.readLine()) != null) append(job, line);
             }
@@ -206,13 +219,13 @@ public class KnowledgeCorpusExportRunnerService {
         List<Path> files;
         try (var s = Files.list(source)) {
             files = s.filter(Files::isRegularFile)
-                    .filter(p -> {
-                        String n = p.getFileName().toString();
-                        return n.equals("sakhtyar-deep-corpus-master.zip")
-                                || n.equals("bundle-index.json")
-                                || (n.startsWith("sakhtyar-deep-corpus-part-") && n.endsWith(".zip"));
-                    })
-                    .sorted().toList();
+                .filter(p -> {
+                    String n = p.getFileName().toString();
+                    return n.equals("sakhtyar-deep-corpus-master.zip")
+                        || n.equals("bundle-index.json")
+                        || (n.startsWith("sakhtyar-deep-corpus-part-") && n.endsWith(".zip"));
+                })
+                .sorted().toList();
         }
         if (files.stream().noneMatch(p -> p.getFileName().toString().equals("sakhtyar-deep-corpus-master.zip"))) {
             throw new IllegalStateException("Deep master ZIP was not generated.");
@@ -226,55 +239,61 @@ public class KnowledgeCorpusExportRunnerService {
 
     private static Path locateRepoRoot() {
         Path p = Path.of(System.getProperty("user.dir")).toAbsolutePath().normalize();
-        for (int i=0; i<10 && p!=null; i++, p=p.getParent()) {
+        for (int i = 0; i < 10 && p != null; i++, p = p.getParent()) {
             if (Files.isDirectory(p.resolve("DocumentationOfLawsAndRegulations"))
-                    && Files.isDirectory(p.resolve("backend"))
-                    && Files.isDirectory(p.resolve("frontend"))) return p;
+                && Files.isDirectory(p.resolve("backend"))
+                && Files.isDirectory(p.resolve("frontend"))) return p;
         }
         throw new IllegalStateException("Could not locate SakhtYar repository root.");
     }
 
     private static void append(ExportJob job, String line) {
         synchronized (job.log) {
-            if (job.log.length() > 200000) job.log.delete(0,50000);
+            if (job.log.length() > 200000) job.log.delete(0, 50000);
             job.log.append(line).append(System.lineSeparator());
         }
     }
 
     private static String rootMessage(Throwable e) {
-        Throwable t=e;
-        while(t.getCause()!=null) t=t.getCause();
-        return t.getMessage()==null ? t.getClass().getName() : t.getMessage();
+        Throwable t = e;
+        while (t.getCause() != null) t = t.getCause();
+        return t.getMessage() == null ? t.getClass().getName() : t.getMessage();
     }
 
     private static final class ExportJob {
         final UUID id;
         final String kind;
         final Path outputDirectory;
-        volatile String status="QUEUED";
+        volatile String status = "QUEUED";
         volatile Instant startedAt;
         volatile Instant finishedAt;
         volatile Integer exitCode;
         volatile String errorMessage;
-        final StringBuilder log=new StringBuilder();
-        final List<String> outputFiles=Collections.synchronizedList(new ArrayList<>());
+        final StringBuilder log = new StringBuilder();
+        final List<String> outputFiles = Collections.synchronizedList(new ArrayList<>());
 
-        ExportJob(UUID id,String kind,Path outputDirectory){
-            this.id=id; this.kind=kind; this.outputDirectory=outputDirectory;
+        ExportJob(UUID id, String kind, Path outputDirectory) {
+            this.id = id;
+            this.kind = kind;
+            this.outputDirectory = outputDirectory;
         }
 
-        Map<String,Object> toMap(){
-            LinkedHashMap<String,Object> m=new LinkedHashMap<>();
-            m.put("id",id);
-            m.put("kind",kind);
-            m.put("status",status);
-            m.put("outputDirectory",outputDirectory.toString());
-            m.put("startedAt",startedAt);
-            m.put("finishedAt",finishedAt);
-            m.put("exitCode",exitCode);
-            m.put("errorMessage",errorMessage);
-            synchronized(log){ m.put("log",log.toString()); }
-            synchronized(outputFiles){ m.put("outputFiles",List.copyOf(outputFiles)); }
+        Map<String, Object> toMap() {
+            LinkedHashMap<String, Object> m = new LinkedHashMap<>();
+            m.put("id", id);
+            m.put("kind", kind);
+            m.put("status", status);
+            m.put("outputDirectory", outputDirectory.toString());
+            m.put("startedAt", startedAt);
+            m.put("finishedAt", finishedAt);
+            m.put("exitCode", exitCode);
+            m.put("errorMessage", errorMessage);
+            synchronized (log) {
+                m.put("log", log.toString());
+            }
+            synchronized (outputFiles) {
+                m.put("outputFiles", List.copyOf(outputFiles));
+            }
             return m;
         }
     }
