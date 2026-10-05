@@ -29,6 +29,7 @@
     <module>modules/builder</module>
     <module>modules/contract</module>
     <module>modules/persian-intelligence</module>
+    <module>modules/intelligence</module>
     <module>modules/knowledge</module>
     <module>modules/crawler</module>
     <module>modules/material</module>
