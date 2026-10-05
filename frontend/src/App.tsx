@@ -23,6 +23,11 @@ export default function App() {
       <Route element={<ProtectedRoute />}>
         <Route element={<AppShell />}>
           <Route path="/account" element={<AccountPage />} />
+          <Route element={<PermissionRoute permission="USER_MANAGE" />}> 
+            <Route path="/admin/config" element={<PlatformConfigPage />} />
+          </Route>
+          <Route element={<PermissionRoute permission="USER_MANAGE" />}> 
+</Route>
         <Route path="/settings" element={<PreferencesPage />} />
 
           <Route element={<PermissionRoute permission="CASE_READ" />}>
@@ -46,6 +51,6 @@ export default function App() {
       </Route>
 
       <Route path="*" element={<Navigate to="/cases" replace />} />
-      <Route path="/admin/config" element={<PlatformConfigPage />} />`r`n      </Routes>
+</Routes>
   )
 }

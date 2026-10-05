@@ -1,10 +1,10 @@
 package com.sakhtyar.config;
 import org.springframework.web.bind.annotation.*;import java.security.Principal;import java.util.*;
 @RestController @RequestMapping("/api/v1/admin/config") public class PlatformConfigAdminController {
- private final PlatformConfigService s; public PlatformConfigAdminController(PlatformConfigService s){this.s=s;} private String actor(Principal p){return p==null?"system":p.getName();}
- @GetMapping public Map<String,Object> current(){return s.current();}
- @GetMapping("/versions/{id}/values") public List<Map<String,Object>> values(@PathVariable UUID id){return s.values(id);}
- @PostMapping("/versions") public Map<String,Object> draft(@RequestBody Map<String,String>b,Principal p){return Map.of("id",s.draft(b.getOrDefault("environment","local"),b.getOrDefault("reason","Admin draft"),actor(p)));}
- @PutMapping("/versions/{id}/values/{key}") public void put(@PathVariable UUID id,@PathVariable String key,@RequestBody Map<String,String>b,Principal p){s.put(id,key,b.get("value"),b.getOrDefault("scopeType","GLOBAL"),b.getOrDefault("scopeKey",""),actor(p));}
- @PostMapping("/versions/{id}/publish") public void publish(@PathVariable UUID id,Principal p){s.publish(id,actor(p));}
+ private final PlatformConfigService s;private final ConfigDoctorService doctor;public PlatformConfigAdminController(PlatformConfigService s,ConfigDoctorService doctor){this.s=s;this.doctor=doctor;}private String actor(Principal p){return p==null?"system":p.getName();}
+ @GetMapping public Map<String,Object> current(){return s.current();}@GetMapping("/effective")public List<Map<String,Object>>effective(){return s.effective();}@GetMapping("/doctor")public List<Map<String,Object>>doctor(){return doctor.run();}
+ @GetMapping("/versions/{id}/values")public List<Map<String,Object>>values(@PathVariable UUID id){return s.values(id);}@GetMapping("/versions/{id}/validate")public List<Map<String,Object>>validate(@PathVariable UUID id){return s.validateVersion(id);}@GetMapping("/diff")public Map<String,Object>diff(@RequestParam UUID from,@RequestParam UUID to){return s.diff(from,to);}
+ @PostMapping("/versions")public Map<String,Object>draft(@RequestBody Map<String,String>b,Principal p){UUID base=b.get("basedOn")==null||b.get("basedOn").isBlank()?null:UUID.fromString(b.get("basedOn"));return Map.of("id",s.draft(b.getOrDefault("environment","local"),b.getOrDefault("reason","Admin draft"),actor(p),base));}
+ @PutMapping("/versions/{id}/values/{key:.+}")public void put(@PathVariable UUID id,@PathVariable String key,@RequestBody Map<String,String>b,Principal p){s.put(id,key,b.get("value"),b.getOrDefault("scopeType","GLOBAL"),b.getOrDefault("scopeKey",""),actor(p));}
+ @PostMapping("/versions/{id}/publish")public void publish(@PathVariable UUID id,Principal p){s.publish(id,actor(p));}@PostMapping("/versions/{id}/rollback")public Map<String,Object>rollback(@PathVariable UUID id,@RequestBody(required=false)Map<String,String>b,Principal p){return Map.of("id",s.rollback(id,b==null?"Rollback":b.getOrDefault("reason","Rollback"),actor(p)));}
 }

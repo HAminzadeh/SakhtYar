@@ -18,6 +18,8 @@ import { useAuth } from '../auth/AuthProvider'
 import { useI18n } from '../i18n/LanguageProvider'
 import { themeChoices, type ThemeCode } from '../ui/themePresets'
 import { MasterDataAdminPanel } from '../ui/MasterDataAdminPanel'
+import { SettingOutlined } from '@ant-design/icons'
+import { useNavigate } from 'react-router-dom'
 
 type Item = {
   id: string
@@ -77,6 +79,7 @@ export function PreferencesPage() {
   const queryClient = useQueryClient()
   const { t, language, setLanguage, theme, setTheme } = useI18n()
   const { hasPermission } = useAuth()
+  const navigate = useNavigate()
   const canAdmin = hasPermission('USER_MANAGE')
 
   const [draft, setDraft] = useState<Pref | null>(null)
@@ -448,6 +451,24 @@ export function PreferencesPage() {
           </Button>
         </Space>
       </Card>
+
+      {canAdmin ? (
+        <Card className="sakhtyar-config-center-entry">
+          <Space direction="vertical" size={8}>
+            <Typography.Title level={4} style={{ margin: 0 }}>
+              {language === 'fa' ? 'پیکربندی سیستم' : 'System Configuration'}
+            </Typography.Title>
+            <Typography.Text type="secondary">
+              {language === 'fa'
+                ? 'مدیریت پایگاه داده، ردیس، ذخیره‌سازی، هوش مصنوعی، یکپارچه‌سازی‌ها، امنیت و پایش'
+                : 'Manage database, Redis, storage, AI, integrations, security and observability.'}
+            </Typography.Text>
+            <Button type="primary" icon={<SettingOutlined />} onClick={() => navigate('/admin/config')}>
+              {language === 'fa' ? 'ورود به مرکز پیکربندی' : 'Open Configuration Center'}
+            </Button>
+          </Space>
+        </Card>
+      ) : null}
 
       {canAdmin ? <MasterDataAdminPanel /> : null}
     </div>
