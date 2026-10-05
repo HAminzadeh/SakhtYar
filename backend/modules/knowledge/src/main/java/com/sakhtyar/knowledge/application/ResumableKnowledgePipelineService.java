@@ -26,7 +26,7 @@ public class ResumableKnowledgePipelineService {
      run,"KR-"+run.toString().substring(0,8),workflow,correlation);
    jdbc.update("insert into knowledge_intake_execution(id,run_id,workflow_id,correlation_id,status,current_stage,requested_by,source_root,started_at,heartbeat_at) values(?,?,?,?, 'RUNNING','DISCOVER_SOURCES',?,?,now(),now())",exec,run,workflow,correlation,user==null?"system":user,src.toString());
    for(String st:STAGES) jdbc.update("insert into knowledge_pipeline_checkpoint(execution_id,run_id,stage_code) values(?,?,?) on conflict do nothing",exec,run,st);
-   event(exec,run,"DISCOVER_SOURCES","STARTED","Execution created");
+   event(exec,run,"DISCOVER_SOURCES","STARTED","Execution created");event(exec,run,"DISCOVER_SOURCES","INFO","Worker queued; source: "+src);
    workers.submit(()->advance(exec));
    return state(exec);
  }
@@ -46,11 +46,14 @@ public class ResumableKnowledgePipelineService {
 
  public Map<String,Object> state(UUID id){
    Map<String,Object> e=jdbc.queryForMap("select * from knowledge_intake_execution where id=?",id);
-   e.put("checkpoints",jdbc.queryForList("select stage_code,status,attempt,processed_count,failed_count,skipped_count,error_message,updated_at from knowledge_pipeline_checkpoint where execution_id=? order by id",id));
+   e.put("checkpoints",jdbc.queryForList("select stage_code,status,attempt,processed_count,failed_count,skipped_count,error_message,started_at,heartbeat_at,finished_at,updated_at from knowledge_pipeline_checkpoint where execution_id=?",id));
    e.put("inventory",jdbc.queryForList("select relative_path,sha256,size_bytes,page_count,native_chars,suspicious_pages,intake_status,reason,selected_by_user,document_id from knowledge_intake_inventory where execution_id=? order by relative_path",id));
    return e;
  }
  public List<Map<String,Object>> recent(){return jdbc.queryForList("select id,run_id,status,current_stage,total_documents,completed_documents,failed_documents,source_root,created_at,heartbeat_at from knowledge_intake_execution order by created_at desc limit 20");}
+ public List<Map<String,Object>> events(UUID id,long after){
+   return jdbc.queryForList("select id,stage_code,event_type,message,payload,created_at from knowledge_resumable_pipeline_event where execution_id=? and id>? order by id asc limit 1000",id,after);
+ }
 
  private void advance(UUID id){
   try{
@@ -73,16 +76,16 @@ public class ResumableKnowledgePipelineService {
  private void discover(UUID id,UUID run)throws Exception{
    Path root=Path.of(String.valueOf(jdbc.queryForObject("select source_root from knowledge_intake_execution where id=?",String.class,id)));
    int n=0;try(Stream<Path>w=Files.walk(root)){for(Path p:(Iterable<Path>)w.filter(Files::isRegularFile).filter(this::supported)::iterator){
-    String rel=root.relativize(p).toString();long size=Files.size(p);
+    if(stopRequested(id))return;String rel=root.relativize(p).toString();long size=Files.size(p);
     jdbc.update("insert into knowledge_intake_inventory(execution_id,run_id,relative_path,absolute_path,size_bytes) values(?,?,?,?,?) on conflict(execution_id,relative_path) do update set size_bytes=excluded.size_bytes,updated_at=now()",id,run,rel,p.toString(),size);n++;
-    heartbeat(id,"DISCOVER_SOURCES",n);
+    heartbeat(id,"DISCOVER_SOURCES",n);if(n==1||n%25==0)event(id,run,"DISCOVER_SOURCES","PROGRESS","Discovered "+n+" documents; current: "+rel);
    }}jdbc.update("update knowledge_intake_execution set total_documents=? where id=?",n,id);complete(id,run,"DISCOVER_SOURCES",n,0,0);
  }
  private void hash(UUID id,UUID run)throws Exception{
    var rows=jdbc.queryForList("select relative_path,absolute_path,sha256 from knowledge_intake_inventory where execution_id=? order by relative_path",id);Map<String,String> seen=new HashMap<>();int done=0,skip=0;
    for(var r:rows){if(stopRequested(id))return;String rel=(String)r.get("relative_path"),h=(String)r.get("sha256");if(h==null||h.isBlank())h=sha(Path.of((String)r.get("absolute_path")));
     String first=seen.putIfAbsent(h,rel);String status=first==null?"HASHED":"SKIP_DUPLICATE_EXACT";String reason=first==null?null:"Exact duplicate of "+first;
-    jdbc.update("update knowledge_intake_inventory set sha256=?,intake_status=?,reason=?,updated_at=now() where execution_id=? and relative_path=?",h,status,reason,id,rel);done++;if(first!=null)skip++;heartbeat(id,"HASH_AND_DEDUP",done);
+    jdbc.update("update knowledge_intake_inventory set sha256=?,intake_status=?,reason=?,updated_at=now() where execution_id=? and relative_path=?",h,status,reason,id,rel);done++;if(first!=null)skip++;heartbeat(id,"HASH_AND_DEDUP",done);if(done==1||done%10==0)event(id,run,"HASH_AND_DEDUP","PROGRESS","Hashed "+done+"/"+rows.size()+"; current: "+rel);
    }complete(id,run,"HASH_AND_DEDUP",done,0,skip);
  }
  private void classify(UUID id,UUID run)throws Exception{
