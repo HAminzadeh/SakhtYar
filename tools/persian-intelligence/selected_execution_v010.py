@@ -38,7 +38,7 @@ def main():
         for sid in selected:
             try:
                 # Selection IDs are versioned in DB; detailed document execution is wired by the main preparation run.
-                vr.append(run_id=eid, value=VersionedOutput(
+                vr.append(run_id=run_id, value=VersionedOutput(
                     stage_code="USER_SELECTION",
                     output_type="DOCUMENT_SELECTION",
                     logical_key=str(sid),
