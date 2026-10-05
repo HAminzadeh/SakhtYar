@@ -1,0 +1,26 @@
+{
+  "schemaVersion": 1,
+  "models": {
+    "persian-ocr": {
+      "provider": "huggingface",
+      "id": "hezarai/crnn-base-fa-v2",
+      "license": "apache-2.0",
+      "optional": true,
+      "purpose": "Persian printed/scanned OCR fallback"
+    },
+    "embedding": {
+      "provider": "huggingface",
+      "id": "Alibaba-NLP/gte-multilingual-base",
+      "license": "apache-2.0",
+      "optional": true,
+      "purpose": "Multilingual semantic retrieval"
+    },
+    "reranker": {
+      "provider": "huggingface",
+      "id": "Alibaba-NLP/gte-multilingual-reranker-base",
+      "license": "apache-2.0",
+      "optional": true,
+      "purpose": "Second-stage retrieval reranking"
+    }
+  }
+}

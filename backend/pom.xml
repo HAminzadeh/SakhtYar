@@ -27,6 +27,7 @@
     <module>modules/agents</module>
     <module>modules/builder</module>
     <module>modules/contract</module>
+    <module>modules/persian-intelligence</module>
     <module>modules/knowledge</module>
     <module>modules/crawler</module>
     <module>modules/material</module>
@@ -112,6 +113,11 @@
       <dependency>
         <groupId>com.sakhtyar</groupId>
         <artifactId>sakhtyar-contract</artifactId>
+        <version>${project.version}</version>
+      </dependency>
+      <dependency>
+        <groupId>com.sakhtyar</groupId>
+        <artifactId>sakhtyar-persian-intelligence</artifactId>
         <version>${project.version}</version>
       </dependency>
       <dependency>

@@ -1,0 +1,2 @@
+hezar
+paddleocr

@@ -70,3 +70,18 @@ Thumbs.db
 # =========================
 sakhtyar-running-app.jar
 jar-check/
+# =========================
+# Persian Intelligence local model cache
+# =========================
+models/persian/
+!models/persian/.gitkeep
+
+# Python bytecode/cache
+**/__pycache__/
+*.py[cod]
+
+
+# Python bytecode/cache
+**/__pycache__/
+*.py[cod]
+

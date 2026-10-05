@@ -28,6 +28,7 @@
     <dependency><groupId>com.sakhtyar</groupId><artifactId>sakhtyar-agents</artifactId></dependency>
     <dependency><groupId>com.sakhtyar</groupId><artifactId>sakhtyar-builder</artifactId></dependency>
     <dependency><groupId>com.sakhtyar</groupId><artifactId>sakhtyar-contract</artifactId></dependency>
+    <dependency><groupId>com.sakhtyar</groupId><artifactId>sakhtyar-persian-intelligence</artifactId></dependency>
     <dependency><groupId>com.sakhtyar</groupId><artifactId>sakhtyar-knowledge</artifactId></dependency>
     <dependency><groupId>com.sakhtyar</groupId><artifactId>sakhtyar-crawler</artifactId></dependency>
     <dependency><groupId>com.sakhtyar</groupId><artifactId>sakhtyar-material</artifactId></dependency>
