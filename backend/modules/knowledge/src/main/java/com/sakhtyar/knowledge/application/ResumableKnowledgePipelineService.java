@@ -4,6 +4,8 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.transaction.support.TransactionSynchronization;
+import org.springframework.transaction.support.TransactionSynchronizationManager;
 import java.io.*;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.*;
@@ -27,7 +29,7 @@ public class ResumableKnowledgePipelineService {
    jdbc.update("insert into knowledge_intake_execution(id,run_id,workflow_id,correlation_id,status,current_stage,requested_by,source_root,started_at,heartbeat_at) values(?,?,?,?, 'RUNNING','DISCOVER_SOURCES',?,?,now(),now())",exec,run,workflow,correlation,user==null?"system":user,src.toString());
    for(String st:STAGES) jdbc.update("insert into knowledge_pipeline_checkpoint(execution_id,run_id,stage_code) values(?,?,?) on conflict do nothing",exec,run,st);
    event(exec,run,"DISCOVER_SOURCES","STARTED","Execution created");event(exec,run,"DISCOVER_SOURCES","INFO","Worker queued; source: "+src);
-   workers.submit(()->advance(exec));
+   dispatchAfterCommit(exec);
    return state(exec);
  }
 
@@ -35,19 +37,61 @@ public class ResumableKnowledgePipelineService {
  public Map<String,Object> stop(UUID id){jdbc.update("update knowledge_intake_execution set stop_requested=true,status='STOPPING' where id=?",id);return state(id);}
  public Map<String,Object> retry(UUID id){jdbc.update("update knowledge_pipeline_checkpoint set status='PENDING',error_message=null where execution_id=? and status='FAILED'",id);return resume(id);}
 
- @Transactional public Map<String,Object> select(UUID id,List<String> keys){
-   Set<String> selected=new HashSet<>(keys==null?List.of():keys);
+ @Transactional public Map<String,Object> select(UUID id,List<String> keys,String selectedBy){
+   Set<String> requested=new LinkedHashSet<>(keys==null?List.of():keys);
    jdbc.update("update knowledge_intake_inventory set selected_by_user=false where execution_id=?",id);
-   for(String k:selected) jdbc.update("update knowledge_intake_inventory set selected_by_user=true where execution_id=? and relative_path=? and intake_status<>'SKIP_DUPLICATE_EXACT'",id,k);
-   UUID run=runId(id);complete(id,run,"USER_SELECTION",selected.size(),0,0);
-   jdbc.update("update knowledge_intake_execution set status='RUNNING',current_stage='NATIVE_EXTRACTION',heartbeat_at=now() where id=?",id);
-   workers.submit(()->advance(id));return state(id);
+   for(String key:requested) jdbc.update("update knowledge_intake_inventory set selected_by_user=true where execution_id=? and relative_path=? and intake_status<>'SKIP_DUPLICATE_EXACT'",id,key);
+   List<Map<String,Object>> acceptedRows=jdbc.queryForList("select relative_path,document_id from knowledge_intake_inventory where execution_id=? and selected_by_user=true order by relative_path",id);
+   if(acceptedRows.isEmpty())throw new IllegalArgumentException("Select at least one non-duplicate document.");
+   List<String> accepted=acceptedRows.stream().map(r->String.valueOf(r.get("relative_path"))).toList();
+   List<String> documentIds=acceptedRows.stream().map(r->r.get("document_id")).filter(Objects::nonNull).map(String::valueOf).toList();
+   UUID run=runId(id);
+   UUID workflow=jdbc.queryForObject("select workflow_id from knowledge_intake_execution where id=?",UUID.class,id);
+   String selectionKey="pipeline:"+id;
+   Integer next=jdbc.queryForObject("select coalesce(max(version_no),0)+1 from knowledge_intake_selection_version where selection_key=?",Integer.class,selectionKey);
+   UUID previous=jdbc.query("select id from knowledge_intake_selection_version where selection_key=? and status='CURRENT' order by version_no desc limit 1",rs->rs.next()?(UUID)rs.getObject(1):null,selectionKey);
+   if(previous!=null)jdbc.update("update knowledge_intake_selection_version set status='SUPERSEDED' where id=?",previous);
+   UUID selectionVersion=UUID.randomUUID();
+   String relativeJson=jsonArray(accepted), documentJson=jsonArray(documentIds);
+   String policyJson="{\"selectionMode\":\"USER_CHECKBOX\",\"selectedRelativePaths\":"+relativeJson+",\"selectedCount\":"+accepted.size()+"}";
+   jdbc.update("insert into knowledge_intake_selection_version(id,workflow_id,run_id,selection_key,version_no,status,selected_document_ids,processing_policy,supersedes_id,selected_by) values(?,?,?,?,?,'CURRENT',cast(? as jsonb),cast(? as jsonb),?,?)",
+     selectionVersion,workflow,run,selectionKey,next,documentJson,policyJson,previous,selectedBy==null?"system":selectedBy);
+   jdbc.update("update knowledge_intake_execution set selection_version_id=?,status='RUNNING',current_stage='NATIVE_EXTRACTION',heartbeat_at=now() where id=?",selectionVersion,id);
+   complete(id,run,"USER_SELECTION",accepted.size(),0,0);
+   event(id,run,"USER_SELECTION","INFO","Selection frozen: "+accepted.size()+" document(s), version "+next);
+   dispatchAfterCommit(id);
+   return state(id);
+ }
+
+ public List<Map<String,Object>> folders(String requested){
+   Path base=(requested==null||requested.isBlank())?repo:resolveBrowsePath(requested);
+   if(!Files.isDirectory(base))throw new IllegalArgumentException("Directory not found: "+base);
+   List<Map<String,Object>> result=new ArrayList<>();
+   Path parent=base.getParent();
+   if(parent!=null)result.add(Map.of("name","..","path",parent.toString(),"parent",true));
+   try(Stream<Path> stream=Files.list(base)){
+    stream.filter(Files::isDirectory).sorted(Comparator.comparing(p->p.getFileName().toString().toLowerCase(Locale.ROOT))).limit(250)
+      .forEach(p->result.add(Map.of("name",p.getFileName().toString(),"path",p.toAbsolutePath().normalize().toString(),"parent",false)));
+   }catch(IOException e){throw new IllegalStateException("Cannot browse directory: "+base,e);}
+   return result;
+ }
+ private Path resolveBrowsePath(String value){Path p=Path.of(value);if(!p.isAbsolute())p=repo.resolve(p);return p.toAbsolutePath().normalize();}
+ private void dispatchAfterCommit(UUID id){
+   Runnable job=()->workers.submit(()->advance(id));
+   if(TransactionSynchronizationManager.isActualTransactionActive()){
+    TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization(){@Override public void afterCommit(){job.run();}});
+   }else job.run();
+ }
+ private String jsonArray(Collection<String> values){
+   StringJoiner joiner=new StringJoiner(",", "[", "]");
+   for(String value:values)joiner.add("\""+value.replace("\\","\\\\").replace("\"","\\\"").replace("\r","\\r").replace("\n","\\n")+"\"");
+   return joiner.toString();
  }
 
  public Map<String,Object> state(UUID id){
    Map<String,Object> e=jdbc.queryForMap("select * from knowledge_intake_execution where id=?",id);
    e.put("checkpoints",jdbc.queryForList("select stage_code,status,attempt,processed_count,failed_count,skipped_count,error_message,started_at,heartbeat_at,finished_at,updated_at from knowledge_pipeline_checkpoint where execution_id=?",id));
-   e.put("inventory",jdbc.queryForList("select relative_path,sha256,size_bytes,page_count,native_chars,suspicious_pages,intake_status,reason,selected_by_user,document_id from knowledge_intake_inventory where execution_id=? order by relative_path",id));
+   e.put("inventory",jdbc.queryForList("select relative_path,detected_title,detected_category,file_extension,sha256,size_bytes,page_count,native_chars,suspicious_pages,intake_status,reason,selected_by_user,document_id from knowledge_intake_inventory where execution_id=? order by detected_category,relative_path",id));
    return e;
  }
  public List<Map<String,Object>> recent(){return jdbc.queryForList("select id,run_id,status,current_stage,total_documents,completed_documents,failed_documents,source_root,created_at,heartbeat_at from knowledge_intake_execution order by created_at desc limit 20");}
@@ -76,8 +120,8 @@ public class ResumableKnowledgePipelineService {
  private void discover(UUID id,UUID run)throws Exception{
    Path root=Path.of(String.valueOf(jdbc.queryForObject("select source_root from knowledge_intake_execution where id=?",String.class,id)));
    int n=0;try(Stream<Path>w=Files.walk(root)){for(Path p:(Iterable<Path>)w.filter(Files::isRegularFile).filter(this::supported)::iterator){
-    if(stopRequested(id))return;String rel=root.relativize(p).toString();long size=Files.size(p);
-    jdbc.update("insert into knowledge_intake_inventory(execution_id,run_id,relative_path,absolute_path,size_bytes) values(?,?,?,?,?) on conflict(execution_id,relative_path) do update set size_bytes=excluded.size_bytes,updated_at=now()",id,run,rel,p.toString(),size);n++;
+    if(stopRequested(id))return;String rel=root.relativize(p).toString();long size=Files.size(p);String fileName=p.getFileName().toString();int dot=fileName.lastIndexOf('.');String title=dot>0?fileName.substring(0,dot):fileName;String ext=dot>=0?fileName.substring(dot+1).toLowerCase(Locale.ROOT):"";Path relPath=Path.of(rel);String category=relPath.getNameCount()>1?relPath.getName(0).toString():"ROOT";
+    jdbc.update("insert into knowledge_intake_inventory(execution_id,run_id,relative_path,absolute_path,size_bytes,detected_title,detected_category,file_extension) values(?,?,?,?,?,?,?,?) on conflict(execution_id,relative_path) do update set size_bytes=excluded.size_bytes,detected_title=excluded.detected_title,detected_category=excluded.detected_category,file_extension=excluded.file_extension,updated_at=now()",id,run,rel,p.toString(),size,title,category,ext);n++;
     heartbeat(id,"DISCOVER_SOURCES",n);if(n==1||n%25==0)event(id,run,"DISCOVER_SOURCES","PROGRESS","Discovered "+n+" documents; current: "+rel);
    }}jdbc.update("update knowledge_intake_execution set total_documents=? where id=?",n,id);complete(id,run,"DISCOVER_SOURCES",n,0,0);
  }
@@ -91,7 +135,8 @@ public class ResumableKnowledgePipelineService {
  private void classify(UUID id,UUID run)throws Exception{
    Path py=repo.resolve(".local/venv-persian-intelligence/Scripts/python.exe"),script=repo.resolve("tools/persian-intelligence/dry_run_v07.py");
    if(Files.isRegularFile(py)&&Files.isRegularFile(script)){ // Reuse proven intake classifier, then import its report.
-    ProcessBuilder pb=new ProcessBuilder(py.toString(),script.toString(),"--root",repo.relativize(Path.of((String)jdbc.queryForObject("select source_root from knowledge_intake_execution where id=?",String.class,id))).toString());
+    Path sourcePath=Path.of((String)jdbc.queryForObject("select source_root from knowledge_intake_execution where id=?",String.class,id)).toAbsolutePath().normalize();
+    ProcessBuilder pb=new ProcessBuilder(py.toString(),script.toString(),"--root",sourcePath.toString());
     pb.directory(repo.toFile());pb.redirectErrorStream(true);Process p=pb.start();String log=new String(p.getInputStream().readAllBytes(),StandardCharsets.UTF_8);int code=p.waitFor();
     if(code!=0)throw new IllegalStateException("Intake classifier failed: "+log.substring(0,Math.min(4000,log.length())));
     Path report=repo.resolve(".local/persian-intake/dry-run-v07.json");importReport(id,report);
