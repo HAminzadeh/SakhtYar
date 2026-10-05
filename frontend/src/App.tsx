@@ -26,9 +26,7 @@ export default function App() {
           <Route element={<PermissionRoute permission="USER_MANAGE" />}> 
             <Route path="/admin/config" element={<PlatformConfigPage />} />
           </Route>
-          <Route element={<PermissionRoute permission="USER_MANAGE" />}> 
-</Route>
-        <Route path="/settings" element={<PreferencesPage />} />
+<Route path="/settings" element={<PreferencesPage />} />
 
           <Route element={<PermissionRoute permission="CASE_READ" />}>
             <Route path="/cases" element={<CasesPage />} />

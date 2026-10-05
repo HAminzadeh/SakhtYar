@@ -84,4 +84,4 @@ models/persian/
 # Python bytecode/cache
 **/__pycache__/
 *.py[cod]
-
+.local/config-secrets.properties

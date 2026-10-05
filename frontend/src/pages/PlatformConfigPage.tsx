@@ -1,5 +1,5 @@
 import { Alert, Badge, Button, Card, Descriptions, Form, Input, Modal, Space, Table, Tabs, Tag, Typography, App as AntdApp } from 'antd'
-import { KeyOutlined } from '@ant-design/icons'
+import { EditOutlined, EyeInvisibleOutlined, EyeOutlined, KeyOutlined } from '@ant-design/icons'
 import { useEffect, useMemo, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { api } from '../api/client'
@@ -20,6 +20,10 @@ export default function PlatformConfigPage(){
  const [open,setOpen]=useState(false)
  const [passwordOpen,setPasswordOpen]=useState(false)
  const [changingPassword,setChangingPassword]=useState(false)
+ const [revealed,setRevealed]=useState<Record<string,string>>({})
+ const [secretTarget,setSecretTarget]=useState<Definition|null>(null)
+ const [secretOpen,setSecretOpen]=useState(false)
+ const [secretForm]=Form.useForm()
  const [form]=Form.useForm()
  const [passwordForm]=Form.useForm()
 
@@ -41,15 +45,26 @@ export default function PlatformConfigPage(){
    finally{setChangingPassword(false)}
  }
 
+ const reveal=async(x:Definition)=>{if(revealed[x.key]!==undefined){setRevealed(v=>{const n={...v};delete n[x.key];return n});return}try{const r=await api<{value:string;configured:boolean}>(`/api/v1/admin/config/secrets/${encodeURIComponent(x.key)}/reveal`,{method:'POST'});setRevealed(v=>({...v,[x.key]:r.value||''}))}catch(e:any){message.error(e.message)}}
+ const replaceSecret=async()=>{if(!secretTarget)return;const v=await secretForm.validateFields();if(v.value!==v.confirm){message.error(fa?'تکرار Secret یکسان نیست.':'Secret confirmation does not match.');return}try{await api(`/api/v1/admin/config/secrets/${encodeURIComponent(secretTarget.key)}`,{method:'PUT',body:JSON.stringify({value:v.value})});setSecretOpen(false);secretForm.resetFields();setRevealed(s=>{const n={...s};delete n[secretTarget.key];return n});message.success(fa?'Secret ذخیره شد؛ برای اعمال کامل سرویس را Restart کنید.':'Secret saved; restart the service to fully apply it.')}catch(e:any){message.error(e.message)}}
  const columns:any=[
-  {title:fa?'کلید':'Key',dataIndex:'key',width:250},
+  {title:fa?'کلید':'Key',dataIndex:'key',width:230},
   {title:fa?'عنوان':'Title',render:(_:any,x:Definition)=>fa?x.labelFa:x.labelEn},
   {title:fa?'توضیح':'Description',render:(_:any,x:Definition)=>fa?x.descriptionFa:x.descriptionEn},
-  {title:fa?'مقدار مؤثر':'Effective value',render:(_:any,x:Definition)=>x.secret?<Tag>{eff[x.key]?.configured?(fa?'تنظیم شده / محافظت‌شده':'Configured / Protected'):(fa?'تنظیم نشده':'Not set')}</Tag>:<code>{String(eff[x.key]?.value??'—')}</code>},
+  {title:fa?'مقدار مؤثر':'Effective value',width:230,render:(_:any,x:Definition)=>{
+    const e=eff[x.key]
+    if(!x.secret)return <code>{String(e?.value??'—')}</code>
+    if(x.key==='bootstrap.adminPassword')return <Tag>{fa?'Hash امن؛ قابل بازیابی نیست':'Secure hash; not recoverable'}</Tag>
+    if(revealed[x.key]!==undefined)return <Space><code>{revealed[x.key]||'—'}</code><Button type="text" icon={<EyeInvisibleOutlined/>} onClick={()=>void reveal(x)}/></Space>
+    return <Space><span>••••••••</span><Button type="text" icon={<EyeOutlined/>} disabled={!e?.configured} onClick={()=>void reveal(x)}/></Space>
+  }},
   {title:fa?'منبع':'Source',render:(_:any,x:Definition)=><Tag>{eff[x.key]?.source||'DEFAULT'}</Tag>},
-  {title:fa?'اعمال':'Apply',render:(_:any,x:Definition)=><Tag color={x.applyMode==='HOT_RELOAD'?'green':'orange'}>{x.applyMode}</Tag>}
+  {title:fa?'اعمال':'Apply',render:(_:any,x:Definition)=><Tag color={x.applyMode==='HOT_RELOAD'?'green':'orange'}>{x.applyMode==='HOT_RELOAD'?(fa?'اعمال زنده':'Hot reload'):(fa?'نیازمند راه‌اندازی مجدد':'Restart required')}</Tag>},
+  {title:fa?'عملیات':'Actions',width:190,render:(_:any,x:Definition)=>x.key==='bootstrap.adminPassword'
+    ?<Button icon={<KeyOutlined/>} onClick={()=>setPasswordOpen(true)}>{fa?'تغییر رمز':'Change password'}</Button>
+    :x.secret?<Button icon={<EditOutlined/>} onClick={()=>{setSecretTarget(x);secretForm.resetFields();setSecretOpen(true)}}>{fa?'جایگزینی Secret':'Replace secret'}</Button>
+    :<Button disabled icon={<EditOutlined/>}>{fa?'ویرایش در نسخه':'Edit in version'}</Button>}
  ]
-
  const categoryTabs=data.categories.map(c=>({
    key:c,label:cats[language]?.[c]||c,
    children:<Space direction="vertical" size={12} style={{width:'100%'}}>
@@ -81,6 +96,11 @@ export default function PlatformConfigPage(){
     <Form.Item name="newPassword" label={fa?'رمز عبور جدید':'New password'} rules={[{required:true},{min:10,message:fa?'حداقل ۱۰ کاراکتر وارد کنید.':'Use at least 10 characters.'}]}><Input.Password autoComplete="new-password"/></Form.Item>
     <Form.Item name="confirmPassword" label={fa?'تکرار رمز عبور جدید':'Confirm new password'} rules={[{required:true}]}><Input.Password autoComplete="new-password"/></Form.Item>
    </Form>
+  </Modal>
+
+  <Modal title={fa?`جایگزینی Secret — ${secretTarget?.labelFa??''}`:`Replace secret — ${secretTarget?.labelEn??''}`} open={secretOpen} onOk={()=>void replaceSecret()} onCancel={()=>{setSecretOpen(false);secretForm.resetFields()}} okText={fa?'ذخیره Secret جدید':'Save new secret'} cancelText={fa?'انصراف':'Cancel'}>
+   <Alert style={{marginBottom:16}} type="warning" showIcon message={fa?'Secret جدید در فایل محلی خارج از Git ذخیره می‌شود. برای موارد Restart Required، سرویس را Restart کنید. Credential سرویس خارجی مثل PostgreSQL/MinIO نیز باید با این مقدار هماهنگ باشد.':'The new secret is stored in a local file outside Git. Restart for restart-required settings. External service credentials such as PostgreSQL/MinIO must also match this value.'}/>
+   <Form form={secretForm} layout="vertical"><Form.Item name="value" label={fa?'Secret جدید':'New secret'} rules={[{required:true}]}><Input.Password/></Form.Item><Form.Item name="confirm" label={fa?'تکرار Secret':'Confirm secret'} rules={[{required:true}]}><Input.Password/></Form.Item></Form>
   </Modal>
  </div>
 }

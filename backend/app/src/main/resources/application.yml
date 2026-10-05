@@ -1,4 +1,6 @@
 spring:
+  config:
+    import: "optional:file:${SAKHTYAR_SECRETS_FILE:.local/config-secrets.properties}"
   profiles:
     default: local
 

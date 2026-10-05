@@ -1,10 +1,34 @@
 package com.sakhtyar.config;
-import org.springframework.core.env.Environment;import org.springframework.jdbc.core.JdbcTemplate;import org.springframework.jdbc.core.RowCallbackHandler;import org.springframework.stereotype.Service;import org.springframework.transaction.annotation.Transactional;import java.util.*;
+import org.springframework.core.env.Environment;import java.io.*;import java.nio.charset.StandardCharsets;import java.nio.file.*;import org.springframework.jdbc.core.JdbcTemplate;import org.springframework.jdbc.core.RowCallbackHandler;import org.springframework.stereotype.Service;import org.springframework.transaction.annotation.Transactional;import java.util.*;
 @Service public class PlatformConfigService {
  private final JdbcTemplate db;private final ConfigRegistry registry;private final Environment env;public PlatformConfigService(JdbcTemplate db,ConfigRegistry registry,Environment env){this.db=db;this.registry=registry;this.env=env;}
  public Map<String,Object> current(){Map<String,Object> r=new LinkedHashMap<>();r.put("definitions",registry.all());r.put("categories",registry.categories());r.put("effective",effective());r.put("versions",db.queryForList("select id,version_number,status,environment,reason,created_by,created_at,published_by,published_at,based_on_version from platform_config_version order by version_number desc limit 50"));r.put("active",db.queryForList("select v.id,v.version_number,v.environment,v.published_at from platform_config_activation a join platform_config_version v on v.id=a.version_id where a.deactivated_at is null order by a.activated_at desc"));return r;}
  public List<Map<String,Object>> effective(){Map<String,String> active=new HashMap<>();try{db.query("select v.config_key,v.value_text from platform_config_value v join platform_config_activation a on a.version_id=v.version_id where a.deactivated_at is null and v.is_secret=false",(RowCallbackHandler) rs -> { active.put(rs.getString(1),rs.getString(2)); });}catch(Exception ignored){}
  List<Map<String,Object>> out=new ArrayList<>();for(var d:registry.all()){String val=d.propertyName()==null?null:env.getProperty(d.propertyName());String src=val==null?"DEFAULT":"SPRING_ENVIRONMENT";if(val==null)val=d.defaultValue();if(!d.bootstrap()&&active.containsKey(d.key())){val=active.get(d.key());src="CONFIG_VERSION";}if(d.secret()){boolean set=val!=null&&!val.isBlank();val=set?"••••••••":"NOT_SET";}Map<String,Object> m=new LinkedHashMap<>();m.put("key",d.key());m.put("value",val);m.put("source",src);m.put("secret",d.secret());m.put("bootstrap",d.bootstrap());m.put("required",d.required());m.put("configured",val!=null&&!"NOT_SET".equals(val));out.add(m);}return out;}
+
+ public Map<String,Object> revealSecret(String key,String actor){
+  var d=registry.find(key).orElseThrow(()->new IllegalArgumentException("Unknown config: "+key));
+  if(!d.secret()||"bootstrap.adminPassword".equals(key))throw new IllegalArgumentException("This secret is not revealable.");
+  if(d.propertyName()==null)throw new IllegalArgumentException("No runtime property mapping.");
+  String value=env.getProperty(d.propertyName());
+  audit(idNull(),actor,"SECRET_REVEALED",key);
+  return Map.of("key",key,"configured",value!=null&&!value.isBlank(),"value",value==null?"":value);
+ }
+ public Map<String,Object> replaceSecret(String key,String value,String actor){
+  var d=registry.find(key).orElseThrow(()->new IllegalArgumentException("Unknown config: "+key));
+  if(!d.secret()||"bootstrap.adminPassword".equals(key))throw new IllegalArgumentException("Use the dedicated password-change workflow.");
+  if(d.propertyName()==null)throw new IllegalArgumentException("No runtime property mapping.");
+  if(value==null||value.isBlank())throw new IllegalArgumentException("Secret cannot be blank.");
+  try{
+   Path f=Paths.get(".local","config-secrets.properties").toAbsolutePath().normalize();Files.createDirectories(f.getParent());
+   Properties p=new Properties();if(Files.exists(f)){try(InputStream in=Files.newInputStream(f)){p.load(in);}}
+   p.setProperty(d.propertyName(),value);Path tmp=f.resolveSibling(f.getFileName()+".tmp");
+   try(BufferedWriter w=Files.newBufferedWriter(tmp,StandardCharsets.UTF_8)){for(String n:new TreeSet<>(p.stringPropertyNames())){w.write(n+"="+p.getProperty(n).replace("\\","\\\\").replace("\r","").replace("\n","\\n"));w.newLine();}}
+   try{Files.move(tmp,f,StandardCopyOption.REPLACE_EXISTING,StandardCopyOption.ATOMIC_MOVE);}catch(AtomicMoveNotSupportedException e){Files.move(tmp,f,StandardCopyOption.REPLACE_EXISTING);}
+  }catch(IOException e){throw new IllegalStateException("Could not persist secret override.",e);}
+  audit(idNull(),actor,"SECRET_REPLACED",key);return Map.of("saved",true,"restartRequired",true);
+ }
+ private UUID idNull(){return null;}
  public List<Map<String,Object>> values(UUID id){return db.queryForList("select config_key,value_text,is_secret,scope_type,scope_key,updated_by,updated_at from platform_config_value where version_id=? order by config_key",id);}
  @Transactional public UUID draft(String environment,String reason,String actor,UUID based){Integer n=db.queryForObject("select coalesce(max(version_number),0)+1 from platform_config_version",Integer.class);UUID id=UUID.randomUUID();db.update("insert into platform_config_version(id,version_number,status,environment,reason,created_by,based_on_version) values (?,?,'DRAFT',?,?,?,?)",id,n,environment,reason,actor,based);if(based!=null)db.update("insert into platform_config_value(version_id,config_key,value_text,is_secret,secret_fingerprint,scope_type,scope_key,updated_by) select ?,config_key,value_text,is_secret,secret_fingerprint,scope_type,scope_key,? from platform_config_value where version_id=?",id,actor,based);audit(id,actor,"DRAFT_CREATED",null);return id;}
  @Transactional public void put(UUID id,String key,String value,String scopeType,String scopeKey,String actor){var d=registry.find(key).orElseThrow(()->new IllegalArgumentException("Unknown config: "+key));if(d.bootstrap())throw new IllegalArgumentException("Bootstrap setting is read-only at runtime.");if(d.secret())throw new IllegalArgumentException("Plaintext secrets are not accepted. Use environment/secret provider.");validate(d,value);db.update("insert into platform_config_value(version_id,config_key,value_text,is_secret,scope_type,scope_key,updated_by) values (?,?,?,?,?,?,?) on conflict(version_id,config_key,scope_type,scope_key) do update set value_text=excluded.value_text,updated_by=excluded.updated_by,updated_at=now()",id,key,value,false,scopeType,scopeKey,actor);audit(id,actor,"CONFIG_CHANGED",key);}
