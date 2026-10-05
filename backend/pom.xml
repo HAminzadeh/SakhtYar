@@ -14,7 +14,8 @@
   <name>SakhtYar Backend</name>
   <description>Modular monolith backend for SakhtYar</description>
   <modules>
-    <module>modules/shared-kernel</module>
+        <module>modules/config</module>
+<module>modules/shared-kernel</module>
     <module>modules/audit</module>
     <module>modules/identity</module>
     <module>modules/globalization</module>

@@ -1,3 +1,4 @@
+import PlatformConfigPage from './pages/PlatformConfigPage';
 import { Navigate, Route, Routes } from 'react-router-dom'
 import { AppShell } from './app/AppShell'
 import { PermissionRoute } from './auth/PermissionRoute'
@@ -45,6 +46,6 @@ export default function App() {
       </Route>
 
       <Route path="*" element={<Navigate to="/cases" replace />} />
-    </Routes>
+      <Route path="/admin/config" element={<PlatformConfigPage />} />`r`n      </Routes>
   )
 }

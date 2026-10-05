@@ -6,9 +6,9 @@ spring:
     name: sakhtyar-backend
 
   datasource:
-    url: ${DB_URL:jdbc:postgresql://localhost:5432/sakhtyar}
-    username: ${DB_USERNAME:sakhtyar}
-    password: ${DB_PASSWORD:change-me-postgres}
+    url: jdbc:postgresql://localhost:5432/${POSTGRES_DB:sakhtyar}
+    username: ${POSTGRES_USER:sakhtyar}
+    password: ${POSTGRES_PASSWORD:change-me-postgres}
     hikari:
       maximum-pool-size: 10
       minimum-idle: 2
