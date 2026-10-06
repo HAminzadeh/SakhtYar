@@ -26,7 +26,7 @@ public class KnowledgeFinalPipelineService {
         this.repo = findRepo(Path.of(root));
         Path venv = repo.resolve(".local/venv-persian-intelligence/Scripts/python.exe");
         this.python = Files.isRegularFile(venv) ? venv : Path.of("python");
-        this.processor = repo.resolve("tools/persian-intelligence/final_pipeline_v019.py");
+        this.processor = repo.resolve("python/src/sakhtyar_python/legacy/final_pipeline_v019.py");
     }
 
     public int execute(UUID executionId, UUID runId, String stage) throws Exception {
@@ -95,32 +95,38 @@ public class KnowledgeFinalPipelineService {
             List<Integer> pages = jdbc.queryForList("select page_from from knowledge_source_artifact where execution_id=? and document_id=? and artifact_type='RAW_PAGE' and coalesce(quality_score,0)<0.25 order by page_from", Integer.class, executionId, doc);
             if (pages.isEmpty()) continue;
             List<Page> out = runProcessor("ocr", Path.of(String.valueOf(d.get("absolute_path"))), pages);
-            for (Page p : out) {
-                upsertArtifact(executionId, doc, "OCR_PAGE", "document.extract.ocr.tesseract", "0.19.0", p.page, p.quality, p.text, null);
+            Map<Integer, Page> byPage = out.stream().collect(Collectors.toMap(Page::page, p -> p, (a, b) -> b));
+            for (Integer requiredPage : pages) {
+                Page p = byPage.get(requiredPage);
+                if (p == null || p.text() == null || p.text().strip().isEmpty()) {
+                    throw new IllegalStateException("OCR quality gate failed: page " + requiredPage + " produced empty text.");
+                }
+                if (p.quality().compareTo(BigDecimal.ZERO) <= 0) {
+                    throw new IllegalStateException("OCR quality gate failed: page " + requiredPage + " has zero quality.");
+                }
+                upsertArtifact(executionId, doc, "OCR_PAGE", "document.extract.ocr.tesseract", "0.23.6", p.page(), p.quality(), p.text(), null);
                 pagesDone++;
             }
         }
         return pagesDone;
     }
-
     private int normalize(UUID executionId) throws Exception {
         List<Map<String, Object>> docs = selected(executionId);
         int count = 0;
         for (Map<String, Object> d : docs) {
             UUID doc = (UUID) d.get("document_id");
             if (doc == null) continue;
-            List<Map<String, Object>> pages = jdbc.queryForList("select r.page_from,coalesce(o.content,r.content) content,case when o.id is null then r.id else o.id end parent_id from knowledge_source_artifact r left join knowledge_source_artifact o on o.execution_id=r.execution_id and o.document_id=r.document_id and o.page_from=r.page_from and o.artifact_type='OCR_PAGE' where r.execution_id=? and r.document_id=? and r.artifact_type='RAW_PAGE' order by r.page_from", executionId, doc);
+            List<Map<String, Object>> pages = jdbc.queryForList("select r.page_from,coalesce(nullif(btrim(o.content),''),r.content) content,case when nullif(btrim(o.content),'') is null then r.id else o.id end parent_id from knowledge_source_artifact r left join knowledge_source_artifact o on o.execution_id=r.execution_id and o.document_id=r.document_id and o.page_from=r.page_from and o.artifact_type='OCR_PAGE' where r.execution_id=? and r.document_id=? and r.artifact_type='RAW_PAGE' order by r.page_from", executionId, doc);
             for (Map<String, Object> p : pages) {
                 String normalized = normalizeFa(Objects.toString(p.get("content"), ""));
                 UUID parent = (UUID) p.get("parent_id");
-                UUID artifact = upsertArtifact(executionId, doc, "NORMALIZED_PAGE", "text.normalize.persian", "0.19.0", (Integer) p.get("page_from"), BigDecimal.ONE, normalized, parent);
+                UUID artifact = upsertArtifact(executionId, doc, "NORMALIZED_PAGE", "text.normalize.persian", "0.23.6", (Integer) p.get("page_from"), BigDecimal.ONE, normalized, parent);
                 upsertNode(executionId, artifact, "PAGE", (Integer) p.get("page_from"), "Page " + p.get("page_from"), normalized);
                 count++;
             }
         }
         return count;
     }
-
     private int extractKnowledge(UUID executionId) {
         Versions v = ensureVersions(executionId);
         jdbc.update("delete from construction_catalog_candidate where catalog_version_id=?", v.catalog);

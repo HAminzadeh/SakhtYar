@@ -1,4 +1,9 @@
 from __future__ import annotations
+from pathlib import Path as _SakhtYarPath
+import sys as _sakhtyar_sys
+_SAKHTYAR_PYTHON_SRC = _SakhtYarPath(__file__).resolve().parents[2]
+if str(_SAKHTYAR_PYTHON_SRC) not in _sakhtyar_sys.path:
+    _sakhtyar_sys.path.insert(0, str(_SAKHTYAR_PYTHON_SRC))
 import argparse, base64, os, re, shutil, subprocess, tempfile, urllib.request
 from pathlib import Path
 
@@ -78,24 +83,31 @@ def configure_tesseract():
     return executable,tessdata_path
 
 def run_tesseract_png(executable: str, image_name: str, tessdata_path: Path, lang: str) -> str:
-    # IMPORTANT: pass every argument as a separate argv item. No shell and no embedded
-    # quote characters. This avoids the Windows Tesseract error:
-    #   ".../tessdata"/fas.traineddata
-    command=[executable,image_name,"stdout","--tessdata-dir",str(tessdata_path),"-l",lang,"--psm","6"]
     env=os.environ.copy()
     env.pop("TESSDATA_PREFIX",None)
-    result=subprocess.run(command,stdout=subprocess.PIPE,stderr=subprocess.PIPE,env=env,check=False)
-    if result.returncode != 0:
-        err=result.stderr.decode("utf-8",errors="replace")
-        raise RuntimeError(f"Tesseract failed ({result.returncode}): {err}")
-    return result.stdout.decode("utf-8",errors="replace")
+    candidates=[]
+    diagnostics=[]
+    for psm in ("3","6","11"):
+        command=[executable,image_name,"stdout","--tessdata-dir",str(tessdata_path),"-l",lang,"--psm",psm]
+        result=subprocess.run(command,stdout=subprocess.PIPE,stderr=subprocess.PIPE,env=env,check=False)
+        stderr=result.stderr.decode("utf-8",errors="replace").strip()
+        if result.returncode != 0:
+            diagnostics.append(f"psm={psm}: rc={result.returncode}: {stderr[:500]}")
+            continue
+        value=clean(result.stdout.decode("utf-8",errors="replace"))
+        diagnostics.append(f"psm={psm}: chars={len(value)}")
+        if value:
+            candidates.append(value)
+    if not candidates:
+        raise RuntimeError("Tesseract produced no usable text; " + " | ".join(diagnostics))
+    return max(candidates,key=len)
 
 def ocr_pdf(path: Path,pages: list[int],lang: str):
     import pymupdf
     executable,tessdata_path=configure_tesseract()
     with pymupdf.open(path) as doc:
         for page_no in pages:
-            pix=doc[page_no-1].get_pixmap(matrix=pymupdf.Matrix(2,2),alpha=False)
+            pix=doc[page_no-1].get_pixmap(matrix=pymupdf.Matrix(3,3),alpha=False)
             with tempfile.NamedTemporaryFile(suffix=".png",delete=False) as tmp:
                 image_name=tmp.name
             try:

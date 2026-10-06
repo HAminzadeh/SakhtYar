@@ -33,7 +33,7 @@ public class ResumableKnowledgePipelineService {
    return state(exec);
  }
 
- public Map<String,Object> resume(UUID id){jdbc.update("update knowledge_intake_execution set stop_requested=false,status='RUNNING',resumed_at=now(),heartbeat_at=now() where id=?",id);workers.submit(()->advance(id));return state(id);}
+ public Map<String,Object> resume(UUID id){jdbc.update("update knowledge_intake_execution set stop_requested=false,status='RUNNING',error_message=null,resumed_at=now(),heartbeat_at=now() where id=?",id);UUID run=runId(id);jdbc.update("update knowledge_pipeline_run set status='RUNNING',error_message=null,finished_at=null where id=?",run);workers.submit(()->advance(id));return state(id);}
  public Map<String,Object> stop(UUID id){jdbc.update("update knowledge_intake_execution set stop_requested=true,status='STOPPING' where id=?",id);return state(id);}
  public Map<String,Object> retry(UUID id){jdbc.update("update knowledge_pipeline_checkpoint set status='PENDING',error_message=null where execution_id=? and status='FAILED'",id);return resume(id);}
 
@@ -113,7 +113,7 @@ public class ResumableKnowledgePipelineService {
     else if("CLASSIFY_DOCUMENTS".equals(stage))classify(id,run);
     else {int processed=finalPipeline.execute(id,run,stage);complete(id,run,stage,processed,0,0);}
    }
-   jdbc.update("update knowledge_intake_execution set status='COMPLETED',current_stage='PUBLISH',finished_at=now(),heartbeat_at=now() where id=?",id);
+   jdbc.update("update knowledge_intake_execution set status='COMPLETED',current_stage='PUBLISH',error_message=null,finished_at=now(),heartbeat_at=now() where id=?",id);
    jdbc.update("update knowledge_pipeline_run set status='COMPLETED',stage='PUBLISH',finished_at=now() where id=?",run);
   }catch(Exception ex){failExecution(id,ex);}
  }
@@ -134,7 +134,7 @@ public class ResumableKnowledgePipelineService {
    }complete(id,run,"HASH_AND_DEDUP",done,0,skip);
  }
  private void classify(UUID id,UUID run)throws Exception{
-   Path py=repo.resolve(".local/venv-persian-intelligence/Scripts/python.exe"),script=repo.resolve("tools/persian-intelligence/dry_run_v07.py");
+   Path py=repo.resolve(".local/venv-persian-intelligence/Scripts/python.exe"),script=repo.resolve("python/src/sakhtyar_python/legacy/dry_run_v07.py");
    if(Files.isRegularFile(py)&&Files.isRegularFile(script)){ // Reuse proven intake classifier, then import its report.
     Path sourcePath=Path.of((String)jdbc.queryForObject("select source_root from knowledge_intake_execution where id=?",String.class,id)).toAbsolutePath().normalize();
     ProcessBuilder pb=new ProcessBuilder(py.toString(),script.toString(),"--root",sourcePath.toString());

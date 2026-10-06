@@ -374,7 +374,7 @@ export function KnowledgeAdminPage() {
           url: `/api/v1/knowledge/admin/pipeline/${id}/selection`,
           body: {relativePaths: selected}
         })}>شروع پردازش فقط {selected.length} سند انتخاب‌شده</Button></Card>}
-      {state.data?.error_message &&
+      {state.data?.status === 'FAILED' && state.data?.error_message &&
         <Alert type="error" showIcon message="Execution متوقف شده" description={state.data.error_message}/>}
       {id && state.data?.status !== 'WAITING_FOR_USER' &&
         <KnowledgeResultExplorer executionId={id} status={state.data?.status}/>}

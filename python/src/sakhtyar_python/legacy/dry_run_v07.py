@@ -1,4 +1,9 @@
-﻿from pathlib import Path
+from pathlib import Path as _SakhtYarPath
+import sys as _sakhtyar_sys
+_SAKHTYAR_PYTHON_SRC = _SakhtYarPath(__file__).resolve().parents[2]
+if str(_SAKHTYAR_PYTHON_SRC) not in _sakhtyar_sys.path:
+    _sakhtyar_sys.path.insert(0, str(_SAKHTYAR_PYTHON_SRC))
+from pathlib import Path
 import argparse, json
 from sakhtyar_persian.intake import DocumentIntakeEngine
 from sakhtyar_persian.versioned_output import VersionedFileOutputStore
