@@ -1,3 +1,4 @@
+import { HelpCenterPage } from './pages/HelpCenterPage';
 import PlatformConfigPage from './pages/PlatformConfigPage';
 import { Navigate, Route, Routes } from 'react-router-dom'
 import { AppShell } from './app/AppShell'
@@ -27,6 +28,7 @@ export default function App() {
             <Route path="/admin/config" element={<PlatformConfigPage />} />
           </Route>
 <Route path="/settings" element={<PreferencesPage />} />
+          <Route path="/help" element={<HelpCenterPage />} />
 
           <Route element={<PermissionRoute permission="CASE_READ" />}>
             <Route path="/cases" element={<CasesPage />} />

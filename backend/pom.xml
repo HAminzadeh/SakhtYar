@@ -15,6 +15,7 @@
   <description>Modular monolith backend for SakhtYar</description>
   <modules>
         <module>modules/config</module>
+    <module>modules/automation</module>
 <module>modules/shared-kernel</module>
     <module>modules/audit</module>
     <module>modules/identity</module>

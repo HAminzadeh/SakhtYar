@@ -7,6 +7,7 @@ import {
   DashboardOutlined,
   UserOutlined,
   BookOutlined,
+  QuestionCircleOutlined,
 } from '@ant-design/icons'
 import {
   Avatar,
@@ -120,6 +121,10 @@ export function AppShell() {
               مرکز دانش
             </Button>
           )}
+          <Button type={active('/help') ? 'primary' : 'default'} icon={<QuestionCircleOutlined />} onClick={() => navigate('/help')}>
+            آلوزش
+          </Button>
+
           <Button
             type={
               active('/account') ? 'primary' : 'default'

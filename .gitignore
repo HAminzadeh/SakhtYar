@@ -85,3 +85,5 @@ models/persian/
 **/__pycache__/
 *.py[cod]
 .local/config-secrets.properties
+.sakhtyar/repository/
+.sakhtyar/runtime/

@@ -1,83 +1,383 @@
-import {Alert,App as AntdApp,Badge,Button,Card,Col,Collapse,Descriptions,Input,Progress,Row,Space,Statistic,Table,Tag,Typography} from 'antd'
-import {DatabaseOutlined,FolderOpenOutlined,PauseCircleOutlined,PlayCircleOutlined,ReloadOutlined,RedoOutlined,SearchOutlined} from '@ant-design/icons'
-import {useMutation,useQuery} from '@tanstack/react-query'
-import {useEffect,useMemo,useState} from 'react'
+import {
+  Alert,
+  App as AntdApp,
+  Badge,
+  Button,
+  Card,
+  Col,
+  Collapse,
+  Descriptions,
+  Input,
+  Progress,
+  Row,
+  Space,
+  Statistic,
+  Table,
+  Tag,
+  Typography
+} from 'antd'
+import {
+  DatabaseOutlined,
+  FolderOpenOutlined,
+  PauseCircleOutlined,
+  PlayCircleOutlined,
+  ReloadOutlined,
+  RedoOutlined,
+  SearchOutlined
+} from '@ant-design/icons'
+import {useMutation, useQuery} from '@tanstack/react-query'
+import {useEffect, useMemo, useState} from 'react'
 import type {Key} from 'react'
 import {api} from '../api/client'
+import {KnowledgeResultExplorer} from './KnowledgeResultExplorer'
 
-type CP={stage_code:string;status:string;attempt:number;processed_count:number;failed_count:number;skipped_count:number;error_message?:string;started_at?:string;heartbeat_at?:string;finished_at?:string}
-type Doc={relative_path:string;detected_title?:string;detected_category?:string;file_extension?:string;sha256?:string;size_bytes:number;page_count:number;native_chars:number;intake_status:string;reason?:string;selected_by_user:boolean}
-type EventRow={id:number;stage_code:string;event_type:string;message:string;created_at:string}
-type State={id:string;run_id:string;status:string;current_stage:string;total_documents:number;completed_documents:number;failed_documents:number;source_root:string;heartbeat_at?:string;error_message?:string;checkpoints:CP[];inventory:Doc[]}
-type Recent={id:string;run_id:string;status:string;current_stage:string;total_documents:number;source_root:string}
-type FolderRow={name:string;path:string;parent?:boolean}
-const stages=[
- ['DISCOVER_SOURCES','کشف اسناد','پیدا کردن فایل‌های پشتیبانی‌شده و ساخت Inventory','سیستم پوشه منبع را پیمایش می‌کند؛ کاربر فقط وضعیت را پایش می‌کند.'],
- ['HASH_AND_DEDUP','Hash و Dedup','محاسبه SHA-256 و حذف Duplicate دقیق','نیازی به اقدام کاربر نیست؛ Duplicateهای دقیق برای انتخاب غیرفعال می‌شوند.'],
- ['CLASSIFY_DOCUMENTS','طبقه‌بندی','تشخیص Native / Hybrid / Scanned و کیفیت اولیه','نتیجه را بررسی کنید؛ Pipeline اسناد را برای روش استخراج مناسب آماده می‌کند.'],
- ['USER_SELECTION','انتخاب اسناد','تأیید اسنادی که واقعاً باید پردازش شوند','این مرحله نیازمند اقدام کاربر است: اسناد را انتخاب و تأیید کنید.'],
- ['NATIVE_EXTRACTION','استخراج Native','استخراج متن قابل اعتماد بدون OCR غیرضروری','سیستم Native-first اجرا می‌کند؛ فقط خطاها را بررسی کنید.'],
- ['PAGE_QUALITY_GATE','کنترل کیفیت صفحه','تشخیص صفحه‌های سالم و مشکوک','صفحه‌های کم‌کیفیت برای OCR علامت‌گذاری می‌شوند.'],
- ['OCR_REQUIRED_PAGES','OCR صفحات لازم','OCR فقط برای صفحه‌هایی که واقعاً نیاز دارند','مدل OCR و خروجی صفحات را می‌توانید از لاگ زنده پایش کنید.'],
- ['PERSIAN_NORMALIZATION','نرمال‌سازی فارسی','یکسان‌سازی متن فارسی با حفظ provenance','سیستم متن استخراج‌شده را استاندارد می‌کند.'],
- ['KNOWLEDGE_EXTRACTION','استخراج دانش','تبدیل متن به دانش ساختاریافته و قابل جست‌وجو','Entity، Rule و قطعات دانش تولید می‌شوند.'],
- ['QUALITY_GATE','کنترل کیفیت','اعتبارسنجی خروجی و جلوگیری از انتشار خروجی ضعیف','خطاها و هشدارهای کیفیت را بررسی کنید.'],
- ['DATASET_BUILD','ساخت Dataset','بسته‌بندی نسخه‌دار خروجی‌های تأییدشده','Dataset جدید بدون فعال‌سازی خودکار ساخته می‌شود.'],
- ['PUBLISH','انتشار','ثبت و انتشار نسخه نهایی قابل Audit','پس از عبور از Gateها نسخه نهایی منتشر می‌شود.'],
+type CP = {
+  stage_code: string;
+  status: string;
+  attempt: number;
+  processed_count: number;
+  failed_count: number;
+  skipped_count: number;
+  error_message?: string;
+  started_at?: string;
+  heartbeat_at?: string;
+  finished_at?: string
+}
+type Doc = {
+  relative_path: string;
+  detected_title?: string;
+  detected_category?: string;
+  file_extension?: string;
+  sha256?: string;
+  size_bytes: number;
+  page_count: number;
+  native_chars: number;
+  intake_status: string;
+  reason?: string;
+  selected_by_user: boolean
+}
+type EventRow = { id: number; stage_code: string; event_type: string; message: string; created_at: string }
+type State = {
+  id: string;
+  run_id: string;
+  status: string;
+  current_stage: string;
+  total_documents: number;
+  completed_documents: number;
+  failed_documents: number;
+  source_root: string;
+  heartbeat_at?: string;
+  error_message?: string;
+  checkpoints: CP[];
+  inventory: Doc[]
+}
+type Recent = {
+  id: string;
+  run_id: string;
+  status: string;
+  current_stage: string;
+  total_documents: number;
+  source_root: string
+}
+type FolderRow = { name: string; path: string; parent?: boolean }
+const stages = [
+  ['DISCOVER_SOURCES', 'کشف اسناد', 'پیدا کردن فایل‌های پشتیبانی‌شده و ساخت Inventory', 'سیستم پوشه منبع را پیمایش می‌کند؛ کاربر فقط وضعیت را پایش می‌کند.'],
+  ['HASH_AND_DEDUP', 'Hash و Dedup', 'محاسبه SHA-256 و حذف Duplicate دقیق', 'نیازی به اقدام کاربر نیست؛ Duplicateهای دقیق برای انتخاب غیرفعال می‌شوند.'],
+  ['CLASSIFY_DOCUMENTS', 'طبقه‌بندی', 'تشخیص Native / Hybrid / Scanned و کیفیت اولیه', 'نتیجه را بررسی کنید؛ Pipeline اسناد را برای روش استخراج مناسب آماده می‌کند.'],
+  ['USER_SELECTION', 'انتخاب اسناد', 'تأیید اسنادی که واقعاً باید پردازش شوند', 'این مرحله نیازمند اقدام کاربر است: اسناد را انتخاب و تأیید کنید.'],
+  ['NATIVE_EXTRACTION', 'استخراج Native', 'استخراج متن قابل اعتماد بدون OCR غیرضروری', 'سیستم Native-first اجرا می‌کند؛ فقط خطاها را بررسی کنید.'],
+  ['PAGE_QUALITY_GATE', 'کنترل کیفیت صفحه', 'تشخیص صفحه‌های سالم و مشکوک', 'صفحه‌های کم‌کیفیت برای OCR علامت‌گذاری می‌شوند.'],
+  ['OCR_REQUIRED_PAGES', 'OCR صفحات لازم', 'OCR فقط برای صفحه‌هایی که واقعاً نیاز دارند', 'مدل OCR و خروجی صفحات را می‌توانید از لاگ زنده پایش کنید.'],
+  ['PERSIAN_NORMALIZATION', 'نرمال‌سازی فارسی', 'یکسان‌سازی متن فارسی با حفظ provenance', 'سیستم متن استخراج‌شده را استاندارد می‌کند.'],
+  ['KNOWLEDGE_EXTRACTION', 'استخراج دانش', 'تبدیل متن به دانش ساختاریافته و قابل جست‌وجو', 'Entity، Rule و قطعات دانش تولید می‌شوند.'],
+  ['QUALITY_GATE', 'کنترل کیفیت', 'اعتبارسنجی خروجی و جلوگیری از انتشار خروجی ضعیف', 'خطاها و هشدارهای کیفیت را بررسی کنید.'],
+  ['DATASET_BUILD', 'ساخت Dataset', 'بسته‌بندی نسخه‌دار خروجی‌های تأییدشده', 'Dataset جدید بدون فعال‌سازی خودکار ساخته می‌شود.'],
+  ['PUBLISH', 'انتشار', 'ثبت و انتشار نسخه نهایی قابل Audit', 'پس از عبور از Gateها نسخه نهایی منتشر می‌شود.'],
 ] as const
-const stageIndex=(s?:string)=>Math.max(0,stages.findIndex(x=>x[0]===s))
-const faStatus=(s?:string)=>({PENDING:'در انتظار',RUNNING:'در حال اجرا',COMPLETED:'تکمیل',FAILED:'خطا',PAUSED:'متوقف',WAITING_FOR_USER:'منتظر کاربر',STOPPING:'در حال توقف'}[s??'']??s??'—')
-const color=(s?:string)=>s==='COMPLETED'?'green':s==='FAILED'?'red':s==='RUNNING'?'blue':s==='WAITING_FOR_USER'?'gold':'default'
+const stageIndex = (s?: string) => Math.max(0, stages.findIndex(x => x[0] === s))
+const faStatus = (s?: string) => ({
+  PENDING: 'در انتظار',
+  RUNNING: 'در حال اجرا',
+  COMPLETED: 'تکمیل',
+  FAILED: 'خطا',
+  PAUSED: 'متوقف',
+  WAITING_FOR_USER: 'منتظر کاربر',
+  STOPPING: 'در حال توقف'
+}[s ?? ''] ?? s ?? '—')
+const color = (s?: string) => s === 'COMPLETED' ? 'green' : s === 'FAILED' ? 'red' : s === 'RUNNING' ? 'blue' : s === 'WAITING_FOR_USER' ? 'gold' : 'default'
 
-export function KnowledgeAdminPage(){
- const {message}=AntdApp.useApp()
- const [source,setSource]=useState('DocumentationOfLawsAndRegulations')
- const [id,setId]=useState<string|null>(localStorage.getItem('knowledgeExecutionId'))
- const [selected,setSelected]=useState<Key[]>([])
- const [selectionSearch,setSelectionSearch]=useState('')
- const [selectionCategory,setSelectionCategory]=useState('ALL')
- const [browsePath,setBrowsePath]=useState('DocumentationOfLawsAndRegulations')
- const [now,setNow]=useState(Date.now())
- useEffect(()=>{const t=setInterval(()=>setNow(Date.now()),1000);return()=>clearInterval(t)},[])
- const recent=useQuery({queryKey:['kp-recent'],queryFn:()=>api<Recent[]>('/api/v1/knowledge/admin/pipeline/recent')})
- const folders=useQuery({queryKey:['kp-folders',browsePath],enabled:!id,queryFn:()=>api<FolderRow[]>(`/api/v1/knowledge/admin/pipeline/folders?path=${encodeURIComponent(browsePath)}`)})
- const state=useQuery({queryKey:['kp-state',id],enabled:!!id,queryFn:()=>api<State>(`/api/v1/knowledge/admin/pipeline/${id}`),refetchInterval:q=>['RUNNING','STOPPING','WAITING_FOR_USER'].includes((q.state.data as State|undefined)?.status??'')?1000:3000})
- const events=useQuery({queryKey:['kp-events',id],enabled:!!id,queryFn:()=>api<EventRow[]>(`/api/v1/knowledge/admin/pipeline/${id}/events?after=0`),refetchInterval:1000})
- useEffect(()=>{if(state.data?.inventory)setSelected(state.data.inventory.filter(x=>x.selected_by_user).map(x=>x.relative_path))},[state.data?.inventory])
- const call=useMutation({mutationFn:(x:{url:string;body?:unknown})=>api<State>(x.url,{method:'POST',body:x.body?JSON.stringify(x.body):undefined}),onSuccess:r=>{setId(r.id);localStorage.setItem('knowledgeExecutionId',r.id);void state.refetch();void recent.refetch();void events.refetch()},onError:e=>message.error(e instanceof Error?e.message:'عملیات ناموفق')})
- const start=()=>call.mutate({url:'/api/v1/knowledge/admin/pipeline/start',body:{sourceRoot:source}})
- const cpMap=useMemo(()=>new Map((state.data?.checkpoints??[]).map(x=>[x.stage_code,x])),[state.data?.checkpoints])
- const ordered=stages.map(s=>cpMap.get(s[0])??{stage_code:s[0],status:'PENDING',attempt:0,processed_count:0,failed_count:0,skipped_count:0})
- const current=stageIndex(state.data?.current_stage);const currentCp=ordered[current];const completed=ordered.filter(x=>x.status==='COMPLETED').length
- const docs=state.data?.inventory??[]
- const selectableDocs=useMemo(()=>docs.filter(d=>d.intake_status!=='SKIP_DUPLICATE_EXACT'),[docs])
- const categories=useMemo(()=>Array.from(new Set(docs.map(d=>d.detected_category??'ROOT'))).sort(),[docs])
- const visibleDocs=useMemo(()=>docs.filter(d=>{const q=selectionSearch.trim().toLowerCase();const hay=(d.relative_path+' '+(d.detected_title??'')+' '+(d.detected_category??'')+' '+d.intake_status+' '+(d.reason??'')).toLowerCase();return (selectionCategory==='ALL'||(d.detected_category??'ROOT')===selectionCategory)&&(!q||hay.includes(q))}),[docs,selectionSearch,selectionCategory])
- const heartbeat=state.data?.heartbeat_at?new Date(state.data.heartbeat_at).getTime():0
- const age=heartbeat?Math.max(0,Math.floor((now-heartbeat)/1000)):null
- const stalled=state.data?.status==='RUNNING'&&age!==null&&age>20
- const stageTotal=current===0?Math.max(docs.length,currentCp.processed_count):current===1||current===2?Math.max(state.data?.total_documents??0,1):Math.max(docs.filter(d=>d.selected_by_user).length,1)
- const stagePct=currentCp.status==='COMPLETED'?100:stageTotal?Math.min(99,Math.round((currentCp.processed_count/stageTotal)*100)):0
- const overall=Math.min(100,Math.round(((completed+(currentCp.status==='RUNNING'?stagePct/100:0))/stages.length)*100))
- const lastEvent=(events.data??[]).at(-1)
- const journey=(slice:number)=>stages.slice(slice,slice+6).map((s,i)=>{const idx=slice+i,cp=ordered[idx],active=idx===current;return <Col xs={24} sm={12} lg={4} key={s[0]}><Card size="small" style={{height:'100%',borderWidth:active?2:1,borderColor:active?'#1677ff':undefined,background:cp.status==='COMPLETED'?'#f6ffed':active?'#e6f4ff':undefined}}><Space align="start"><Badge count={idx+1} color={cp.status==='COMPLETED'?'green':active?'blue':'gray'}/><div><Typography.Text strong>{s[1]}</Typography.Text><br/><Tag color={color(cp.status)}>{faStatus(cp.status)}</Tag></div></Space></Card></Col>})
- return <div className="sakhtyar-page-stack" dir="rtl">
-  <Card><Space><DatabaseOutlined style={{fontSize:28}}/><div><Typography.Title level={2} style={{margin:0}}>دستیار پایدار آماده‌سازی دانش ساخت‌یار</Typography.Title><Typography.Text type="secondary">Checkpoint • Resume • Safe Stop • Live Progress • Durable Log</Typography.Text></div></Space></Card>
-  {!id?<><Card title="۱. انتخاب پوشه اسناد"><Alert showIcon type="info" message="ابتدا فقط اسناد کشف، Hash و طبقه‌بندی می‌شوند." description="OCR و پردازش اصلی تا زمانی که خودتان اسناد موردنظر را تیک نزنید شروع نمی‌شود."/><Space.Compact style={{width:'100%',marginTop:12}}><Input value={browsePath} onChange={e=>setBrowsePath(e.target.value)} onPressEnter={()=>void folders.refetch()}/><Button icon={<FolderOpenOutlined/>} loading={folders.isFetching} onClick={()=>void folders.refetch()}>نمایش پوشه‌ها</Button></Space.Compact><Table rowKey="path" size="small" style={{marginTop:12}} pagination={{pageSize:8}} dataSource={folders.data??[]} columns={[{title:'پوشه',dataIndex:'name'},{title:'مسیر',dataIndex:'path',ellipsis:true},{title:'',render:(_,r:FolderRow)=><Space><Button onClick={()=>setBrowsePath(r.path)}>{r.parent?'بالا':'باز کردن'}</Button>{!r.parent&&<Button type="primary" onClick={()=>{setSource(r.path);setBrowsePath(r.path)}}>انتخاب</Button>}</Space>}]}/><Space.Compact style={{width:'100%',marginTop:12}}><Input value={source} onChange={e=>setSource(e.target.value)}/><Button type="primary" icon={<PlayCircleOutlined/>} loading={call.isPending} onClick={start}>کشف و لیست اسناد</Button></Space.Compact></Card><Card title="اجراهای اخیر"><Table rowKey="id" dataSource={recent.data??[]} pagination={false} columns={[{title:'وضعیت',dataIndex:'status',render:v=><Tag color={color(v)}>{faStatus(v)}</Tag>},{title:'مرحله',dataIndex:'current_stage'},{title:'اسناد',dataIndex:'total_documents'},{title:'منبع',dataIndex:'source_root',ellipsis:true},{title:'',render:(_,r:Recent)=><Button onClick={()=>{setId(r.id);localStorage.setItem('knowledgeExecutionId',r.id)}}>باز کردن / ادامه</Button>}]}/></Card></>:<>
-   <Card><Space wrap><Button icon={<ReloadOutlined/>} onClick={()=>{void state.refetch();void events.refetch()}}>تازه‌سازی</Button><Button icon={<PauseCircleOutlined/>} disabled={!['RUNNING','STOPPING'].includes(state.data?.status??'')} onClick={()=>call.mutate({url:`/api/v1/knowledge/admin/pipeline/${id}/stop`})}>توقف امن</Button><Button type="primary" icon={<PlayCircleOutlined/>} disabled={!['PAUSED','FAILED'].includes(state.data?.status??'')} onClick={()=>call.mutate({url:`/api/v1/knowledge/admin/pipeline/${id}/resume`})}>ادامه</Button><Button icon={<RedoOutlined/>} disabled={state.data?.status!=='FAILED'} onClick={()=>call.mutate({url:`/api/v1/knowledge/admin/pipeline/${id}/retry`})}>Retry خطا</Button><Button onClick={()=>{setId(null);localStorage.removeItem('knowledgeExecutionId')}}>اجرای دیگر</Button><Tag color={stalled?'red':color(state.data?.status)}>{stalled?'STALLED':faStatus(state.data?.status)}</Tag><Typography.Text code>{id}</Typography.Text></Space></Card>
-   {stalled&&<Alert type="error" showIcon message="Heartbeat اجرای Pipeline متوقف شده است" description={`آخرین heartbeat حدود ${age} ثانیه قبل بوده است. وضعیت RUNNING به تنهایی به معنی سالم بودن Worker نیست.`}/>}
-   <Card title="سفر آماده‌سازی دانش"><Row gutter={[10,10]}>{journey(0)}</Row><div style={{height:10}}/><Row gutter={[10,10]}>{journey(6)}</Row></Card>
-   <Card title="هدف این سفر"><Alert showIcon type="info" message="تبدیل منابع خام به Dataset دانش نسخه‌دار، قابل Audit و قابل Resume" description="هر مرحله خروجی خود را کنترل می‌کند؛ عملیات سنگین فقط روی موارد لازم انجام می‌شود و توقف برنامه نباید باعث شروع مجدد کل سفر شود."/><Descriptions style={{marginTop:16}} column={{xs:1,md:3}} bordered size="small"><Descriptions.Item label="مرحله فعلی">{stages[current][1]}</Descriptions.Item><Descriptions.Item label="هدف مرحله">{stages[current][2]}</Descriptions.Item><Descriptions.Item label="اقدام کاربر">{stages[current][3]}</Descriptions.Item></Descriptions></Card>
-   <Card title="مانیتور زنده اجرای Intelligent Pipeline">
-    <Row gutter={[12,12]}><Col xs={12} md={6}><Statistic title="پیشرفت کل" value={overall} suffix="%"/></Col><Col xs={12} md={6}><Statistic title="پیشرفت مرحله" value={stagePct} suffix="%"/></Col><Col xs={12} md={6}><Statistic title="پردازش مرحله" value={currentCp.processed_count} suffix={`/ ${stageTotal}`}/></Col><Col xs={12} md={6}><Statistic title="آخرین Heartbeat" value={age===null?'—':`${age}s`}/></Col></Row>
-    <Typography.Text strong>کل Pipeline</Typography.Text><Progress percent={overall} status={state.data?.status==='FAILED'?'exception':state.data?.status==='COMPLETED'?'success':'active'}/>
-    <Typography.Text strong>{stages[current][1]}</Typography.Text><Progress percent={stagePct} status={currentCp.status==='FAILED'?'exception':currentCp.status==='COMPLETED'?'success':'active'}/>
-    <Descriptions size="small" column={{xs:1,md:2}} style={{marginTop:12}}><Descriptions.Item label="آخرین رویداد">{lastEvent?.message??'هنوز رویدادی ثبت نشده'}</Descriptions.Item><Descriptions.Item label="Run ID">{state.data?.run_id}</Descriptions.Item></Descriptions>
-   </Card>
-   <Collapse items={[{key:'log',label:`لاگ زنده Intelligent Pipeline (${events.data?.length??0} رویداد)`,children:<Table rowKey="id" size="small" pagination={{pageSize:15}} dataSource={events.data??[]} columns={[{title:'زمان',dataIndex:'created_at',width:180,render:v=>new Date(v).toLocaleTimeString('fa-IR')},{title:'مرحله',dataIndex:'stage_code',width:180},{title:'نوع',dataIndex:'event_type',width:110,render:v=><Tag>{v}</Tag>},{title:'پیام',dataIndex:'message'}]}/>}]}/>
-   <Card title="Checkpointها"><Table rowKey="stage_code" size="small" pagination={false} dataSource={ordered} columns={[{title:'#',render:(_,r)=>stages.findIndex(x=>x[0]===r.stage_code)+1,width:50},{title:'مرحله',dataIndex:'stage_code',render:v=><Space direction="vertical" size={0}><Typography.Text>{stages.find(x=>x[0]===v)?.[1]??v}</Typography.Text><Typography.Text code type="secondary">{v}</Typography.Text></Space>},{title:'وضعیت',dataIndex:'status',render:v=><Tag color={color(v)}>{faStatus(v)}</Tag>},{title:'Attempt',dataIndex:'attempt'},{title:'پردازش',dataIndex:'processed_count'},{title:'Skip',dataIndex:'skipped_count'},{title:'خطا',dataIndex:'error_message',ellipsis:true}]}/></Card>
-   {state.data?.status==='WAITING_FOR_USER'&&<Card title="۴. انتخاب اسناد برای پردازش"><Alert showIcon type="info" message={`${docs.length} سند پیدا شد؛ فقط موارد تیک‌خورده پردازش می‌شوند.`} description="Duplicateهای دقیق غیرفعال‌اند. انتخاب شما نسخه‌دار ثبت می‌شود و ادامه Pipeline فقط روی همان زیرمجموعه اجرا خواهد شد."/><Row gutter={[8,8]} style={{marginTop:12,marginBottom:12}}><Col xs={24} md={10}><Input allowClear prefix={<SearchOutlined/>} placeholder="جست‌وجوی نام، مسیر، دسته یا وضعیت..." value={selectionSearch} onChange={e=>setSelectionSearch(e.target.value)}/></Col><Col xs={24} md={14}><Space wrap><Button type={selectionCategory==='ALL'?'primary':'default'} onClick={()=>setSelectionCategory('ALL')}>همه دسته‌ها</Button>{categories.map(c=><Button key={c} type={selectionCategory===c?'primary':'default'} onClick={()=>setSelectionCategory(c)}>{c}</Button>)}</Space></Col></Row><Space wrap style={{marginBottom:12}}><Button onClick={()=>setSelected(selectableDocs.map(d=>d.relative_path))}>انتخاب همه قابل پردازش ({selectableDocs.length})</Button><Button onClick={()=>{const add=visibleDocs.filter(d=>d.intake_status!=='SKIP_DUPLICATE_EXACT').map(d=>d.relative_path);setSelected(prev=>Array.from(new Set([...prev,...add])))}}>انتخاب نتایج فیلتر ({visibleDocs.length})</Button><Button onClick={()=>setSelected([])}>لغو همه</Button><Tag color="blue">{selected.length} از {docs.length} انتخاب شده</Tag></Space><Table rowKey="relative_path" size="small" dataSource={visibleDocs} pagination={{pageSize:20,showSizeChanger:true}} rowSelection={{selectedRowKeys:selected,onChange:setSelected,preserveSelectedRowKeys:true,getCheckboxProps:r=>({disabled:r.intake_status==='SKIP_DUPLICATE_EXACT'})}} columns={[{title:'عنوان تشخیص‌داده‌شده',dataIndex:'detected_title',ellipsis:true,render:(v,r)=>v||r.relative_path},{title:'دسته',dataIndex:'detected_category',render:v=><Tag>{v||'ROOT'}</Tag>},{title:'نوع',dataIndex:'file_extension',width:70},{title:'وضعیت',dataIndex:'intake_status',render:v=><Tag>{v}</Tag>},{title:'صفحات',dataIndex:'page_count',width:70},{title:'حجم',dataIndex:'size_bytes',render:v=>`${(Number(v)/1024/1024).toFixed(1)} MB`},{title:'مسیر',dataIndex:'relative_path',ellipsis:true},{title:'علت',dataIndex:'reason',ellipsis:true}]}/><Alert style={{marginBottom:12}} type={selected.length?'success':'warning'} showIcon message={selected.length?`آماده شروع پردازش ${selected.length} سند از ${docs.length} سند کشف‌شده`:'حداقل یک سند را انتخاب کنید.'}/><Button type="primary" size="large" disabled={!selected.length} loading={call.isPending} onClick={()=>call.mutate({url:`/api/v1/knowledge/admin/pipeline/${id}/selection`,body:{relativePaths:selected}})}>شروع پردازش فقط {selected.length} سند انتخاب‌شده</Button></Card>}
-   {state.data?.error_message&&<Alert type="error" showIcon message="Execution متوقف شده" description={state.data.error_message}/>}
-  </>}
- </div>
+export function KnowledgeAdminPage() {
+  const {message} = AntdApp.useApp()
+  const [source, setSource] = useState('DocumentationOfLawsAndRegulations')
+  const [id, setId] = useState<string | null>(localStorage.getItem('knowledgeExecutionId'))
+  const [selected, setSelected] = useState<Key[]>([])
+  const [selectionSearch, setSelectionSearch] = useState('')
+  const [selectionCategory, setSelectionCategory] = useState('ALL')
+  const [browsePath, setBrowsePath] = useState('DocumentationOfLawsAndRegulations')
+  const [now, setNow] = useState(Date.now())
+  useEffect(() => {
+    const t = setInterval(() => setNow(Date.now()), 1000);
+    return () => clearInterval(t)
+  }, [])
+  const recent = useQuery({
+    queryKey: ['kp-recent'],
+    queryFn: () => api<Recent[]>('/api/v1/knowledge/admin/pipeline/recent')
+  })
+  const folders = useQuery({
+    queryKey: ['kp-folders', browsePath],
+    enabled: !id,
+    queryFn: () => api<FolderRow[]>(`/api/v1/knowledge/admin/pipeline/folders?path=${encodeURIComponent(browsePath)}`)
+  })
+  const state = useQuery({
+    queryKey: ['kp-state', id],
+    enabled: !!id,
+    queryFn: () => api<State>(`/api/v1/knowledge/admin/pipeline/${id}`),
+    refetchInterval: q => ['RUNNING', 'STOPPING', 'WAITING_FOR_USER'].includes((q.state.data as State | undefined)?.status ?? '') ? 1000 : 3000
+  })
+  const events = useQuery({
+    queryKey: ['kp-events', id],
+    enabled: !!id,
+    queryFn: () => api<EventRow[]>(`/api/v1/knowledge/admin/pipeline/${id}/events?after=0`),
+    refetchInterval: 1000
+  })
+  useEffect(() => {
+    if (state.data?.inventory) setSelected(state.data.inventory.filter(x => x.selected_by_user).map(x => x.relative_path))
+  }, [state.data?.inventory])
+  const call = useMutation({
+    mutationFn: (x: { url: string; body?: unknown }) => api<State>(x.url, {
+      method: 'POST',
+      body: x.body ? JSON.stringify(x.body) : undefined
+    }), onSuccess: r => {
+      setId(r.id);
+      localStorage.setItem('knowledgeExecutionId', r.id);
+      void state.refetch();
+      void recent.refetch();
+      void events.refetch()
+    }, onError: e => message.error(e instanceof Error ? e.message : 'عملیات ناموفق')
+  })
+  const start = () => call.mutate({url: '/api/v1/knowledge/admin/pipeline/start', body: {sourceRoot: source}})
+  const cpMap = useMemo(() => new Map((state.data?.checkpoints ?? []).map(x => [x.stage_code, x])), [state.data?.checkpoints])
+  const ordered = stages.map(s => cpMap.get(s[0]) ?? {
+    stage_code: s[0],
+    status: 'PENDING',
+    attempt: 0,
+    processed_count: 0,
+    failed_count: 0,
+    skipped_count: 0
+  })
+  const current = stageIndex(state.data?.current_stage);
+  const currentCp = ordered[current];
+  const completed = ordered.filter(x => x.status === 'COMPLETED').length
+  const docs = state.data?.inventory ?? []
+  const selectableDocs = useMemo(() => docs.filter(d => d.intake_status !== 'SKIP_DUPLICATE_EXACT'), [docs])
+  const categories = useMemo(() => Array.from(new Set(docs.map(d => d.detected_category ?? 'ROOT'))).sort(), [docs])
+  const visibleDocs = useMemo(() => docs.filter(d => {
+    const q = selectionSearch.trim().toLowerCase();
+    const hay = (d.relative_path + ' ' + (d.detected_title ?? '') + ' ' + (d.detected_category ?? '') + ' ' + d.intake_status + ' ' + (d.reason ?? '')).toLowerCase();
+    return (selectionCategory === 'ALL' || (d.detected_category ?? 'ROOT') === selectionCategory) && (!q || hay.includes(q))
+  }), [docs, selectionSearch, selectionCategory])
+  const heartbeat = state.data?.heartbeat_at ? new Date(state.data.heartbeat_at).getTime() : 0
+  const age = heartbeat ? Math.max(0, Math.floor((now - heartbeat) / 1000)) : null
+  const stalled = state.data?.status === 'RUNNING' && age !== null && age > 20
+  const stageTotal = current === 0 ? Math.max(docs.length, currentCp.processed_count) : current === 1 || current === 2 ? Math.max(state.data?.total_documents ?? 0, 1) : Math.max(docs.filter(d => d.selected_by_user).length, 1)
+  const stagePct = currentCp.status === 'COMPLETED' ? 100 : stageTotal ? Math.min(99, Math.round((currentCp.processed_count / stageTotal) * 100)) : 0
+  const overall = Math.min(100, Math.round(((completed + (currentCp.status === 'RUNNING' ? stagePct / 100 : 0)) / stages.length) * 100))
+  const lastEvent = (events.data ?? []).at(-1)
+  const journey = (slice: number) => stages.slice(slice, slice + 6).map((s, i) => {
+    const idx = slice + i, cp = ordered[idx], active = idx === current;
+    return <Col xs={24} sm={12} lg={4} key={s[0]}><Card size="small" style={{
+      height: '100%',
+      borderWidth: active ? 2 : 1,
+      borderColor: active ? '#1677ff' : undefined,
+      background: cp.status === 'COMPLETED' ? '#f6ffed' : active ? '#e6f4ff' : undefined
+    }}><Space align="start"><Badge count={idx + 1}
+                                   color={cp.status === 'COMPLETED' ? 'green' : active ? 'blue' : 'gray'}/>
+      <div><Typography.Text strong>{s[1]}</Typography.Text><br/><Tag
+        color={color(cp.status)}>{faStatus(cp.status)}</Tag></div>
+    </Space></Card></Col>
+  })
+  return <div className="sakhtyar-page-stack" dir="rtl">
+    <Card><Space><DatabaseOutlined style={{fontSize: 28}}/>
+      <div><Typography.Title level={2} style={{margin: 0}}>دستیار پایدار آماده‌سازی دانش
+        ساخت‌یار</Typography.Title><Typography.Text type="secondary">Checkpoint • Resume • Safe Stop • Live Progress •
+        Durable Log</Typography.Text></div>
+    </Space></Card>
+    {!id ? <><Card title="۱. انتخاب پوشه اسناد"><Alert showIcon type="info"
+                                                       message="ابتدا فقط اسناد کشف، Hash و طبقه‌بندی می‌شوند."
+                                                       description="OCR و پردازش اصلی تا زمانی که خودتان اسناد موردنظر را تیک نزنید شروع نمی‌شود."/><Space.Compact
+      style={{width: '100%', marginTop: 12}}><Input value={browsePath} onChange={e => setBrowsePath(e.target.value)}
+                                                    onPressEnter={() => void folders.refetch()}/><Button
+      icon={<FolderOpenOutlined/>} loading={folders.isFetching} onClick={() => void folders.refetch()}>نمایش
+      پوشه‌ها</Button></Space.Compact><Table rowKey="path" size="small" style={{marginTop: 12}}
+                                             pagination={{pageSize: 8}} dataSource={folders.data ?? []}
+                                             columns={[{title: 'پوشه', dataIndex: 'name'}, {
+                                               title: 'مسیر',
+                                               dataIndex: 'path',
+                                               ellipsis: true
+                                             }, {
+                                               title: '',
+                                               render: (_, r: FolderRow) => <Space><Button
+                                                 onClick={() => setBrowsePath(r.path)}>{r.parent ? 'بالا' : 'باز کردن'}</Button>{!r.parent &&
+                                                 <Button type="primary" onClick={() => {
+                                                   setSource(r.path);
+                                                   setBrowsePath(r.path)
+                                                 }}>انتخاب</Button>}</Space>
+                                             }]}/><Space.Compact style={{width: '100%', marginTop: 12}}><Input
+      value={source} onChange={e => setSource(e.target.value)}/><Button type="primary" icon={<PlayCircleOutlined/>}
+                                                                        loading={call.isPending} onClick={start}>کشف و
+      لیست اسناد</Button></Space.Compact></Card><Card title="اجراهای اخیر"><Table rowKey="id"
+                                                                                  dataSource={recent.data ?? []}
+                                                                                  pagination={false} columns={[{
+      title: 'وضعیت',
+      dataIndex: 'status',
+      render: v => <Tag color={color(v)}>{faStatus(v)}</Tag>
+    }, {title: 'مرحله', dataIndex: 'current_stage'}, {title: 'اسناد', dataIndex: 'total_documents'}, {
+      title: 'منبع',
+      dataIndex: 'source_root',
+      ellipsis: true
+    }, {
+      title: '', render: (_, r: Recent) => <Button onClick={() => {
+        setId(r.id);
+        localStorage.setItem('knowledgeExecutionId', r.id)
+      }}>باز کردن / ادامه</Button>
+    }]}/></Card></> : <>
+      <Card><Space wrap><Button icon={<ReloadOutlined/>} onClick={() => {
+        void state.refetch();
+        void events.refetch()
+      }}>تازه‌سازی</Button><Button icon={<PauseCircleOutlined/>}
+                                   disabled={!['RUNNING', 'STOPPING'].includes(state.data?.status ?? '')}
+                                   onClick={() => call.mutate({url: `/api/v1/knowledge/admin/pipeline/${id}/stop`})}>توقف
+        امن</Button><Button type="primary" icon={<PlayCircleOutlined/>}
+                            disabled={!['PAUSED', 'FAILED'].includes(state.data?.status ?? '')}
+                            onClick={() => call.mutate({url: `/api/v1/knowledge/admin/pipeline/${id}/resume`})}>ادامه</Button><Button
+        icon={<RedoOutlined/>} disabled={state.data?.status !== 'FAILED'}
+        onClick={() => call.mutate({url: `/api/v1/knowledge/admin/pipeline/${id}/retry`})}>Retry خطا</Button><Button
+        onClick={() => {
+          setId(null);
+          localStorage.removeItem('knowledgeExecutionId')
+        }}>اجرای دیگر</Button><Tag
+        color={stalled ? 'red' : color(state.data?.status)}>{stalled ? 'STALLED' : faStatus(state.data?.status)}</Tag><Typography.Text
+        code>{id}</Typography.Text></Space></Card>
+      {stalled && <Alert type="error" showIcon message="Heartbeat اجرای Pipeline متوقف شده است"
+                         description={`آخرین heartbeat حدود ${age} ثانیه قبل بوده است. وضعیت RUNNING به تنهایی به معنی سالم بودن Worker نیست.`}/>}
+      <Card title="سفر آماده‌سازی دانش"><Row gutter={[10, 10]}>{journey(0)}</Row>
+        <div style={{height: 10}}/>
+        <Row gutter={[10, 10]}>{journey(6)}</Row></Card>
+      <Card title="هدف این سفر"><Alert showIcon type="info"
+                                       message="تبدیل منابع خام به Dataset دانش نسخه‌دار، قابل Audit و قابل Resume"
+                                       description="هر مرحله خروجی خود را کنترل می‌کند؛ عملیات سنگین فقط روی موارد لازم انجام می‌شود و توقف برنامه نباید باعث شروع مجدد کل سفر شود."/><Descriptions
+        style={{marginTop: 16}} column={{xs: 1, md: 3}} bordered size="small"><Descriptions.Item
+        label="مرحله فعلی">{stages[current][1]}</Descriptions.Item><Descriptions.Item
+        label="هدف مرحله">{stages[current][2]}</Descriptions.Item><Descriptions.Item
+        label="اقدام کاربر">{stages[current][3]}</Descriptions.Item></Descriptions></Card>
+      <Card title="مانیتور زنده اجرای Intelligent Pipeline">
+        <Row gutter={[12, 12]}><Col xs={12} md={6}><Statistic title="پیشرفت کل" value={overall} suffix="%"/></Col><Col
+          xs={12} md={6}><Statistic title="پیشرفت مرحله" value={stagePct} suffix="%"/></Col><Col xs={12}
+                                                                                                 md={6}><Statistic
+          title="پردازش مرحله" value={currentCp.processed_count} suffix={`/ ${stageTotal}`}/></Col><Col xs={12}
+                                                                                                        md={6}><Statistic
+          title="آخرین Heartbeat" value={age === null ? '—' : `${age}s`}/></Col></Row>
+        <Typography.Text strong>کل Pipeline</Typography.Text><Progress percent={overall}
+                                                                       status={state.data?.status === 'FAILED' ? 'exception' : state.data?.status === 'COMPLETED' ? 'success' : 'active'}/>
+        <Typography.Text strong>{stages[current][1]}</Typography.Text><Progress percent={stagePct}
+                                                                                status={currentCp.status === 'FAILED' ? 'exception' : currentCp.status === 'COMPLETED' ? 'success' : 'active'}/>
+        <Descriptions size="small" column={{xs: 1, md: 2}} style={{marginTop: 12}}><Descriptions.Item
+          label="آخرین رویداد">{lastEvent?.message ?? 'هنوز رویدادی ثبت نشده'}</Descriptions.Item><Descriptions.Item
+          label="Run ID">{state.data?.run_id}</Descriptions.Item></Descriptions>
+      </Card>
+      <Collapse items={[{
+        key: 'log',
+        label: `لاگ زنده Intelligent Pipeline (${events.data?.length ?? 0} رویداد)`,
+        children: <Table rowKey="id" size="small" pagination={{pageSize: 15}} dataSource={events.data ?? []} columns={[{
+          title: 'زمان',
+          dataIndex: 'created_at',
+          width: 180,
+          render: v => new Date(v).toLocaleTimeString('fa-IR')
+        }, {title: 'مرحله', dataIndex: 'stage_code', width: 180}, {
+          title: 'نوع',
+          dataIndex: 'event_type',
+          width: 110,
+          render: v => <Tag>{v}</Tag>
+        }, {title: 'پیام', dataIndex: 'message'}]}/>
+      }]}/>
+      <Card title="Checkpointها"><Table rowKey="stage_code" size="small" pagination={false} dataSource={ordered}
+                                        columns={[{
+                                          title: '#',
+                                          render: (_, r) => stages.findIndex(x => x[0] === r.stage_code) + 1,
+                                          width: 50
+                                        }, {
+                                          title: 'مرحله',
+                                          dataIndex: 'stage_code',
+                                          render: v => <Space direction="vertical"
+                                                              size={0}><Typography.Text>{stages.find(x => x[0] === v)?.[1] ?? v}</Typography.Text><Typography.Text
+                                            code type="secondary">{v}</Typography.Text></Space>
+                                        }, {
+                                          title: 'وضعیت',
+                                          dataIndex: 'status',
+                                          render: v => <Tag color={color(v)}>{faStatus(v)}</Tag>
+                                        }, {title: 'Attempt', dataIndex: 'attempt'}, {
+                                          title: 'پردازش',
+                                          dataIndex: 'processed_count'
+                                        }, {title: 'Skip', dataIndex: 'skipped_count'}, {
+                                          title: 'خطا',
+                                          dataIndex: 'error_message',
+                                          ellipsis: true
+                                        }]}/></Card>
+      {state.data?.status === 'WAITING_FOR_USER' &&
+        <Card title="۴. انتخاب اسناد برای پردازش"><Alert showIcon type="info"
+                                                         message={`${docs.length} سند پیدا شد؛ فقط موارد تیک‌خورده پردازش می‌شوند.`}
+                                                         description="Duplicateهای دقیق غیرفعال‌اند. انتخاب شما نسخه‌دار ثبت می‌شود و ادامه Pipeline فقط روی همان زیرمجموعه اجرا خواهد شد."/><Row
+          gutter={[8, 8]} style={{marginTop: 12, marginBottom: 12}}><Col xs={24} md={10}><Input allowClear prefix={
+          <SearchOutlined/>} placeholder="جست‌وجوی نام، مسیر، دسته یا وضعیت..." value={selectionSearch}
+                                                                                                onChange={e => setSelectionSearch(e.target.value)}/></Col><Col
+          xs={24} md={14}><Space wrap><Button type={selectionCategory === 'ALL' ? 'primary' : 'default'}
+                                              onClick={() => setSelectionCategory('ALL')}>همه
+          دسته‌ها</Button>{categories.map(c => <Button key={c} type={selectionCategory === c ? 'primary' : 'default'}
+                                                       onClick={() => setSelectionCategory(c)}>{c}</Button>)}
+        </Space></Col></Row><Space wrap style={{marginBottom: 12}}><Button
+          onClick={() => setSelected(selectableDocs.map(d => d.relative_path))}>انتخاب همه قابل پردازش
+          ({selectableDocs.length})</Button><Button onClick={() => {
+          const add = visibleDocs.filter(d => d.intake_status !== 'SKIP_DUPLICATE_EXACT').map(d => d.relative_path);
+          setSelected(prev => Array.from(new Set([...prev, ...add])))
+        }}>انتخاب نتایج فیلتر ({visibleDocs.length})</Button><Button onClick={() => setSelected([])}>لغو
+          همه</Button><Tag color="blue">{selected.length} از {docs.length} انتخاب شده</Tag></Space><Table
+          rowKey="relative_path" size="small" dataSource={visibleDocs}
+          pagination={{pageSize: 20, showSizeChanger: true}} rowSelection={{
+          selectedRowKeys: selected,
+          onChange: setSelected,
+          preserveSelectedRowKeys: true,
+          getCheckboxProps: r => ({disabled: r.intake_status === 'SKIP_DUPLICATE_EXACT'})
+        }} columns={[{
+          title: 'عنوان تشخیص‌داده‌شده',
+          dataIndex: 'detected_title',
+          ellipsis: true,
+          render: (v, r) => v || r.relative_path
+        }, {title: 'دسته', dataIndex: 'detected_category', render: v => <Tag>{v || 'ROOT'}</Tag>}, {
+          title: 'نوع',
+          dataIndex: 'file_extension',
+          width: 70
+        }, {title: 'وضعیت', dataIndex: 'intake_status', render: v => <Tag>{v}</Tag>}, {
+          title: 'صفحات',
+          dataIndex: 'page_count',
+          width: 70
+        }, {
+          title: 'حجم',
+          dataIndex: 'size_bytes',
+          render: v => `${(Number(v) / 1024 / 1024).toFixed(1)} MB`
+        }, {title: 'مسیر', dataIndex: 'relative_path', ellipsis: true}, {
+          title: 'علت',
+          dataIndex: 'reason',
+          ellipsis: true
+        }]}/><Alert style={{marginBottom: 12}} type={selected.length ? 'success' : 'warning'} showIcon
+                    message={selected.length ? `آماده شروع پردازش ${selected.length} سند از ${docs.length} سند کشف‌شده` : 'حداقل یک سند را انتخاب کنید.'}/><Button
+          type="primary" size="large" disabled={!selected.length} loading={call.isPending} onClick={() => call.mutate({
+          url: `/api/v1/knowledge/admin/pipeline/${id}/selection`,
+          body: {relativePaths: selected}
+        })}>شروع پردازش فقط {selected.length} سند انتخاب‌شده</Button></Card>}
+      {state.data?.error_message &&
+        <Alert type="error" showIcon message="Execution متوقف شده" description={state.data.error_message}/>}
+      {id && state.data?.status !== 'WAITING_FOR_USER' &&
+        <KnowledgeResultExplorer executionId={id} status={state.data?.status}/>}
+    </>}
+  </div>
 }

@@ -61,6 +61,7 @@
     <dependency><groupId>org.springframework.boot</groupId><artifactId>spring-boot-starter-test</artifactId><scope>test</scope></dependency>
   
     <dependency><groupId>com.sakhtyar</groupId><artifactId>sakhtyar-config</artifactId><version>${project.version}</version></dependency>
+    <dependency><groupId>com.sakhtyar</groupId><artifactId>sakhtyar-automation</artifactId><version>${project.version}</version></dependency>
   </dependencies>
 
   <build>

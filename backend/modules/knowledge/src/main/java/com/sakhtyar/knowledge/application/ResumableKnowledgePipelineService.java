@@ -19,8 +19,8 @@ import java.util.stream.Stream;
 @Service
 public class ResumableKnowledgePipelineService {
  private static final List<String> STAGES=List.of("DISCOVER_SOURCES","HASH_AND_DEDUP","CLASSIFY_DOCUMENTS","USER_SELECTION","NATIVE_EXTRACTION","PAGE_QUALITY_GATE","OCR_REQUIRED_PAGES","PERSIAN_NORMALIZATION","KNOWLEDGE_EXTRACTION","QUALITY_GATE","DATASET_BUILD","PUBLISH");
- private final JdbcTemplate jdbc; private final Path repo; private final ExecutorService workers=Executors.newFixedThreadPool(2);
- public ResumableKnowledgePipelineService(JdbcTemplate jdbc,@Value("${sakhtyar.repo-root:${user.dir}}") String root){this.jdbc=jdbc;this.repo=findRepo(Path.of(root));}
+ private final JdbcTemplate jdbc; private final Path repo; private final ExecutorService workers=Executors.newFixedThreadPool(2); private final KnowledgeFinalPipelineService finalPipeline;
+ public ResumableKnowledgePipelineService(JdbcTemplate jdbc,KnowledgeFinalPipelineService finalPipeline,@Value("${sakhtyar.repo-root:${user.dir}}") String root){this.jdbc=jdbc;this.finalPipeline=finalPipeline;this.repo=findRepo(Path.of(root));}
 
  @Transactional public Map<String,Object> start(String sourceRoot,String user){
    Path src=resolveSource(sourceRoot);UUID workflow=UUID.randomUUID(),correlation=UUID.randomUUID(),run=UUID.randomUUID(),exec=UUID.randomUUID();
@@ -94,6 +94,7 @@ public class ResumableKnowledgePipelineService {
    e.put("inventory",jdbc.queryForList("select relative_path,detected_title,detected_category,file_extension,sha256,size_bytes,page_count,native_chars,suspicious_pages,intake_status,reason,selected_by_user,document_id from knowledge_intake_inventory where execution_id=? order by detected_category,relative_path",id));
    return e;
  }
+ public Map<String,Object> result(UUID id){return finalPipeline.result(id);}
  public List<Map<String,Object>> recent(){return jdbc.queryForList("select id,run_id,status,current_stage,total_documents,completed_documents,failed_documents,source_root,created_at,heartbeat_at from knowledge_intake_execution order by created_at desc limit 20");}
  public List<Map<String,Object>> events(UUID id,long after){
    return jdbc.queryForList("select id,stage_code,event_type,message,payload,created_at from knowledge_resumable_pipeline_event where execution_id=? and id>? order by id asc limit 1000",id,after);
@@ -110,7 +111,7 @@ public class ResumableKnowledgePipelineService {
     if("DISCOVER_SOURCES".equals(stage))discover(id,run);
     else if("HASH_AND_DEDUP".equals(stage))hash(id,run);
     else if("CLASSIFY_DOCUMENTS".equals(stage))classify(id,run);
-    else placeholder(id,run,stage);
+    else {int processed=finalPipeline.execute(id,run,stage);complete(id,run,stage,processed,0,0);}
    }
    jdbc.update("update knowledge_intake_execution set status='COMPLETED',current_stage='PUBLISH',finished_at=now(),heartbeat_at=now() where id=?",id);
    jdbc.update("update knowledge_pipeline_run set status='COMPLETED',stage='PUBLISH',finished_at=now() where id=?",run);

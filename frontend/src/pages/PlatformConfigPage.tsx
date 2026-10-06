@@ -1,3 +1,4 @@
+import AutomationRuntimePanel from '../components/AutomationRuntimePanel';
 import {
   Alert, App as AntdApp, Badge, Button, Card, Col, Drawer, Empty, Form, Input, InputNumber,
   Modal, Progress, Row, Segmented, Select, Space, Statistic, Switch, Table, Tabs, Tag, Tooltip, Typography
@@ -275,6 +276,7 @@ export default function PlatformConfigPage(){
 
   <Card className="sy-bottom-card">
    <Tabs items={[
+    {key:'automation',label:<Space><SettingOutlined/>{fa?'Ø§ØªÙˆÙ…Ø§Ø³ÛŒÙˆÙ† Ùˆ Ù…Ø­ÛŒØ· Ø§Ø¬Ø±Ø§':'Automation & Runtime'}</Space>,children:<AutomationRuntimePanel/>},
     {key:'doctor',label:<Space><MedicineBoxOutlined/>{fa?'دکتر پیکربندی':'Config Doctor'}</Space>,children:<div className="sy-doctor-list">{doctor.map((x,i)=><div className="sy-doctor-row" key={i}><Badge status={x.status==='OK'?'success':x.status==='FAIL'?'error':'warning'}/><strong>{x.name}</strong><Tag>{x.status}</Tag><span>{x.message}</span></div>)}</div>},
     {key:'effective',label:<Space><SettingOutlined/>{fa?'پیکربندی مؤثر':'Effective config'}</Space>,children:<Table rowKey="key" scroll={{x:900}} dataSource={data.effective} pagination={{pageSize:12}} columns={[
      {title:fa?'کلید':'Key',dataIndex:'key',render:(v:string)=><code dir="ltr">{v}</code>},
