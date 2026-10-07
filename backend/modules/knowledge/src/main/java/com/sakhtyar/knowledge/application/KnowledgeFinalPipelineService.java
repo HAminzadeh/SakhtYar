@@ -118,17 +118,23 @@ public class KnowledgeFinalPipelineService {
             if (doc == null) continue;
             List<Map<String, Object>> pages = jdbc.queryForList("select r.page_from,coalesce(nullif(btrim(o.content),''),r.content) content,case when nullif(btrim(o.content),'') is null then r.id else o.id end parent_id from knowledge_source_artifact r left join knowledge_source_artifact o on o.execution_id=r.execution_id and o.document_id=r.document_id and o.page_from=r.page_from and o.artifact_type='OCR_PAGE' where r.execution_id=? and r.document_id=? and r.artifact_type='RAW_PAGE' order by r.page_from", executionId, doc);
             for (Map<String, Object> p : pages) {
-                String normalized = normalizeFa(Objects.toString(p.get("content"), ""));
+                String source = Objects.toString(p.get("content"), "");
+                if (source.strip().isEmpty()) throw new IllegalStateException("Normalization quality gate failed: source page " + p.get("page_from") + " is blank.");
+                String normalized = normalizeFa(source);
+                if (normalized.strip().isEmpty()) throw new IllegalStateException("Normalization quality gate failed: normalized page " + p.get("page_from") + " is blank.");
                 UUID parent = (UUID) p.get("parent_id");
-                UUID artifact = upsertArtifact(executionId, doc, "NORMALIZED_PAGE", "text.normalize.persian", "0.23.6", (Integer) p.get("page_from"), BigDecimal.ONE, normalized, parent);
+                UUID artifact = upsertArtifact(executionId, doc, "NORMALIZED_PAGE", "text.normalize.persian", "0.26.0", (Integer) p.get("page_from"), BigDecimal.ONE, normalized, parent);
                 upsertNode(executionId, artifact, "PAGE", (Integer) p.get("page_from"), "Page " + p.get("page_from"), normalized);
                 count++;
             }
         }
         return count;
     }
+
     private int extractKnowledge(UUID executionId) {
         Versions v = ensureVersions(executionId);
+        jdbc.update("delete from knowledge_extraction_quality where execution_id=?", executionId);
+        jdbc.update("delete from knowledge_semantic_relation where knowledge_version_id=?", v.knowledge);
         jdbc.update("delete from construction_catalog_candidate where catalog_version_id=?", v.catalog);
         jdbc.update("delete from knowledge_rule where knowledge_version_id=?", v.knowledge);
         jdbc.update("delete from knowledge_fact where knowledge_version_id=?", v.knowledge);
@@ -136,39 +142,47 @@ public class KnowledgeFinalPipelineService {
         int facts = 0;
         for (Map<String, Object> n : nodes) {
             String text = Objects.toString(n.get("content"), "");
+            if (text.strip().isEmpty()) throw new IllegalStateException("Knowledge extraction quality gate failed: blank source node " + n.get("id"));
             UUID node = (UUID) n.get("id");
+            Integer page = (Integer) n.get("page_from");
             Matcher m = NUMBER.matcher(text);
             int ordinal = 0;
             while (m.find() && ordinal < 80) {
                 String raw = m.group(1).replace(",", ".");
                 BigDecimal num;
-                try {
-                    num = new BigDecimal(raw);
-                } catch (Exception ex) {
-                    continue;
-                }
+                try { num = new BigDecimal(raw); } catch (Exception ex) { continue; }
                 int from = Math.max(0, m.start() - 70), to = Math.min(text.length(), m.end() + 70);
                 String evidence = text.substring(from, to).replace('\n', ' ').strip();
+                if (evidence.isBlank()) continue;
                 String term = termBefore(text, m.start());
                 if (!term.isBlank()) upsertCandidate(v.catalog, term, node);
                 String key = "AUTO-" + node + "-" + ordinal;
-                jdbc.update("insert into knowledge_fact(id,knowledge_version_id,fact_type,stable_key,predicate,numeric_value,literal_value,confidence,status,source_node_id,metadata_json) values(?,?,'NUMERIC_STATEMENT',?,'HAS_NUMERIC_VALUE',?,?,0.70,'CANDIDATE',?,'{}'::jsonb)", UUID.randomUUID(), v.knowledge, key, num, evidence, node);
-                jdbc.update("insert into knowledge_rule(id,knowledge_version_id,stable_key,operator,numeric_value,text_value,confidence,status,source_node_id) values(?,?,?,'OBSERVED',?,?,0.65,'CANDIDATE',?)", UUID.randomUUID(), v.knowledge, key, num, evidence, node);
-                facts++;
-                ordinal++;
+                UUID factId = UUID.randomUUID();
+                UUID ruleId = UUID.randomUUID();
+                jdbc.update("insert into knowledge_fact(id,knowledge_version_id,fact_type,stable_key,predicate,numeric_value,literal_value,confidence,status,source_node_id,metadata_json) values(?,?,'NUMERIC_STATEMENT',?,'HAS_NUMERIC_VALUE',?,?,0.70,'CANDIDATE',?,'{}'::jsonb)", factId, v.knowledge, key, num, evidence, node);
+                jdbc.update("insert into knowledge_rule(id,knowledge_version_id,stable_key,operator,numeric_value,text_value,confidence,status,source_node_id) values(?,?,?,'OBSERVED',?,?,0.65,'CANDIDATE',?)", ruleId, v.knowledge, key, num, evidence, node);
+                jdbc.update("insert into knowledge_extraction_quality(id,execution_id,rule_id,fact_id,source_node_id,evidence_status,evidence_text,page_number,confidence,metadata_json) values(?,?,?,?,?,'SUPPORTED',?,?,0.70,jsonb_build_object('stableKey',?))", UUID.randomUUID(), executionId, ruleId, factId, node, evidence, page, key);
+                facts++; ordinal++;
             }
         }
+        jdbc.update("insert into knowledge_semantic_relation(id,knowledge_version_id,from_rule_id,to_rule_id,relation_type,confidence,source_node_id,properties_json) select gen_random_uuid(),?,a.id,b.id,'SAME_SOURCE_PAGE',0.75,a.source_node_id,jsonb_build_object('builder','closure-v0.26.0') from knowledge_rule a join knowledge_rule b on b.knowledge_version_id=a.knowledge_version_id and b.source_node_id=a.source_node_id and b.id>a.id where a.knowledge_version_id=? on conflict do nothing", v.knowledge, v.knowledge);
         return facts;
     }
 
     private int validate(UUID executionId) {
         Integer pages = jdbc.queryForObject("select count(*) from knowledge_source_artifact where execution_id=? and artifact_type='NORMALIZED_PAGE'", Integer.class, executionId);
-        if (pages == null || pages == 0)
-            throw new IllegalStateException("Quality gate failed: no normalized pages were produced.");
+        Integer blankPages = jdbc.queryForObject("select count(*) from knowledge_source_artifact where execution_id=? and artifact_type='NORMALIZED_PAGE' and nullif(btrim(coalesce(content,'')),'') is null", Integer.class, executionId);
+        Integer blankOcr = jdbc.queryForObject("select count(*) from knowledge_source_artifact where execution_id=? and artifact_type='OCR_PAGE' and nullif(btrim(coalesce(content,'')),'') is null", Integer.class, executionId);
+        Integer evidence = jdbc.queryForObject("select count(*) from knowledge_extraction_quality where execution_id=? and evidence_status='SUPPORTED' and nullif(btrim(coalesce(evidence_text,'')),'') is not null", Integer.class, executionId);
+        if (pages == null || pages == 0) throw new IllegalStateException("Quality gate failed: no normalized pages were produced.");
+        if (blankPages != null && blankPages > 0) throw new IllegalStateException("Quality gate failed: blank normalized pages=" + blankPages);
+        if (blankOcr != null && blankOcr > 0) throw new IllegalStateException("Quality gate failed: blank OCR pages=" + blankOcr);
+        if (evidence == null || evidence == 0) throw new IllegalStateException("Quality gate failed: no extraction evidence was produced.");
         Versions v = ensureVersions(executionId);
-        jdbc.update("update knowledge_fact set status='VERIFIED' where knowledge_version_id=? and confidence>=0.65", v.knowledge);
-        jdbc.update("update knowledge_rule set status='VERIFIED' where knowledge_version_id=? and confidence>=0.65", v.knowledge);
-        jdbc.update("update construction_catalog_candidate set status='VALIDATED' where catalog_version_id=? and confidence>=0.60", v.catalog);
+        jdbc.update("update knowledge_fact set status='VERIFIED' where knowledge_version_id=? and confidence>=0.65 and source_node_id is not null", v.knowledge);
+        jdbc.update("update knowledge_rule set status='VERIFIED' where knowledge_version_id=? and confidence>=0.65 and source_node_id is not null", v.knowledge);
+        jdbc.update("update construction_catalog_candidate set status='CANDIDATE' where catalog_version_id=? and matched_concept_id is null", v.catalog);
+        jdbc.update("update construction_catalog_candidate set status='VALIDATED' where catalog_version_id=? and matched_concept_id is not null", v.catalog);
         return pages;
     }
 
