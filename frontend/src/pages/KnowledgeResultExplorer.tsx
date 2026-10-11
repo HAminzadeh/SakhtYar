@@ -19,7 +19,7 @@ export function KnowledgeResultExplorer({executionId,status}:{executionId:string
  const normalized=d.pages.filter(x=>x.artifact_type==='NORMALIZED_PAGE').length
  const ocr=d.pages.filter(x=>x.artifact_type==='OCR_PAGE').length
  return <Card title="نتایج واقعی پردازش دانش">
-  <Alert type={d.release?'success':'info'} showIcon message={d.release?`Knowledge Release منتشر شد: ${String(d.release.release_key)}`:'پردازش در حال ساخت Artifactهای واقعی است.'} description="تمام نتایج زیر مستقیماً از Source Store، Knowledge DB، Graph و Release خوانده می‌شوند؛ مرحله Placeholder نمایش داده نمی‌شود."/>
+  <Alert type={d.release?.status==='PUBLISHED'?'success':'warning'} showIcon message={d.release?`Knowledge Release ساخته شد (انتشار فقط با تأیید کارشناس): ${String(d.release.release_key)}`:'پردازش در حال ساخت Artifactهای واقعی است.'} description="تمام نتایج زیر مستقیماً از Source Store، Knowledge DB، Graph و Release خوانده می‌شوند؛ مرحله Placeholder نمایش داده نمی‌شود."/>
   <Row gutter={[12,12]} style={{marginTop:16}}>
    <Col xs={12} md={4}><Statistic title="اسناد" value={d.documents.length}/></Col>
    <Col xs={12} md={4}><Statistic title="صفحات نرمال" value={normalized}/></Col>

@@ -32,6 +32,8 @@ import { ProjectGalleryPanel } from '../features/case/ProjectGalleryPanel'
 import { PropertyPanel } from '../features/case/PropertyPanel'
 import { GlobalLocationSelector } from '../features/case/GlobalLocationSelector'
 
+import { UrbanAnalysisPanel, ConstructionCostPanel, FeasibilityPanel, FinancialAnalysisPanel, ScenarioComparisonPanel } from '../features/case/CaseAnalysisPanels'
+
 type CaseTab =
   | 'overview'
   | 'property'
@@ -39,6 +41,11 @@ type CaseTab =
   | 'documents'
   | 'gallery'
   | 'assistant'
+  | 'urban-analysis'
+  | 'construction-cost'
+  | 'feasibility'
+  | 'financial'
+  | 'comparison'
 
 const localCovers = [
   '/assets/sakhtyar/projects/project-01.jpg',
@@ -235,6 +242,11 @@ const item = caseQuery.data
         />
       ),
     },
+    { key: 'urban-analysis', label: 'تحلیل شهرسازی', children: <UrbanAnalysisPanel caseId={id} /> },
+    { key: 'construction-cost', label: 'هزینه ساخت', children: <ConstructionCostPanel caseId={id} /> },
+    { key: 'feasibility', label: 'امکان‌سنجی', children: <FeasibilityPanel caseId={id} /> },
+    { key: 'financial', label: 'تحلیل مالی', children: <FinancialAnalysisPanel caseId={id} /> },
+    { key: 'comparison', label: 'مقایسه سناریوها', children: <ScenarioComparisonPanel caseId={id} /> },
     ...(canUseAgent
       ? [
           {

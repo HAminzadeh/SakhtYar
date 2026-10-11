@@ -195,7 +195,7 @@ public final class LocalInfrastructureInitializer
         LocalInfrastructureLog.step("[6/6] Checking MinIO...");
         waitForHttp(
                 "MinIO",
-                "http://127.0.0.1:9000/minio/health/live",
+                "http://127.0.0.1:19000/minio/health/live",
                 Duration.ofSeconds(60)
         );
     }

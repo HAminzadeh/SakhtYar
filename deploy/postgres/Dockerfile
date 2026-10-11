@@ -2,8 +2,17 @@ FROM postgres:17-bookworm AS pgvector-builder
 
 ARG PGVECTOR_VERSION=v0.8.1
 
-RUN apt-get update \
-    && apt-get install -y --no-install-recommends \
+# SAKHTYAR_PHASE515_APT_HTTPS_RETRY_V1
+# Use HTTPS for Debian repositories inside Docker.
+RUN set -eu; \
+    for f in /etc/apt/sources.list /etc/apt/sources.list.d/*.list /etc/apt/sources.list.d/*.sources; do \
+      if [ -f "$f" ]; then \
+        sed -i -e 's|http://deb.debian.org|https://deb.debian.org|g' \
+               -e 's|http://security.debian.org|https://security.debian.org|g' "$f"; \
+      fi; \
+    done
+RUN apt-get -o Acquire::Retries=5 -o Acquire::http::Timeout=30 -o Acquire::https::Timeout=30 update \
+    && apt-get -o Acquire::Retries=5 -o Acquire::http::Timeout=30 -o Acquire::https::Timeout=30 install -y --no-install-recommends \
        build-essential \
        ca-certificates \
        git \

@@ -30,6 +30,7 @@ import {useEffect, useMemo, useState} from 'react'
 import type {Key} from 'react'
 import {api} from '../api/client'
 import {KnowledgeResultExplorer} from './KnowledgeResultExplorer'
+import {KnowledgeReviewPanel} from '../features/case/KnowledgeReviewPanel'
 
 type CP = {
   stage_code: string;
@@ -92,7 +93,7 @@ const stages = [
   ['KNOWLEDGE_EXTRACTION', 'استخراج دانش', 'تبدیل متن به دانش ساختاریافته و قابل جست‌وجو', 'Entity، Rule و قطعات دانش تولید می‌شوند.'],
   ['QUALITY_GATE', 'کنترل کیفیت', 'اعتبارسنجی خروجی و جلوگیری از انتشار خروجی ضعیف', 'خطاها و هشدارهای کیفیت را بررسی کنید.'],
   ['DATASET_BUILD', 'ساخت Dataset', 'بسته‌بندی نسخه‌دار خروجی‌های تأییدشده', 'Dataset جدید بدون فعال‌سازی خودکار ساخته می‌شود.'],
-  ['PUBLISH', 'انتشار', 'ثبت و انتشار نسخه نهایی قابل Audit', 'پس از عبور از Gateها نسخه نهایی منتشر می‌شود.'],
+  ['PUBLISH', 'آماده‌سازی نسخه', 'ایجاد نسخه DRAFT برای بازبینی', 'انتشار فقط پس از تأیید مستقل و ثبت تصمیم کارشناس انجام می‌شود.'],
 ] as const
 const stageIndex = (s?: string) => Math.max(0, stages.findIndex(x => x[0] === s))
 const faStatus = (s?: string) => ({
@@ -102,6 +103,7 @@ const faStatus = (s?: string) => ({
   FAILED: 'خطا',
   PAUSED: 'متوقف',
   WAITING_FOR_USER: 'منتظر کاربر',
+  WAITING_FOR_REVIEW: 'منتظر بازبینی کارشناس',
   STOPPING: 'در حال توقف'
 }[s ?? ''] ?? s ?? '—')
 const color = (s?: string) => s === 'COMPLETED' ? 'green' : s === 'FAILED' ? 'red' : s === 'RUNNING' ? 'blue' : s === 'WAITING_FOR_USER' ? 'gold' : 'default'
@@ -197,6 +199,7 @@ export function KnowledgeAdminPage() {
     </Space></Card></Col>
   })
   return <div className="sakhtyar-page-stack" dir="rtl">
+    <KnowledgeReviewPanel/>
     <Card><Space><DatabaseOutlined style={{fontSize: 28}}/>
       <div><Typography.Title level={2} style={{margin: 0}}>دستیار پایدار آماده‌سازی دانش
         ساخت‌یار</Typography.Title><Typography.Text type="secondary">Checkpoint • Resume • Safe Stop • Live Progress •

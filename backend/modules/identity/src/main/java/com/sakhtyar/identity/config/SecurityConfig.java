@@ -168,6 +168,10 @@ http
                 )
                 .authenticationProvider(authenticationProvider)
                 .authorizeHttpRequests(auth -> auth
+                        .requestMatchers("/api/v1/knowledge/admin/governance/**").hasAuthority("USER_MANAGE")
+                        .requestMatchers("/api/v1/regulations/admin/**").hasAuthority("USER_MANAGE")
+                        .requestMatchers(HttpMethod.GET,"/api/v1/regulations/cases/*/verified-evidence").hasAuthority("CASE_READ")
+
                         .requestMatchers(
                                 "/api/v1/health",
                                 "/actuator/health",

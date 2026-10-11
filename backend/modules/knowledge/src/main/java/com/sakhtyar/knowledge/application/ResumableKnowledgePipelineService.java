@@ -113,8 +113,8 @@ public class ResumableKnowledgePipelineService {
     else if("CLASSIFY_DOCUMENTS".equals(stage))classify(id,run);
     else {int processed=finalPipeline.execute(id,run,stage);complete(id,run,stage,processed,0,0);}
    }
-   jdbc.update("update knowledge_intake_execution set status='COMPLETED',current_stage='PUBLISH',error_message=null,finished_at=now(),heartbeat_at=now() where id=?",id);
-   jdbc.update("update knowledge_pipeline_run set status='COMPLETED',stage='PUBLISH',finished_at=now() where id=?",run);
+   jdbc.update("update knowledge_intake_execution set status='WAITING_FOR_REVIEW',current_stage='PUBLISH',error_message=null,finished_at=now(),heartbeat_at=now() where id=?",id);
+   jdbc.update("update knowledge_pipeline_run set status='WAITING_FOR_REVIEW',stage='PUBLISH',finished_at=now() where id=?",run);
   }catch(Exception ex){failExecution(id,ex);}
  }
 

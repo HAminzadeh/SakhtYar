@@ -33,7 +33,7 @@ management:
 
 app:
   storage:
-    endpoint: http://localhost:9000
+    endpoint: http://localhost:19000
     access-key: ${MINIO_ROOT_USER:sakhtyar}
     secret-key: ${MINIO_ROOT_PASSWORD:change-me-minio}
     bucket: ${MINIO_BUCKET:sakhtyar-documents}

@@ -32,6 +32,7 @@
       <groupId>com.sakhtyar</groupId>
       <artifactId>sakhtyar-knowledge</artifactId>
     </dependency>
+    <dependency><groupId>com.sakhtyar</groupId><artifactId>sakhtyar-regulation</artifactId></dependency>
     <dependency>
       <groupId>com.sakhtyar</groupId>
       <artifactId>sakhtyar-globalization</artifactId>

@@ -1,77 +1,106 @@
 name: CI
-
 on:
   push:
-    branches: [main]
+    branches: [main, v2]
   pull_request:
-
+    branches: [main, v2]
+  workflow_dispatch:
+permissions:
+  contents: read
 jobs:
   backend:
     runs-on: ubuntu-latest
-
-    defaults:
-      run:
-        working-directory: backend
-
     steps:
       - uses: actions/checkout@v4
-
-      - name: Set up Java 21
-        uses: actions/setup-java@v4
+      - uses: actions/setup-java@v4
         with:
           distribution: temurin
           java-version: '21'
           cache: maven
-
-      - name: Test backend
-        run: mvn --batch-mode test
-
+          cache-dependency-path: backend/pom.xml
+      - name: Backend tests and compile
+        working-directory: backend
+        run: mvn --batch-mode --no-transfer-progress clean verify
   frontend:
     runs-on: ubuntu-latest
-
-    defaults:
-      run:
-        working-directory: frontend
-
     steps:
       - uses: actions/checkout@v4
-
-      - name: Set up Node 24
-        uses: actions/setup-node@v4
+      - uses: actions/setup-node@v4
         with:
           node-version: '24'
-
-      - name: Install
-        run: npm install
-
-      - name: Build
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+      - name: Install locked dependencies
+        working-directory: frontend
+        run: npm ci
+      - name: TypeScript and Vite build
+        working-directory: frontend
         run: npm run build
-
-
-  compose:
+  golden-and-compose:
     runs-on: ubuntu-latest
-
     steps:
       - uses: actions/checkout@v4
-
-      - name: Validate development compose
-        run: docker compose config >/dev/null
-
-      - name: Validate server compose
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Golden evaluation regression tests
+        run: python scripts/test_phase515.py
+      - name: Validate Golden Dataset draft without claiming expert truth
+        run: python scripts/golden_evaluate.py --validate-only --dataset docs/phase-5/phase-5.15-golden/tehran-golden-draft.json
+      - name: Validate compose syntax without starting production services
         env:
-          SAKHTYAR_DOMAIN: example.com
-          ACME_EMAIL: admin@example.com
+          SAKHTYAR_DOMAIN: example.invalid
+          ACME_EMAIL: ci@example.invalid
+          JAVA_API_OPTS: -Xmx512m
+          JAVA_WORKER_OPTS: -Xmx512m
+          JAVA_COLLECTOR_OPTS: -Xmx512m
+          JAVA_AGENT_OPTS: -Xmx512m
           POSTGRES_DB: sakhtyar
           POSTGRES_USER: sakhtyar
-          POSTGRES_PASSWORD: test-password
-          REDIS_PASSWORD: test-redis
+          POSTGRES_PASSWORD: ci-only-postgres
+          REDIS_PASSWORD: ci-only-redis
           MINIO_ROOT_USER: sakhtyar
-          MINIO_ROOT_PASSWORD: test-minio-password
+          MINIO_ROOT_PASSWORD: ci-only-minio-secret
           MINIO_BUCKET: sakhtyar-documents
           APP_BOOTSTRAP_ADMIN_USERNAME: admin
-          APP_BOOTSTRAP_ADMIN_PASSWORD: test-admin-password
+          APP_BOOTSTRAP_ADMIN_PASSWORD: ci-only-admin
           APP_BOOTSTRAP_ADMIN_DISPLAY_NAME: Admin
-          APP_JWT_SECRET: a-very-long-test-jwt-secret-value-for-ci-only-1234567890
+          APP_JWT_SECRET: ci-only-very-long-unsafe-test-secret-do-not-use-in-production
+          APP_JWT_EXPIRATION_MINUTES: '30'
           GRAFANA_ADMIN_USER: admin
-          GRAFANA_ADMIN_PASSWORD: test-grafana
-        run: docker compose -f docker-compose.server.yml config >/dev/null
+          GRAFANA_ADMIN_PASSWORD: ci-only-grafana
+        run: docker compose -f docker-compose.yml config --quiet
+      - name: Validate Flyway naming and ordering
+        run: python scripts/validate_migrations.py
+  flyway-staging-smoke:
+    runs-on: ubuntu-latest
+    timeout-minutes: 35
+    steps:
+      - uses: actions/checkout@v4
+      - name: Build PostgreSQL 17 with PostGIS and pgvector
+        run: docker build --pull -t sakhtyar-ci-postgres ./deploy/postgres
+      - name: Launch temporary disposable database
+        run: |
+          docker run -d --name sakhtyar-ci-db --network host \
+            -e POSTGRES_DB=sakhtyar -e POSTGRES_USER=sakhtyar \
+            -e POSTGRES_PASSWORD=ci-postgres-only sakhtyar-ci-postgres
+          for i in $(seq 1 40); do
+            if docker exec sakhtyar-ci-db pg_isready -U sakhtyar -d sakhtyar; then exit 0; fi
+            sleep 2
+          done
+          docker logs sakhtyar-ci-db
+          exit 1
+      - name: Execute Flyway SQL against real temporary PostgreSQL
+        run: |
+          docker run --rm --network host \
+            -v "$PWD/backend/app/src/main/resources/db/migration:/flyway/sql:ro" \
+            flyway/flyway:11.15.0 \
+            -url=jdbc:postgresql://127.0.0.1:5432/sakhtyar \
+            -user=sakhtyar -password=ci-postgres-only -connectRetries=30 migrate
+      - name: Verify V45 migration succeeded
+        run: |
+          docker exec sakhtyar-ci-db psql -U sakhtyar -d sakhtyar -tAc \
+            "select count(*) from flyway_schema_history where version='45' and success=true" | grep -q '^1$'
+      - name: Database logs on failure
+        if: failure()
+        run: docker logs sakhtyar-ci-db || true

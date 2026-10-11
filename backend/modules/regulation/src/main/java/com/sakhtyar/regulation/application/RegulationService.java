@@ -27,16 +27,18 @@ public class RegulationService {
     private final KnowledgeSourceRepository sourceRepo;
     private final AuditService auditService;
     private final JurisdictionService jurisdictionService;
+    private final RegulationEvidenceService evidence;
     private final UrbanRuleEvaluator evaluator = new UrbanRuleEvaluator();
 
     public RegulationService(UrbanRuleRepository ruleRepo,UrbanEvaluationRepository evaluationRepo,
             UrbanEvaluationResultRepository resultRepo,PropertyRepository propertyRepo,
             ConstructionScenarioRepository scenarioRepo,KnowledgeSourceRepository sourceRepo,
-            AuditService auditService,JurisdictionService jurisdictionService) {
+            AuditService auditService,JurisdictionService jurisdictionService,RegulationEvidenceService evidence) {
         this.ruleRepo=ruleRepo; this.evaluationRepo=evaluationRepo; this.resultRepo=resultRepo;
         this.propertyRepo=propertyRepo; this.scenarioRepo=scenarioRepo; this.sourceRepo=sourceRepo;
         this.auditService=auditService;
         this.jurisdictionService=jurisdictionService;
+        this.evidence=evidence;
     }
 
     @Transactional(readOnly=true)
@@ -84,11 +86,13 @@ public class RegulationService {
 
         LocalDate today=LocalDate.now();
         Set<UUID> jurisdictionRuleIds=jurisdictionService.matchingUrbanRules(property.getCaseId());
+        Set<UUID> authorizedRuleIds=evidence.authorizedUrbanRuleIds(property.getCaseId());
         List<UrbanRuleEntity> applicable=ruleRepo.findAllByOrderByPriorityAscCodeAsc().stream()
             .filter(UrbanRuleEntity::isActive)
             .filter(x->x.getValidFrom()==null||!today.isBefore(x.getValidFrom()))
             .filter(x->x.getValidTo()==null||!today.isAfter(x.getValidTo()))
             .filter(x->jurisdictionRuleIds.contains(x.getId()))
+            .filter(x->authorizedRuleIds.contains(x.getId()))
             .filter(x->matches(x.getJurisdictionDistrict(),property.getDistrict()))
             .filter(x->matches(x.getPropertyType(),property.getPropertyType()))
             .toList();
@@ -120,7 +124,7 @@ public class RegulationService {
             prepared.add(new PreparedResult(rule,result));
         }
 
-        EvaluationStatus status=fail>0?EvaluationStatus.NON_COMPLIANT:
+        EvaluationStatus status=applicable.isEmpty()?EvaluationStatus.REVIEW_REQUIRED:fail>0?EvaluationStatus.NON_COMPLIANT:
             (review>0?EvaluationStatus.REVIEW_REQUIRED:EvaluationStatus.COMPLIANT);
 
         Map<String,Object> snapshot=new LinkedHashMap<>();
