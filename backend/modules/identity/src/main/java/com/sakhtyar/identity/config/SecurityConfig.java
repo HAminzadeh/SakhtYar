@@ -168,11 +168,31 @@ http
                 )
                 .authenticationProvider(authenticationProvider)
                 .authorizeHttpRequests(auth -> auth
+                        .requestMatchers(HttpMethod.GET, "/api/web/v1/public/**").permitAll()
+                        .requestMatchers(HttpMethod.GET, "/api/web/v1/cases/**").hasAuthority("CASE_READ")
+
+                        .requestMatchers(HttpMethod.POST, "/api/v1/market/observations").hasAuthority("USER_MANAGE")
+                        .requestMatchers(HttpMethod.POST, "/api/v1/market/snapshots").hasAuthority("USER_MANAGE")
+                        .requestMatchers(HttpMethod.GET, "/api/v1/market/**").hasAuthority("CASE_READ")
+
+                        .requestMatchers(HttpMethod.GET, "/api/v1/builders/**").hasAuthority("CASE_READ")
+                        .requestMatchers(HttpMethod.POST, "/api/v1/builders/cases/*/matches").hasAuthority("CASE_READ")
+                        .requestMatchers(HttpMethod.POST, "/api/v1/builders/**").hasAuthority("USER_MANAGE")
+                        .requestMatchers(HttpMethod.PUT, "/api/v1/builders/**").hasAuthority("USER_MANAGE")
+
+                        .requestMatchers(HttpMethod.GET, "/api/v1/contracts/**").hasAuthority("CASE_READ")
+                        .requestMatchers(HttpMethod.POST, "/api/v1/contracts/**").hasAuthority("CASE_WRITE")
+                        .requestMatchers(HttpMethod.PUT, "/api/v1/contracts/**").hasAuthority("CASE_WRITE")
+
+                        .requestMatchers("/api/v1/monitoring/**").hasAuthority("USER_MANAGE")
+                        .requestMatchers("/api/v1/notifications/**").hasAuthority("USER_MANAGE")
+                        .requestMatchers("/api/v1/intelligence/**").hasAuthority("AGENT_USE")
                         .requestMatchers("/api/v1/knowledge/admin/governance/**").hasAuthority("USER_MANAGE")
                         .requestMatchers("/api/v1/regulations/admin/**").hasAuthority("USER_MANAGE")
                         .requestMatchers(HttpMethod.GET,"/api/v1/regulations/cases/*/verified-evidence").hasAuthority("CASE_READ")
 
                         .requestMatchers(
+                                "/error",
                                 "/api/v1/health",
                                 "/actuator/health",
                                 "/actuator/health/**",

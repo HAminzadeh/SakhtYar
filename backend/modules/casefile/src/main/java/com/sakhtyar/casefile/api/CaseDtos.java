@@ -29,6 +29,7 @@ public final class CaseDtos {
 
     public record CaseResponse(
             UUID id,
+            String projectCode,
             String title,
             CaseStatus status,
             String description,
@@ -44,6 +45,7 @@ public final class CaseDtos {
         public static CaseResponse from(CaseEntity entity) {
             return new CaseResponse(
                     entity.getId(),
+                    entity.getProjectCode(),
                     entity.getTitle(),
                     entity.getStatus(),
                     entity.getDescription(),

@@ -27,7 +27,12 @@ public final class LocalInfrastructureInitializer
     public void initialize(ConfigurableApplicationContext applicationContext) {
         ConfigurableEnvironment environment = applicationContext.getEnvironment();
 
-        if (!isLocal(environment)) {
+        if (!isLocal(environment)
+                || !environment.getProperty(
+                        "app.local-infrastructure.enabled",
+                        Boolean.class,
+                        true
+                )) {
             return;
         }
 

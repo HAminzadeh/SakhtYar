@@ -40,6 +40,10 @@
     <module>modules/finance</module>
     <module>modules/sensitivity</module>
     <module>modules/analysis</module>
+        <module>modules/market-intelligence</module>
+        <module>modules/notification</module>
+        <module>modules/monitoring</module>
+        <module>modules/web-bff</module>
     <module>app</module>
   </modules>
   <properties>
@@ -166,6 +170,31 @@
       <dependency>
         <groupId>com.sakhtyar</groupId>
         <artifactId>sakhtyar-analysis</artifactId>
+        <version>${project.version}</version>
+      </dependency>
+      <dependency>
+        <groupId>com.sakhtyar</groupId>
+        <artifactId>sakhtyar-intelligence</artifactId>
+        <version>${project.version}</version>
+      </dependency>
+      <dependency>
+        <groupId>com.sakhtyar</groupId>
+        <artifactId>sakhtyar-market-intelligence</artifactId>
+        <version>${project.version}</version>
+      </dependency>
+      <dependency>
+        <groupId>com.sakhtyar</groupId>
+        <artifactId>sakhtyar-notification</artifactId>
+        <version>${project.version}</version>
+      </dependency>
+      <dependency>
+        <groupId>com.sakhtyar</groupId>
+        <artifactId>sakhtyar-monitoring</artifactId>
+        <version>${project.version}</version>
+      </dependency>
+      <dependency>
+        <groupId>com.sakhtyar</groupId>
+        <artifactId>sakhtyar-web-bff</artifactId>
         <version>${project.version}</version>
       </dependency>
       <dependency>

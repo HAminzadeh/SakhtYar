@@ -7,6 +7,7 @@ import com.sakhtyar.casefile.domain.CaseEntity;
 import com.sakhtyar.casefile.domain.CaseRepository;
 import java.time.Instant;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 import java.util.UUID;
 import org.springframework.security.core.Authentication;
@@ -44,8 +45,17 @@ public class CaseService {
     ) {
         Instant now = Instant.now();
 
+        UUID caseId = UUID.randomUUID();
+
+        String projectCode =
+                "SYF-" +
+                caseId.toString()
+                        .replace("-", "")
+                        .toUpperCase(Locale.ROOT);
+
         CaseEntity entity = new CaseEntity(
-                UUID.randomUUID(),
+                caseId,
+                projectCode,
                 request.title().trim(),
                 request.status(),
                 request.description(),
@@ -59,7 +69,10 @@ public class CaseService {
                 now
         );
 
-        repository.save(entity);
+        // Flush the business row before writing the REQUIRES_NEW audit event.
+        // This prevents CASE_CREATED audit records for inserts that later fail
+        // because of a database constraint.
+        repository.saveAndFlush(entity);
 
         auditService.record(
                 "CASE",

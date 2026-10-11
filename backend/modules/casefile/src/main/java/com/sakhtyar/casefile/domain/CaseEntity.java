@@ -17,6 +17,9 @@ public class CaseEntity {
     @Id
     private UUID id;
 
+    @Column(name = "project_code", nullable = false, unique = true, length = 40, updatable = false)
+    private String projectCode;
+
     @Column(nullable = false, length = 250)
     private String title;
 
@@ -56,6 +59,7 @@ public class CaseEntity {
 
     public CaseEntity(
             UUID id,
+            String projectCode,
             String title,
             CaseStatus status,
             String description,
@@ -69,6 +73,7 @@ public class CaseEntity {
             Instant updatedAt
     ) {
         this.id = id;
+        this.projectCode = projectCode;
         this.title = title;
         this.status = status;
         this.description = description;
@@ -117,6 +122,7 @@ public class CaseEntity {
     }
 
     public UUID getId() { return id; }
+    public String getProjectCode() { return projectCode; }
     public String getTitle() { return title; }
     public CaseStatus getStatus() { return status; }
     public String getDescription() { return description; }
