@@ -36,7 +36,9 @@ public class NotificationService {
         return jdbc.query("""
           select id,channel,target,subject,body,status,attempt_count,last_error,metadata,created_at,sent_at
           from notification_outbox where status in ('PENDING','FAILED')
-          order by created_at asc limit """+safe,(rs,row)->map(rs));
+          order by created_at asc
+          limit ?
+          """,(rs,row)->map(rs),safe);
     }
 
     @Transactional(readOnly=true)
