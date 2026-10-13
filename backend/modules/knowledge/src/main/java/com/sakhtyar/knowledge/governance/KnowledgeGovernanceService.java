@@ -18,7 +18,7 @@ public class KnowledgeGovernanceService {
     public List<Map<String,Object>> pending(int limit) {
         return jdbc.queryForList("""
             select r.id,r.stable_key,r.numeric_value,r.text_value,r.status,n.page_from,
-                   d.original_name,d.sha256
+                   coalesce(nullif(d.filename,''),d.canonical_path) as original_name,d.sha256
               from knowledge_rule r join knowledge_source_node n on n.id=r.source_node_id
               join knowledge_source_artifact a on a.id=n.artifact_id
               join knowledge_source_document d on d.id=a.document_id

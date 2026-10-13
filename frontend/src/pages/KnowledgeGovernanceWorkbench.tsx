@@ -25,7 +25,11 @@ const categories: {value: Category; label: string}[] = [
   {value: 'UNCLASSIFIED', label: 'طبقه‌بندی‌نشده'},
 ]
 const categoryName = (key?: string) => categories.find(x => x.value === key)?.label ?? (key || '—')
-const ruleStatus = (value?: string) => value === 'VERIFIED' ? 'تأیید کارشناسی' : value === 'REJECTED' ? 'رد شده' : 'در انتظار بررسی'
+const ruleStatus = (value?: string, decision?: string) =>
+  decision === 'APPROVED' && value === 'VERIFIED' ? 'تأیید کارشناسی ثبت‌شده' :
+  decision === 'REJECTED' && value === 'REJECTED' ? 'رد کارشناسی ثبت‌شده' :
+  value === 'VERIFIED' ? 'VERIFIED بدون سابقه تأیید انسانی' :
+  value === 'REJECTED' ? 'REJECTED بدون سابقه رد انسانی' : 'در انتظار بررسی'
 const catOptions = [{value:'ALL',label:'همه دسته‌ها'}, ...categories]
 
 export function KnowledgeGovernanceWorkbench({mode, executionId, onReviewRule}: {
@@ -88,7 +92,7 @@ export function KnowledgeGovernanceWorkbench({mode, executionId, onReviewRule}: 
         <Select style={{minWidth:190}} value={category} options={catOptions} onChange={v=>{setCategory(v);resetPage()}} />
         {mode === 'rules' && <Select style={{minWidth:170}} value={status} onChange={v=>{setStatus(v);resetPage()}}
           options={[{value:'ALL',label:'همه وضعیت‌ها'},{value:'CANDIDATE',label:'در انتظار بررسی'},
-            {value:'VERIFIED',label:'تأیید کارشناسی'},{value:'REJECTED',label:'رد شده'}]}/>}
+            {value:'VERIFIED',label:'VERIFIED (با/بدون سابقه بررسی)'},{value:'REJECTED',label:'رد شده'}]}/>}
         <Tag>مجموع: {query.data?.total ?? 0}</Tag>
       </Space>
       {query.isError && <Alert showIcon type="error" style={{marginBottom:12}}
@@ -122,7 +126,7 @@ export function KnowledgeGovernanceWorkbench({mode, executionId, onReviewRule}: 
           {title:'صفحه PDF',dataIndex:'page_from',width:100},
           {title:'عدد',dataIndex:'numeric_value',width:105,render:v=>v??'—'},
           {title:'عملگر',dataIndex:'operator',width:105},
-          {title:'وضعیت',dataIndex:'status',width:165,render:v=><Tag color={v==='VERIFIED'?'green':v==='REJECTED'?'red':'gold'}>{ruleStatus(v)}</Tag>},
+          {title:'وضعیت',dataIndex:'status',width:210,render:(_,r)=><Tag color={r.decision==='APPROVED' && r.status==='VERIFIED'?'green':r.decision==='REJECTED' && r.status==='REJECTED'?'red':'gold'}>{ruleStatus(r.status,r.decision)}</Tag>},
           {title:'بازبین',dataIndex:'reviewer',width:140,render:v=>v??'—'},
           {title:'بررسی',width:130,render:(_,r)=><Button size="small" disabled={r.status !== 'CANDIDATE' || r.category !== 'LAW'} onClick={()=>onReviewRule?.(r)}>بازبینی</Button>},
         ]} expandable={{expandedRowRender:r=><Space direction="vertical" style={{width:'100%'}}>
