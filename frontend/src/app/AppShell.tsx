@@ -9,7 +9,8 @@ import {
   BookOutlined,
   QuestionCircleOutlined,
 } from '@ant-design/icons'
-import {
+import {  Dropdown,
+
   Avatar,
   Badge,
   Button,
@@ -134,6 +135,16 @@ export function AppShell() {
           >
             حساب من
           </Button>
+          <Dropdown menu={{items: [
+            ...(hasPermission('CASE_READ') ? [{key:'market',label:'ØªØ­Ù„ÛŒÙ„ Ø¨Ø§Ø²Ø§Ø±',onClick:()=>navigate('/market')}] : []),
+            ...(hasPermission('USER_MANAGE') ? [
+              {key:'builders',label:'Ù…Ø¯ÛŒØ±ÛŒØª Ø³Ø§Ø²Ù†Ø¯Ú¯Ø§Ù†',onClick:()=>navigate('/admin/builders')},
+              {key:'events',label:'Ù…Ø§Ù†ÛŒØªÙˆØ±ÛŒÙ†Ú¯ Ùˆ Ø§Ø¹Ù„Ø§Ù†â€ŒÙ‡Ø§',onClick:()=>navigate('/admin/events')},
+            ] : []),
+            ...(hasPermission('AGENT_USE') ? [{key:'intelligence',label:'Ø±Ø¬ÛŒØ³ØªØ±ÛŒ Ù‡ÙˆØ´Ù…Ù†Ø¯ÛŒ',onClick:()=>navigate('/intelligence')}] : []),
+          ]}} trigger={['click']}>
+            <Button>Ø®Ø¯Ù…Ø§Øª Ù‡ÙˆØ´Ù…Ù†Ø¯</Button>
+          </Dropdown>
         </nav>
 
         <div className="sakhtyar-profile-panel">

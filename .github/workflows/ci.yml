@@ -97,10 +97,10 @@ jobs:
             flyway/flyway:11.15.0 \
             -url=jdbc:postgresql://127.0.0.1:5432/sakhtyar \
             -user=sakhtyar -password=ci-postgres-only -connectRetries=30 migrate
-      - name: Verify V45 migration succeeded
+      - name: Verify V45 and V46 migrations succeeded
         run: |
           docker exec sakhtyar-ci-db psql -U sakhtyar -d sakhtyar -tAc \
-            "select count(*) from flyway_schema_history where version='45' and success=true" | grep -q '^1$'
+            "select count(*) from flyway_schema_history where version in ('45','46') and success=true" | grep -q '^2$'
       - name: Database logs on failure
         if: failure()
         run: docker logs sakhtyar-ci-db || true

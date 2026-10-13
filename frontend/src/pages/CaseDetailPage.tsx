@@ -34,6 +34,7 @@ import { GlobalLocationSelector } from '../features/case/GlobalLocationSelector'
 
 import { UrbanAnalysisPanel, ConstructionCostPanel, FeasibilityPanel, FinancialAnalysisPanel, ScenarioComparisonPanel } from '../features/case/CaseAnalysisPanels'
 
+import { Phase517BuilderMatchPanel, Phase517ContractsPanel } from '../features/case/Phase517CasePanels'
 type CaseTab =
   | 'overview'
   | 'property'
@@ -46,6 +47,8 @@ type CaseTab =
   | 'feasibility'
   | 'financial'
   | 'comparison'
+  | 'builder-matching'
+  | 'contracts'
 
 const localCovers = [
   '/assets/sakhtyar/projects/project-01.jpg',
@@ -247,6 +250,8 @@ const item = caseQuery.data
     { key: 'feasibility', label: 'امکان‌سنجی', children: <FeasibilityPanel caseId={id} /> },
     { key: 'financial', label: 'تحلیل مالی', children: <FinancialAnalysisPanel caseId={id} /> },
     { key: 'comparison', label: 'مقایسه سناریوها', children: <ScenarioComparisonPanel caseId={id} /> },
+    { key: 'builder-matching', label: 'ØªØ·Ø¨ÛŒÙ‚ Ø³Ø§Ø²Ù†Ø¯Ú¯Ø§Ù†', children: <Phase517BuilderMatchPanel caseId={id} /> },
+    { key: 'contracts', label: 'Ù‚Ø±Ø§Ø±Ø¯Ø§Ø¯Ù‡Ø§', children: <Phase517ContractsPanel caseId={id} /> },
     ...(canUseAgent
       ? [
           {

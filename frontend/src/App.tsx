@@ -15,6 +15,11 @@ import { AiManagementPage } from './pages/AiManagementPage'
 import { OperationsPage } from './pages/OperationsPage'
 import { KnowledgeAdminPage } from './pages/KnowledgeAdminPage'
 
+import { Phase517MarketPage } from './pages/Phase517MarketPage'
+import { Phase517BuildersPage } from './pages/Phase517BuildersPage'
+import { Phase517EventsPage } from './pages/Phase517EventsPage'
+import { Phase517AgentsPage } from './pages/Phase517AgentsPage'
+
 export default function App() {
   return (
     <Routes>
@@ -33,10 +38,16 @@ export default function App() {
           <Route element={<PermissionRoute permission="CASE_READ" />}>
             <Route path="/cases" element={<CasesPage />} />
             <Route path="/cases/:id" element={<CaseDetailPage />} />
+            <Route path="/market" element={<Phase517MarketPage />} />
           </Route>
 
           <Route element={<PermissionRoute permission="USER_MANAGE" />}>
             <Route path="/admin/users" element={<UsersPage />} />
+            <Route path="/admin/builders" element={<Phase517BuildersPage />} />
+            <Route path="/admin/events" element={<Phase517EventsPage />} />
+          </Route>
+          <Route element={<PermissionRoute permission="AGENT_USE" />}>
+            <Route path="/intelligence" element={<Phase517AgentsPage />} />
           </Route>
           <Route element={<PermissionRoute permission="AI_MANAGE" />}>
             <Route path="/admin/ai" element={<AiManagementPage />} />

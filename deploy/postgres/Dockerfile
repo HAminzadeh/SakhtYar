@@ -2,6 +2,13 @@ FROM postgres:17-bookworm AS pgvector-builder
 
 ARG PGVECTOR_VERSION=v0.8.1
 
+# SAKHTYAR_PHASE517_CA_BOOTSTRAP_V1
+# Bootstrap the signed Debian APT metadata over HTTP to install CA roots,
+# then upgrade the transport to TLS. Do not disable signature/TLS verification.
+RUN set -eu; \
+    apt-get -o Acquire::Retries=5 update; \
+    apt-get install -y --no-install-recommends ca-certificates; \
+    rm -rf /var/lib/apt/lists/*
 # SAKHTYAR_PHASE515_APT_HTTPS_RETRY_V1
 # Use HTTPS for Debian repositories inside Docker.
 RUN set -eu; \

@@ -169,6 +169,7 @@ http
                 .authenticationProvider(authenticationProvider)
                 .authorizeHttpRequests(auth -> auth
                         .requestMatchers(HttpMethod.GET, "/api/web/v1/public/**").permitAll()
+                        .requestMatchers(HttpMethod.GET, "/api/web/v1/market/**").hasAuthority("CASE_READ")
                         .requestMatchers(HttpMethod.GET, "/api/web/v1/cases/**").hasAuthority("CASE_READ")
 
                         .requestMatchers(HttpMethod.POST, "/api/v1/market/observations").hasAuthority("USER_MANAGE")
