@@ -48,6 +48,14 @@ public class KnowledgeGovernanceService {
             throw new IllegalStateException("Rule cannot be reviewed in current state");
         Integer releases=jdbc.queryForObject("select count(*) from knowledge_release where knowledge_version_id=? and status='PUBLISHED'",Integer.class,row.get("knowledge_version_id"));
         if(releases != null && releases>0) throw new IllegalStateException("Published release is immutable");
+        // Phase518: legal classification guard. Presence of a number is not legal validity.
+        if ("APPROVED".equals(req.decision())) {
+            Integer legalDoc = jdbc.queryForObject(
+                    "select count(*) from knowledge_document_classification where document_id=? and category='LAW'",
+                    Integer.class, row.get("document_id"));
+            if (legalDoc == null || legalDoc == 0)
+                throw new IllegalStateException("Document must be independently classified as LAW before rule approval");
+        }
         if("APPROVED".equals(req.decision())) {
             require(req.subjectCode(),"subjectCode"); require(req.unitCode(),"unitCode");
             require(req.country(),"country"); require(req.city(),"city"); require(req.sourceAuthority(),"sourceAuthority");
@@ -104,6 +112,17 @@ public class KnowledgeGovernanceService {
            select count(*) from knowledge_rule r join knowledge_rule_review v on v.rule_id=r.id
            where r.knowledge_version_id=? and v.decision='APPROVED' and r.status='VERIFIED'
            """,Integer.class,version);
+        // Phase518: verified rules from non-legal documents must never be published.
+        Integer invalidLegal = jdbc.queryForObject("""
+            select count(*) from knowledge_rule r
+            join knowledge_source_node n on n.id=r.source_node_id
+            join knowledge_source_artifact a on a.id=n.artifact_id
+            left join knowledge_document_classification c on c.document_id=a.document_id
+            where r.knowledge_version_id=? and r.status='VERIFIED' and
+                  (c.category is distinct from 'LAW')
+            """, Integer.class, version);
+        if (invalidLegal != null && invalidLegal > 0)
+            throw new IllegalStateException("Release includes verified rules from unclassified or non-legal documents");
         if(pending==null || pending>0 || approved==null || approved<1)
             throw new IllegalStateException("Cannot publish: all candidate rules require individual review and at least one approved rule");
         // The graph was prepared when these rules were only candidates. Add reviewed edges now.

@@ -9,8 +9,8 @@ import {
   BookOutlined,
   QuestionCircleOutlined,
 } from '@ant-design/icons'
-import {  Dropdown,
-
+import {
+  Dropdown,
   Avatar,
   Badge,
   Button,
@@ -123,7 +123,7 @@ export function AppShell() {
             </Button>
           )}
           <Button type={active('/help') ? 'primary' : 'default'} icon={<QuestionCircleOutlined />} onClick={() => navigate('/help')}>
-            آلوزش
+            آموزش
           </Button>
 
           <Button
@@ -136,14 +136,14 @@ export function AppShell() {
             حساب من
           </Button>
           <Dropdown menu={{items: [
-            ...(hasPermission('CASE_READ') ? [{key:'market',label:'ØªØ­Ù„ÛŒÙ„ Ø¨Ø§Ø²Ø§Ø±',onClick:()=>navigate('/market')}] : []),
+            ...(hasPermission('CASE_READ') ? [{key:'market',label:'تحلیل بازار',onClick:()=>navigate('/market')}] : []),
             ...(hasPermission('USER_MANAGE') ? [
-              {key:'builders',label:'Ù…Ø¯ÛŒØ±ÛŒØª Ø³Ø§Ø²Ù†Ø¯Ú¯Ø§Ù†',onClick:()=>navigate('/admin/builders')},
-              {key:'events',label:'Ù…Ø§Ù†ÛŒØªÙˆØ±ÛŒÙ†Ú¯ Ùˆ Ø§Ø¹Ù„Ø§Ù†â€ŒÙ‡Ø§',onClick:()=>navigate('/admin/events')},
+              {key:'builders',label:'مدیریت سازندگان',onClick:()=>navigate('/admin/builders')},
+              {key:'events',label:'مانیتورینگ و اعلان‌ها',onClick:()=>navigate('/admin/events')},
             ] : []),
-            ...(hasPermission('AGENT_USE') ? [{key:'intelligence',label:'Ø±Ø¬ÛŒØ³ØªØ±ÛŒ Ù‡ÙˆØ´Ù…Ù†Ø¯ÛŒ',onClick:()=>navigate('/intelligence')}] : []),
+            ...(hasPermission('AGENT_USE') ? [{key:'intelligence',label:'رجیستری هوشمندی',onClick:()=>navigate('/intelligence')}] : []),
           ]}} trigger={['click']}>
-            <Button>Ø®Ø¯Ù…Ø§Øª Ù‡ÙˆØ´Ù…Ù†Ø¯</Button>
+            <Button>خدمات هوشمند</Button>
           </Dropdown>
         </nav>
 

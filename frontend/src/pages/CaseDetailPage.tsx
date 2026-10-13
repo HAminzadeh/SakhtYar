@@ -250,8 +250,8 @@ const item = caseQuery.data
     { key: 'feasibility', label: 'امکان‌سنجی', children: <FeasibilityPanel caseId={id} /> },
     { key: 'financial', label: 'تحلیل مالی', children: <FinancialAnalysisPanel caseId={id} /> },
     { key: 'comparison', label: 'مقایسه سناریوها', children: <ScenarioComparisonPanel caseId={id} /> },
-    { key: 'builder-matching', label: 'ØªØ·Ø¨ÛŒÙ‚ Ø³Ø§Ø²Ù†Ø¯Ú¯Ø§Ù†', children: <Phase517BuilderMatchPanel caseId={id} /> },
-    { key: 'contracts', label: 'Ù‚Ø±Ø§Ø±Ø¯Ø§Ø¯Ù‡Ø§', children: <Phase517ContractsPanel caseId={id} /> },
+    { key: 'builder-matching', label: 'تطبیق سازندگان', children: <Phase517BuilderMatchPanel caseId={id} /> },
+    { key: 'contracts', label: 'قراردادها', children: <Phase517ContractsPanel caseId={id} /> },
     ...(canUseAgent
       ? [
           {

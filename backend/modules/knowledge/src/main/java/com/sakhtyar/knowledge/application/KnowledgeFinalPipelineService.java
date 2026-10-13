@@ -116,14 +116,40 @@ public class KnowledgeFinalPipelineService {
         for (Map<String, Object> d : docs) {
             UUID doc = (UUID) d.get("document_id");
             if (doc == null) continue;
-            List<Map<String, Object>> pages = jdbc.queryForList("select r.page_from,coalesce(nullif(btrim(o.content),''),r.content) content,case when nullif(btrim(o.content),'') is null then r.id else o.id end parent_id from knowledge_source_artifact r left join knowledge_source_artifact o on o.execution_id=r.execution_id and o.document_id=r.document_id and o.page_from=r.page_from and o.artifact_type='OCR_PAGE' where r.execution_id=? and r.document_id=? and r.artifact_type='RAW_PAGE' order by r.page_from", executionId, doc);
+            // Phase5181: quality-aware OCR selection. Keep meaningful native text if OCR regresses.
+            // Example from actual PDF audit: page 67 native=64 chars / 0.16; OCR=12 chars / 0.045.
+            List<Map<String, Object>> pages = jdbc.queryForList("""
+                select r.page_from,
+                       case when pick.use_ocr then o.content else r.content end as content,
+                       case when pick.use_ocr then o.id else r.id end as parent_id,
+                       case when pick.use_ocr then coalesce(o.quality_score,0)
+                            else coalesce(r.quality_score,0) end as source_quality
+                  from knowledge_source_artifact r
+                  left join lateral (
+                    select x.id,x.content,x.quality_score
+                      from knowledge_source_artifact x
+                     where x.execution_id=r.execution_id and x.document_id=r.document_id
+                       and x.page_from=r.page_from and x.artifact_type='OCR_PAGE'
+                     order by x.quality_score desc nulls last,x.created_at desc limit 1
+                  ) o on true
+                  cross join lateral (
+                    select nullif(btrim(o.content),'') is not null and
+                           (nullif(btrim(r.content),'') is null or
+                            (coalesce(o.quality_score,0)>coalesce(r.quality_score,0) and
+                             length(btrim(o.content))>=greatest(16,length(btrim(coalesce(r.content,'')))/2))) as use_ocr
+                  ) pick
+                 where r.execution_id=? and r.document_id=? and r.artifact_type='RAW_PAGE'
+                 order by r.page_from
+                """, executionId, doc);
             for (Map<String, Object> p : pages) {
                 String source = Objects.toString(p.get("content"), "");
                 if (source.strip().isEmpty()) throw new IllegalStateException("Normalization quality gate failed: source page " + p.get("page_from") + " is blank.");
                 String normalized = normalizeFa(source);
                 if (normalized.strip().isEmpty()) throw new IllegalStateException("Normalization quality gate failed: normalized page " + p.get("page_from") + " is blank.");
                 UUID parent = (UUID) p.get("parent_id");
-                UUID artifact = upsertArtifact(executionId, doc, "NORMALIZED_PAGE", "text.normalize.persian", "0.26.0", (Integer) p.get("page_from"), BigDecimal.ONE, normalized, parent);
+                // Preserve source quality: normalization is not evidence that OCR was accurate.
+                BigDecimal inheritedQuality = (BigDecimal) p.get("source_quality");
+                UUID artifact = upsertArtifact(executionId, doc, "NORMALIZED_PAGE", "text.normalize.persian", "0.26.1", (Integer) p.get("page_from"), inheritedQuality == null ? BigDecimal.ZERO : inheritedQuality, normalized, parent);
                 upsertNode(executionId, artifact, "PAGE", (Integer) p.get("page_from"), "Page " + p.get("page_from"), normalized);
                 count++;
             }
@@ -147,7 +173,10 @@ public class KnowledgeFinalPipelineService {
             Integer page = (Integer) n.get("page_from");
             Matcher m = NUMBER.matcher(text);
             int ordinal = 0;
-            while (m.find() && ordinal < 80) {
+            while (m.find()) {
+                if (ordinal >= 2000) {
+                    throw new IllegalStateException("Numeric candidate safety limit exceeded on page " + page + "; split the source rather than silently truncating it.");
+                }
                 String raw = m.group(1).replace(",", ".");
                 BigDecimal num;
                 try { num = new BigDecimal(raw); } catch (Exception ex) { continue; }
@@ -159,13 +188,14 @@ public class KnowledgeFinalPipelineService {
                 String key = "AUTO-" + node + "-" + ordinal;
                 UUID factId = UUID.randomUUID();
                 UUID ruleId = UUID.randomUUID();
-                jdbc.update("insert into knowledge_fact(id,knowledge_version_id,fact_type,stable_key,predicate,numeric_value,literal_value,confidence,status,source_node_id,metadata_json) values(?,?,'NUMERIC_STATEMENT',?,'HAS_NUMERIC_VALUE',?,?,0.70,'CANDIDATE',?,'{}'::jsonb)", factId, v.knowledge, key, num, evidence, node);
+                jdbc.update("insert into knowledge_fact(id,knowledge_version_id,fact_type,stable_key,predicate,numeric_value,literal_value,confidence,status,source_node_id,metadata_json) values(?,?,'NUMERIC_STATEMENT',?,'HAS_NUMERIC_VALUE',?,?,0.70,'CANDIDATE',?,jsonb_build_object('rawToken',?,'charOffset',?,'pageNumber',?,'kind','NUMERIC_OBSERVATION'))", factId, v.knowledge, key, num, evidence, node, m.group(1), m.start(), page);
                 jdbc.update("insert into knowledge_rule(id,knowledge_version_id,stable_key,operator,numeric_value,text_value,confidence,status,source_node_id) values(?,?,?,'OBSERVED',?,?,0.65,'CANDIDATE',?)", ruleId, v.knowledge, key, num, evidence, node);
                 jdbc.update("insert into knowledge_extraction_quality(id,execution_id,rule_id,fact_id,source_node_id,evidence_status,evidence_text,page_number,confidence,metadata_json) values(?,?,?,?,?,'SUPPORTED',?,?,0.70,jsonb_build_object('stableKey',?))", UUID.randomUUID(), executionId, ruleId, factId, node, evidence, page, key);
                 facts++; ordinal++;
             }
         }
-        jdbc.update("insert into knowledge_semantic_relation(id,knowledge_version_id,from_rule_id,to_rule_id,relation_type,confidence,source_node_id,properties_json) select gen_random_uuid(),?,a.id,b.id,'SAME_SOURCE_PAGE',0.75,a.source_node_id,jsonb_build_object('builder','closure-v0.26.0') from knowledge_rule a join knowledge_rule b on b.knowledge_version_id=a.knowledge_version_id and b.source_node_id=a.source_node_id and b.id>a.id where a.knowledge_version_id=? on conflict do nothing", v.knowledge, v.knowledge);
+        // Phase5181: DO NOT fabricate semantic links from pairs of numbers on the same page.
+        // Legal relations must be typed, source-backed, and separately validated.
         return facts;
     }
 

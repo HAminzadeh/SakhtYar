@@ -12,6 +12,7 @@ import {
   Row,
   Space,
   Statistic,
+  Tabs,
   Table,
   Tag,
   Typography
@@ -26,11 +27,14 @@ import {
   SearchOutlined
 } from '@ant-design/icons'
 import {useMutation, useQuery} from '@tanstack/react-query'
-import {useEffect, useMemo, useState} from 'react'
+import {useEffect, useMemo, useRef, useState} from 'react'
 import type {Key} from 'react'
 import {api} from '../api/client'
 import {KnowledgeResultExplorer} from './KnowledgeResultExplorer'
 import {KnowledgeReviewPanel} from '../features/case/KnowledgeReviewPanel'
+import {KnowledgeGovernanceWorkbench} from './KnowledgeGovernanceWorkbench'
+import type {RuleRow} from './KnowledgeGovernanceWorkbench'
+import {ContextHelp} from '../ui/ContextHelp'
 
 type CP = {
   stage_code: string;
@@ -117,6 +121,9 @@ export function KnowledgeAdminPage() {
   const [selectionCategory, setSelectionCategory] = useState('ALL')
   const [browsePath, setBrowsePath] = useState('DocumentationOfLawsAndRegulations')
   const [now, setNow] = useState(Date.now())
+  const [selectedReviewRule, setSelectedReviewRule] = useState<RuleRow | null>(null)
+  const [knowledgeTab, setKnowledgeTab] = useState(() => localStorage.getItem('knowledgeExecutionId') ? 'overview' : 'source')
+  const openedInventoryFor = useRef<string | null>(null)
   useEffect(() => {
     const t = setInterval(() => setNow(Date.now()), 1000);
     return () => clearInterval(t)
@@ -136,6 +143,12 @@ export function KnowledgeAdminPage() {
     queryFn: () => api<State>(`/api/v1/knowledge/admin/pipeline/${id}`),
     refetchInterval: q => ['RUNNING', 'STOPPING', 'WAITING_FOR_USER'].includes((q.state.data as State | undefined)?.status ?? '') ? 1000 : 3000
   })
+  useEffect(() => {
+    if (id && state.data?.status === 'WAITING_FOR_USER' && openedInventoryFor.current !== id) {
+      openedInventoryFor.current = id
+      setKnowledgeTab('documents')
+    }
+  }, [id, state.data?.status])
   const events = useQuery({
     queryKey: ['kp-events', id],
     enabled: !!id,
@@ -151,13 +164,19 @@ export function KnowledgeAdminPage() {
       body: x.body ? JSON.stringify(x.body) : undefined
     }), onSuccess: r => {
       setId(r.id);
+      setKnowledgeTab('overview');
       localStorage.setItem('knowledgeExecutionId', r.id);
       void state.refetch();
       void recent.refetch();
       void events.refetch()
     }, onError: e => message.error(e instanceof Error ? e.message : 'عملیات ناموفق')
   })
-  const start = () => call.mutate({url: '/api/v1/knowledge/admin/pipeline/start', body: {sourceRoot: source}})
+  const start = () => {
+    const folder = browsePath.trim()
+    if (!folder) { message.error('ابتدا پوشه منبع را انتخاب کنید.'); return }
+    setSource(folder)
+    call.mutate({url: '/api/v1/knowledge/admin/pipeline/start', body: {sourceRoot: folder}})
+  }
   const cpMap = useMemo(() => new Map((state.data?.checkpoints ?? []).map(x => [x.stage_code, x])), [state.data?.checkpoints])
   const ordered = stages.map(s => cpMap.get(s[0]) ?? {
     stage_code: s[0],
@@ -199,16 +218,35 @@ export function KnowledgeAdminPage() {
     </Space></Card></Col>
   })
   return <div className="sakhtyar-page-stack" dir="rtl">
-    <KnowledgeReviewPanel/>
+
     <Card><Space><DatabaseOutlined style={{fontSize: 28}}/>
       <div><Typography.Title level={2} style={{margin: 0}}>دستیار پایدار آماده‌سازی دانش
         ساخت‌یار</Typography.Title><Typography.Text type="secondary">Checkpoint • Resume • Safe Stop • Live Progress •
         Durable Log</Typography.Text></div>
     </Space></Card>
-    {!id ? <><Card title="۱. انتخاب پوشه اسناد"><Alert showIcon type="info"
+    <Tabs activeKey={knowledgeTab} onChange={setKnowledgeTab} items={(id ? [
+      {key:'overview',label:'وضعیت و پیشرفت'},
+      {key:'documents',label:'اسناد و انتخاب'},
+      {key:'logs',label:'لاگ و Checkpoint'},
+      {key:'results',label:'نتایج و خروجی'},
+      {key:'review',label:'بازبینی و تأیید'},
+      {key:'rules',label:'قوانین استخراج‌شده'},
+      {key:'categories',label:'دسته‌بندی اسناد'}
+    ] : [
+      {key:'source',label:'پوشه و اجرا'},
+      {key:'history',label:'اجراهای اخیر'},
+      {key:'review',label:'بازبینی و تأیید'},
+      {key:'rules',label:'قوانین استخراج‌شده'},
+      {key:'categories',label:'دسته‌بندی اسناد'}
+    ])} />
+    <ContextHelp topic="knowledge" />
+    {knowledgeTab === 'review' && <KnowledgeReviewPanel reviewRule={selectedReviewRule ?? undefined}/>}
+    {knowledgeTab === 'rules' && <KnowledgeGovernanceWorkbench mode="rules" executionId={id ?? undefined} onReviewRule={rule => {setSelectedReviewRule(rule);setKnowledgeTab('review')}}/>}
+    {knowledgeTab === 'categories' && <KnowledgeGovernanceWorkbench mode="documents"/>}
+    {!id ? <>{knowledgeTab === 'source' && <Card title="۱. انتخاب پوشه اسناد"><Alert showIcon type="info"
                                                        message="ابتدا فقط اسناد کشف، Hash و طبقه‌بندی می‌شوند."
                                                        description="OCR و پردازش اصلی تا زمانی که خودتان اسناد موردنظر را تیک نزنید شروع نمی‌شود."/><Space.Compact
-      style={{width: '100%', marginTop: 12}}><Input value={browsePath} onChange={e => setBrowsePath(e.target.value)}
+      style={{width: '100%', marginTop: 12}}><Input value={browsePath} onChange={e => {setBrowsePath(e.target.value); setSource(e.target.value)}}
                                                     onPressEnter={() => void folders.refetch()}/><Button
       icon={<FolderOpenOutlined/>} loading={folders.isFetching} onClick={() => void folders.refetch()}>نمایش
       پوشه‌ها</Button></Space.Compact><Table rowKey="path" size="small" style={{marginTop: 12}}
@@ -220,15 +258,15 @@ export function KnowledgeAdminPage() {
                                              }, {
                                                title: '',
                                                render: (_, r: FolderRow) => <Space><Button
-                                                 onClick={() => setBrowsePath(r.path)}>{r.parent ? 'بالا' : 'باز کردن'}</Button>{!r.parent &&
+                                                 onClick={() => {setBrowsePath(r.path); setSource(r.path)}}>{r.parent ? 'بالا' : 'باز کردن'}</Button>{!r.parent &&
                                                  <Button type="primary" onClick={() => {
                                                    setSource(r.path);
                                                    setBrowsePath(r.path)
                                                  }}>انتخاب</Button>}</Space>
                                              }]}/><Space.Compact style={{width: '100%', marginTop: 12}}><Input
-      value={source} onChange={e => setSource(e.target.value)}/><Button type="primary" icon={<PlayCircleOutlined/>}
+      value={source} readOnly aria-label="مسیر انتخاب‌شده برای کشف"/><Button type="primary" icon={<PlayCircleOutlined/>}
                                                                         loading={call.isPending} onClick={start}>کشف و
-      لیست اسناد</Button></Space.Compact></Card><Card title="اجراهای اخیر"><Table rowKey="id"
+      لیست اسناد</Button></Space.Compact><Alert style={{marginTop:12}} type="info" showIcon message="محدوده کشف این اجرا" description={`فقط پوشه ${browsePath} و زیرپوشه‌های آن کاوش می‌شوند؛ نه پوشه‌های هم‌سطح یا بالاتر.`}/></Card>}{knowledgeTab === 'history' && <Card title="اجراهای اخیر"><Table rowKey="id"
                                                                                   dataSource={recent.data ?? []}
                                                                                   pagination={false} columns={[{
       title: 'وضعیت',
@@ -241,9 +279,10 @@ export function KnowledgeAdminPage() {
     }, {
       title: '', render: (_, r: Recent) => <Button onClick={() => {
         setId(r.id);
+        setKnowledgeTab('overview');
         localStorage.setItem('knowledgeExecutionId', r.id)
       }}>باز کردن / ادامه</Button>
-    }]}/></Card></> : <>
+    }]}/></Card>}</> : <>
       <Card><Space wrap><Button icon={<ReloadOutlined/>} onClick={() => {
         void state.refetch();
         void events.refetch()
@@ -257,13 +296,14 @@ export function KnowledgeAdminPage() {
         onClick={() => call.mutate({url: `/api/v1/knowledge/admin/pipeline/${id}/retry`})}>Retry خطا</Button><Button
         onClick={() => {
           setId(null);
+          setKnowledgeTab('source');
           localStorage.removeItem('knowledgeExecutionId')
         }}>اجرای دیگر</Button><Tag
         color={stalled ? 'red' : color(state.data?.status)}>{stalled ? 'STALLED' : faStatus(state.data?.status)}</Tag><Typography.Text
         code>{id}</Typography.Text></Space></Card>
       {stalled && <Alert type="error" showIcon message="Heartbeat اجرای Pipeline متوقف شده است"
                          description={`آخرین heartbeat حدود ${age} ثانیه قبل بوده است. وضعیت RUNNING به تنهایی به معنی سالم بودن Worker نیست.`}/>}
-      <Card title="سفر آماده‌سازی دانش"><Row gutter={[10, 10]}>{journey(0)}</Row>
+      {knowledgeTab === 'overview' && <><Card title="سفر آماده‌سازی دانش"><Row gutter={[10, 10]}>{journey(0)}</Row>
         <div style={{height: 10}}/>
         <Row gutter={[10, 10]}>{journey(6)}</Row></Card>
       <Card title="هدف این سفر"><Alert showIcon type="info"
@@ -288,7 +328,7 @@ export function KnowledgeAdminPage() {
           label="آخرین رویداد">{lastEvent?.message ?? 'هنوز رویدادی ثبت نشده'}</Descriptions.Item><Descriptions.Item
           label="Run ID">{state.data?.run_id}</Descriptions.Item></Descriptions>
       </Card>
-      <Collapse items={[{
+      </>}{knowledgeTab === 'logs' && <><Collapse items={[{
         key: 'log',
         label: `لاگ زنده Intelligent Pipeline (${events.data?.length ?? 0} رویداد)`,
         children: <Table rowKey="id" size="small" pagination={{pageSize: 15}} dataSource={events.data ?? []} columns={[{
@@ -326,7 +366,7 @@ export function KnowledgeAdminPage() {
                                           dataIndex: 'error_message',
                                           ellipsis: true
                                         }]}/></Card>
-      {state.data?.status === 'WAITING_FOR_USER' &&
+      </>}{knowledgeTab === 'documents' && <>{state.data?.status === 'WAITING_FOR_USER' &&
         <Card title="۴. انتخاب اسناد برای پردازش"><Alert showIcon type="info"
                                                          message={`${docs.length} سند پیدا شد؛ فقط موارد تیک‌خورده پردازش می‌شوند.`}
                                                          description="Duplicateهای دقیق غیرفعال‌اند. انتخاب شما نسخه‌دار ثبت می‌شود و ادامه Pipeline فقط روی همان زیرمجموعه اجرا خواهد شد."/><Row
@@ -379,8 +419,8 @@ export function KnowledgeAdminPage() {
         })}>شروع پردازش فقط {selected.length} سند انتخاب‌شده</Button></Card>}
       {state.data?.status === 'FAILED' && state.data?.error_message &&
         <Alert type="error" showIcon message="Execution متوقف شده" description={state.data.error_message}/>}
-      {id && state.data?.status !== 'WAITING_FOR_USER' &&
-        <KnowledgeResultExplorer executionId={id} status={state.data?.status}/>}
+      </>}{knowledgeTab === 'results' && <>{id && state.data?.status !== 'WAITING_FOR_USER' &&
+        <KnowledgeResultExplorer executionId={id} status={state.data?.status}/>}</>}
     </>}
   </div>
 }

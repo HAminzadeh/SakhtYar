@@ -8,6 +8,7 @@ import {
   Select,
   Space,
   Statistic,
+  Tabs,
   Tag,
   Typography,
 } from 'antd'
@@ -18,6 +19,7 @@ import { useAuth } from '../auth/AuthProvider'
 import { useI18n } from '../i18n/LanguageProvider'
 import { themeChoices, type ThemeCode } from '../ui/themePresets'
 import { MasterDataAdminPanel } from '../ui/MasterDataAdminPanel'
+import { ContextHelp } from '../ui/ContextHelp'
 import { SettingOutlined } from '@ant-design/icons'
 import { useNavigate } from 'react-router-dom'
 
@@ -300,6 +302,7 @@ export function PreferencesPage() {
           <Typography.Title level={2} style={{ margin: 0 }}>
             {t('settings')}
           </Typography.Title>
+          <ContextHelp topic="preferences" />
           {dirty ? (
             <Tag color="gold">
               {language === 'fa' ? 'تغییرات ذخیره نشده' : 'Unsaved changes'}
@@ -331,7 +334,8 @@ export function PreferencesPage() {
           />
         ) : null}
 
-        <Row gutter={[14, 4]}>
+        <Tabs defaultActiveKey="locale" destroyOnHidden={false} items={[
+          {key:'locale', label: language === 'fa' ? 'زبان و منطقه' : 'Language & Region', children: <Row gutter={[14, 4]}>
           <Col xs={24} md={12}>
             <label className="sakhtyar-field-caption">{t('language')}</label>
             <Select
@@ -407,9 +411,8 @@ export function PreferencesPage() {
               }))}
             />
           </Col>
-        </Row>
-
-        <div style={{ marginTop: 22 }}>
+        </Row>},
+          {key:'theme', label: language === 'fa' ? 'پوسته و ظاهر' : 'Theme & Appearance', children: <div style={{ marginTop: 22 }}>
           <Typography.Text strong>{t('theme')}</Typography.Text>
           <Typography.Paragraph type="secondary" style={{ marginTop: 6 }}>
             {t('themeHint')}
@@ -435,7 +438,8 @@ export function PreferencesPage() {
               )
             })}
           </div>
-        </div>
+        </div>}
+        ]}/>
 
         <Space style={{ marginTop: 20 }}>
           <Button
@@ -452,8 +456,8 @@ export function PreferencesPage() {
         </Space>
       </Card>
 
-      {canAdmin ? (
-        <Card className="sakhtyar-config-center-entry">
+      {canAdmin ? <Tabs defaultActiveKey="configuration" items={[
+        {key:'configuration', label: language === 'fa' ? 'پیکربندی سیستم' : 'System configuration', children: <Card className="sakhtyar-config-center-entry">
           <Space direction="vertical" size={8}>
             <Typography.Title level={4} style={{ margin: 0 }}>
               {language === 'fa' ? 'پیکربندی سیستم' : 'System Configuration'}
@@ -468,9 +472,9 @@ export function PreferencesPage() {
             </Button>
           </Space>
         </Card>
-      ) : null}
-
-      {canAdmin ? <MasterDataAdminPanel /> : null}
+        },
+        {key:'master-data',label: language === 'fa' ? 'داده‌های مرجع و GeoNames' : 'Master data & GeoNames',children:<MasterDataAdminPanel/>}
+      ]}/> : null}
     </div>
   )
 }

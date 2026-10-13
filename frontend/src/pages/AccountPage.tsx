@@ -28,6 +28,7 @@ import { api } from '../api/client'
 import type { AuthSessionItem, Me } from '../api/types'
 import { useAuth } from '../auth/AuthProvider'
 import { PageHero } from '../ui/PageHero'
+import { ContextHelp } from '../ui/ContextHelp'
 import {
   roleLabel,
   safeDisplayName,
@@ -348,6 +349,7 @@ export function AccountPage() {
           <Space>
             <DesktopOutlined />
             نشست‌ها و دستگاه‌ها
+            <ContextHelp topic="sessions" />
           </Space>
         }
         extra={
@@ -364,6 +366,7 @@ export function AccountPage() {
         className="sakhtyar-account-card sakhtyar-animated-card"
       >
         <List
+          pagination={{ pageSize: 10, showSizeChanger: false, hideOnSinglePage: true, position: 'bottom' }}
           loading={sessions.isLoading}
           dataSource={sessions.data ?? []}
           locale={{ emptyText: 'نشستی ثبت نشده است.' }}

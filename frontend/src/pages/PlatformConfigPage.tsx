@@ -14,6 +14,7 @@ import { useNavigate } from 'react-router-dom'
 import { api } from '../api/client'
 import { useI18n } from '../i18n/LanguageProvider'
 import './PlatformConfigPage.css'
+import { ContextHelp } from '../ui/ContextHelp'
 
 type Definition={key:string;category:string;labelFa:string;labelEn:string;descriptionFa:string;descriptionEn:string;dataType:string;secret:boolean;applyMode:string;bootstrap:boolean;required?:boolean}
 type Effective={key:string;value:string|null;source:string;secret:boolean;bootstrap:boolean;required:boolean;configured:boolean}
@@ -46,6 +47,7 @@ export default function PlatformConfigPage(){
  const [query,setQuery]=useState('')
  const [filter,setFilter]=useState('ALL')
  const [category,setCategory]=useState<string>('Database')
+ const [configSection,setConfigSection]=useState('services')
  const [revealed,setRevealed]=useState<Record<string,string>>({})
  const [editor,setEditor]=useState<Definition|null>(null)
  const [secretTarget,setSecretTarget]=useState<Definition|null>(null)
@@ -203,6 +205,7 @@ export default function PlatformConfigPage(){
    <Space wrap>
     <Button icon={<ReloadOutlined/>} loading={loading} onClick={()=>void load()}>{fa?'بازخوانی':'Refresh'}</Button>
     <Button onClick={()=>navigate('/settings')}>{fa?'تنظیمات':'Settings'}</Button>
+    <ContextHelp topic="config" />
     {draft?<Button type="primary" icon={<RocketOutlined/>} loading={publishing} onClick={()=>void publish()}>{fa?`انتشار v${draft.version_number}`:`Publish v${draft.version_number}`}</Button>:<Button type="primary" onClick={()=>setDraftOpen(true)}>{fa?'ایجاد پیش‌نویس':'Create draft'}</Button>}
    </Space>
   </div>
@@ -216,7 +219,11 @@ export default function PlatformConfigPage(){
 
   {(restartCount>0||doctorFails>0)&&<Alert className="sy-top-alert" type={doctorFails?'warning':'info'} showIcon message={doctorFails?(fa?`${doctorFails} خطای Config Doctor نیاز به بررسی دارد.`:`${doctorFails} Config Doctor issue(s) need attention.`):(fa?`${restartCount} تغییر پس از راه‌اندازی مجدد اعمال می‌شود.`:`${restartCount} change(s) will apply after restart.`)}/>}
 
-  <div className="sy-config-workspace">
+  <Tabs activeKey={configSection} onChange={setConfigSection} items={[
+    {key:'services',label:fa?'تنظیمات سرویس‌ها':'Service settings'},
+    {key:'tools',label:fa?'اتوماسیون و ابزارهای عملیاتی':'Automation & operations'}
+  ]}/>
+  {configSection === 'services' && <div className="sy-config-workspace">
    <aside className="sy-config-sidebar">
     <Input prefix={<SearchOutlined/>} placeholder={fa?'جست‌وجوی تنظیمات...':'Search settings...'} value={query} onChange={e=>setQuery(e.target.value)} allowClear/>
     <div className="sy-category-list">
@@ -272,9 +279,9 @@ export default function PlatformConfigPage(){
      })}
     </div>
    </main>
-  </div>
+  </div>}
 
-  <Card className="sy-bottom-card">
+  {configSection === 'tools' && <Card className="sy-bottom-card">
    <Tabs items={[
     {key:'automation',label:<Space><SettingOutlined/>{fa?'Ø§ØªÙˆÙ…Ø§Ø³ÛŒÙˆÙ† Ùˆ Ù…Ø­ÛŒØ· Ø§Ø¬Ø±Ø§':'Automation & Runtime'}</Space>,children:<AutomationRuntimePanel/>},
     {key:'doctor',label:<Space><MedicineBoxOutlined/>{fa?'دکتر پیکربندی':'Config Doctor'}</Space>,children:<div className="sy-doctor-list">{doctor.map((x,i)=><div className="sy-doctor-row" key={i}><Badge status={x.status==='OK'?'success':x.status==='FAIL'?'error':'warning'}/><strong>{x.name}</strong><Tag>{x.status}</Tag><span>{x.message}</span></div>)}</div>},
@@ -289,7 +296,7 @@ export default function PlatformConfigPage(){
      {title:fa?'محیط':'Environment',dataIndex:'environment'},{title:fa?'دلیل تغییر':'Reason',dataIndex:'reason'},{title:fa?'ایجاد':'Created',dataIndex:'created_at'}
     ]}/>}
    ]}/>
-  </Card>
+  </Card>}
 
   <Drawer width={fa?520:500} title={editor?`${fa?'ویرایش':'Edit'} — ${label(editor)}`:''} open={!!editor} onClose={()=>setEditor(null)} extra={<Space><Button onClick={()=>setEditor(null)}>{fa?'انصراف':'Cancel'}</Button><Button type="primary" onClick={()=>void saveEdit()}>{fa?'ذخیره در پیش‌نویس':'Save to draft'}</Button></Space>}>
    {editor&&<><Alert type="info" showIcon message={editor.applyMode==='HOT_RELOAD'?(fa?'این تنظیم برای اعمال زنده تعریف شده است.':'This setting is marked for hot reload.'):(fa?'پس از انتشار، راه‌اندازی مجدد سرویس لازم است.':'A service restart is required after publishing.')}/><DescriptionsBlock x={editor} e={eff[editor.key]} fa={fa}/><Form form={editForm} layout="vertical">{renderInput()}</Form></>}
