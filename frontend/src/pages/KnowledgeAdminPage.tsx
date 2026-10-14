@@ -32,6 +32,7 @@ import type {Key} from 'react'
 import {api} from '../api/client'
 import {KnowledgeResultExplorer} from './KnowledgeResultExplorer'
 import {KnowledgeReviewPanel} from '../features/case/KnowledgeReviewPanel'
+import {KnowledgeOcrPageReviewPanel} from './KnowledgeOcrPageReviewPanel'
 import {KnowledgeGovernanceWorkbench} from './KnowledgeGovernanceWorkbench'
 import type {RuleRow} from './KnowledgeGovernanceWorkbench'
 import {ContextHelp} from '../ui/ContextHelp'
@@ -108,6 +109,8 @@ const faStatus = (s?: string) => ({
   PAUSED: 'متوقف',
   WAITING_FOR_USER: 'منتظر کاربر',
   WAITING_FOR_REVIEW: 'منتظر بازبینی کارشناس',
+  WAITING_FOR_PAGE_REVIEW: 'منتظر تصمیم کاربر درباره صفحات OCR',
+  NO_USABLE_PAGES: 'صفحه قابل استفاده‌ای یافت نشد',
   STOPPING: 'در حال توقف'
 }[s ?? ''] ?? s ?? '—')
 const color = (s?: string) => s === 'COMPLETED' ? 'green' : s === 'FAILED' ? 'red' : s === 'RUNNING' ? 'blue' : s === 'WAITING_FOR_USER' ? 'gold' : 'default'
@@ -148,6 +151,9 @@ export function KnowledgeAdminPage() {
       openedInventoryFor.current = id
       setKnowledgeTab('documents')
     }
+  }, [id, state.data?.status])
+  useEffect(() => {
+    if (id && state.data?.status === 'WAITING_FOR_PAGE_REVIEW') setKnowledgeTab('ocr-pages')
   }, [id, state.data?.status])
   const events = useQuery({
     queryKey: ['kp-events', id],
@@ -229,17 +235,20 @@ export function KnowledgeAdminPage() {
       {key:'documents',label:'اسناد و انتخاب'},
       {key:'logs',label:'لاگ و Checkpoint'},
       {key:'results',label:'نتایج و خروجی'},
+      {key:'ocr-pages',label:'بازبینی انسانی صفحات OCR'},
       {key:'review',label:'بازبینی و تأیید'},
       {key:'rules',label:'قوانین استخراج‌شده'},
       {key:'categories',label:'دسته‌بندی اسناد'}
     ] : [
       {key:'source',label:'پوشه و اجرا'},
       {key:'history',label:'اجراهای اخیر'},
+      {key:'ocr-pages',label:'بازبینی انسانی صفحات OCR'},
       {key:'review',label:'بازبینی و تأیید'},
       {key:'rules',label:'قوانین استخراج‌شده'},
       {key:'categories',label:'دسته‌بندی اسناد'}
     ])} />
     <ContextHelp topic="knowledge" />
+    {knowledgeTab === 'ocr-pages' && <KnowledgeOcrPageReviewPanel executionId={id ?? undefined}/>} 
     {knowledgeTab === 'review' && <KnowledgeReviewPanel reviewRule={selectedReviewRule ?? undefined}/>}
     {knowledgeTab === 'rules' && <KnowledgeGovernanceWorkbench mode="rules" executionId={id ?? undefined} onReviewRule={rule => {setSelectedReviewRule(rule);setKnowledgeTab('review')}}/>}
     {knowledgeTab === 'categories' && <KnowledgeGovernanceWorkbench mode="documents"/>}
@@ -290,7 +299,7 @@ export function KnowledgeAdminPage() {
                                    disabled={!['RUNNING', 'STOPPING'].includes(state.data?.status ?? '')}
                                    onClick={() => call.mutate({url: `/api/v1/knowledge/admin/pipeline/${id}/stop`})}>توقف
         امن</Button><Button type="primary" icon={<PlayCircleOutlined/>}
-                            disabled={!['PAUSED', 'FAILED'].includes(state.data?.status ?? '')}
+                            disabled={!['PAUSED', 'FAILED', 'WAITING_FOR_PAGE_REVIEW'].includes(state.data?.status ?? '')}
                             onClick={() => call.mutate({url: `/api/v1/knowledge/admin/pipeline/${id}/resume`})}>ادامه</Button><Button
         icon={<RedoOutlined/>} disabled={state.data?.status !== 'FAILED'}
         onClick={() => call.mutate({url: `/api/v1/knowledge/admin/pipeline/${id}/retry`})}>Retry خطا</Button><Button

@@ -51,7 +51,7 @@ public class KnowledgeIntakeReviewService {
                 UUID id = sha.isBlank() ? null : jdbc.query("""
                     select id from knowledge_source_document
                     where sha256=?
-                    order by document_version desc, created_at desc
+                    order by document_version desc, discovered_at desc
                     limit 1
                     """, rs -> rs.next() ? (UUID) rs.getObject(1) : null, sha);
 

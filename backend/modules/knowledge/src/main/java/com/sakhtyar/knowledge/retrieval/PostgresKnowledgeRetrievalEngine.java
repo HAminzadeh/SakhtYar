@@ -17,7 +17,7 @@ public class PostgresKnowledgeRetrievalEngine implements KnowledgeRetrievalEngin
         List<Map<String,Object>> rules=jdbc.queryForList("""
             select r.id,r.stable_key,r.operator,r.numeric_value,r.text_value,r.confidence,
                    n.page_from,n.content,rv.source_authority,rv.source_page,rv.source_sha256,
-                   rv.scope_city,rv.scope_district,d.original_name
+                   rv.scope_city,rv.scope_district,coalesce(nullif(d.filename,''),d.canonical_path) as original_name
               from knowledge_rule r
               join knowledge_rule_review rv on rv.rule_id=r.id and rv.decision='APPROVED'
               join knowledge_source_node n on n.id=r.source_node_id

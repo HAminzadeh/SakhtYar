@@ -11,7 +11,7 @@ public class KnowledgeQueryService {
     public List<Map<String,Object>> rules(UUID releaseId,UUID conceptId,String jurisdiction){
         return jdbc.queryForList("""
            select r.*, n.content as evidence_text, rv.source_page, rv.source_authority,
-                  rv.source_sha256, rv.scope_city, rv.scope_district, d.original_name
+                  rv.source_sha256, rv.scope_city, rv.scope_district, coalesce(nullif(d.filename,''),d.canonical_path) as original_name
              from knowledge_release rel
              join knowledge_rule r on r.knowledge_version_id=rel.knowledge_version_id
              join knowledge_rule_review rv on rv.rule_id=r.id and rv.decision='APPROVED'

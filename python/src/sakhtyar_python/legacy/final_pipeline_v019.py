@@ -82,38 +82,91 @@ def configure_tesseract():
     os.environ.pop("TESSDATA_PREFIX",None)
     return executable,tessdata_path
 
-def run_tesseract_png(executable: str, image_name: str, tessdata_path: Path, lang: str) -> str:
-    env=os.environ.copy()
-    env.pop("TESSDATA_PREFIX",None)
-    candidates=[]
-    diagnostics=[]
-    for psm in ("3","6","11"):
-        command=[executable,image_name,"stdout","--tessdata-dir",str(tessdata_path),"-l",lang,"--psm",psm]
-        result=subprocess.run(command,stdout=subprocess.PIPE,stderr=subprocess.PIPE,env=env,check=False)
-        stderr=result.stderr.decode("utf-8",errors="replace").strip()
-        if result.returncode != 0:
-            diagnostics.append(f"psm={psm}: rc={result.returncode}: {stderr[:500]}")
-            continue
-        value=clean(result.stdout.decode("utf-8",errors="replace"))
-        diagnostics.append(f"psm={psm}: chars={len(value)}")
-        if value:
-            candidates.append(value)
-    if not candidates:
-        raise RuntimeError("Tesseract produced no usable text; " + " | ".join(diagnostics))
-    return max(candidates,key=len)
+def is_visually_blank(image_name: str) -> bool:
+    """Conservative heuristic. Blank pages are still queued for human confirmation."""
+    from PIL import Image
+    with Image.open(image_name) as image:
+        gray = image.convert("L")
+        gray.thumbnail((450, 450))
+        w, h = gray.size
+        inset_x, inset_y = max(1, w // 25), max(1, h // 25)
+        if w <= inset_x * 2 or h <= inset_y * 2:
+            return False
+        inner = gray.crop((inset_x, inset_y, w - inset_x, h - inset_y))
+        histogram = inner.histogram()
+        return sum(histogram[:210]) <= max(2, int(inner.width * inner.height * 0.00015))
 
-def ocr_pdf(path: Path,pages: list[int],lang: str):
+
+def run_tesseract_png(executable: str, image_name: str, tessdata_path: Path, lang: str) -> str:
+    env = os.environ.copy()
+    env.pop("TESSDATA_PREFIX", None)
+    diagnostic = []
+    succeeded = 0
+
+    def attempt(filename: str, psm: str, variant: str) -> str:
+        nonlocal succeeded
+        command = [executable, filename, "stdout", "--tessdata-dir", str(tessdata_path),
+                   "-l", lang, "--psm", psm]
+        result = subprocess.run(command, stdout=subprocess.PIPE, stderr=subprocess.PIPE,
+                                env=env, check=False, timeout=90)
+        if result.returncode != 0:
+            detail = result.stderr.decode("utf-8", errors="replace")[:220]
+            diagnostic.append(f"{variant}/{psm}: error {result.returncode}: {detail}")
+            return ""
+        succeeded += 1
+        value = clean(result.stdout.decode("utf-8", errors="replace"))
+        diagnostic.append(f"{variant}/{psm}: chars={len(value)}")
+        return value
+
+    choices = [attempt(image_name, psm, "native-raster") for psm in ("3", "6", "11")]
+    choices = [x for x in choices if x]
+    if choices:
+        return max(choices, key=len)
+
+    from PIL import Image, ImageOps, ImageEnhance
+    with Image.open(image_name) as image:
+        enhanced = ImageEnhance.Contrast(ImageOps.autocontrast(image.convert("L"), cutoff=1)).enhance(1.6)
+        binary = enhanced.point(lambda pixel: 255 if pixel >= 195 else 0)
+        for name, variant in (("enhanced", enhanced), ("binary", binary)):
+            with tempfile.NamedTemporaryFile(suffix=".png", delete=False) as t:
+                tmp = t.name
+            try:
+                variant.save(tmp)
+                for psm in ("6", "11"):
+                    value = attempt(tmp, psm, name)
+                    if value:
+                        return value
+            finally:
+                try: os.unlink(tmp)
+                except OSError: pass
+
+    # Tesseract failure (bad binary/language pack) must not be disguised as an unreadable page.
+    if succeeded == 0:
+        raise RuntimeError("Tesseract executable/configuration failure: " + " | ".join(diagnostic))
+    return ""  # Successful OCR invocations with zero text => human review, not pipeline failure.
+
+
+def ocr_pdf(path: Path, pages: list[int], lang: str):
     import pymupdf
-    executable,tessdata_path=configure_tesseract()
+    executable, tessdata_path = configure_tesseract()
     with pymupdf.open(path) as doc:
         for page_no in pages:
-            pix=doc[page_no-1].get_pixmap(matrix=pymupdf.Matrix(3,3),alpha=False)
-            with tempfile.NamedTemporaryFile(suffix=".png",delete=False) as tmp:
-                image_name=tmp.name
+            if not 1 <= page_no <= len(doc):
+                raise RuntimeError(f"OCR page out of range: {path.name} page={page_no}")
+            page = doc[page_no - 1]
+            pix = page.get_pixmap(matrix=pymupdf.Matrix(3, 3), alpha=False)
+            with tempfile.NamedTemporaryFile(suffix=".png", delete=False) as t:
+                image_name = t.name
             try:
                 pix.save(image_name)
-                text=run_tesseract_png(executable,image_name,tessdata_path,lang)
-                emit(page_no,"TESSERACT_"+lang,text)
+                if is_visually_blank(image_name) and not clean(page.get_text("text") or ""):
+                    emit(page_no, "OCR_REVIEW_BLANK", "")
+                    continue
+                text = run_tesseract_png(executable, image_name, tessdata_path, lang)
+                if not text:
+                    emit(page_no, "OCR_REVIEW_UNREADABLE", "")
+                else:
+                    emit(page_no, "TESSERACT_" + lang, text)
             finally:
                 try: os.unlink(image_name)
                 except OSError: pass

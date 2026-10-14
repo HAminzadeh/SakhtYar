@@ -33,7 +33,7 @@ public class ResumableKnowledgePipelineService {
    return state(exec);
  }
 
- public Map<String,Object> resume(UUID id){jdbc.update("update knowledge_intake_execution set stop_requested=false,status='RUNNING',error_message=null,resumed_at=now(),heartbeat_at=now() where id=?",id);UUID run=runId(id);jdbc.update("update knowledge_pipeline_run set status='RUNNING',error_message=null,finished_at=null where id=?",run);workers.submit(()->advance(id));return state(id);}
+ public Map<String,Object> resume(UUID id){if(finalPipeline.unresolvedOcrPages(id)>0)throw new IllegalStateException("Review all pending OCR pages before continuing");jdbc.update("update knowledge_intake_execution set stop_requested=false,status='RUNNING',error_message=null,resumed_at=now(),heartbeat_at=now() where id=?",id);UUID run=runId(id);jdbc.update("update knowledge_pipeline_run set status='RUNNING',error_message=null,finished_at=null where id=?",run);workers.submit(()->advance(id));return state(id);}
  public Map<String,Object> stop(UUID id){jdbc.update("update knowledge_intake_execution set stop_requested=true,status='STOPPING' where id=?",id);return state(id);}
  public Map<String,Object> retry(UUID id){jdbc.update("update knowledge_pipeline_checkpoint set status='PENDING',error_message=null where execution_id=? and status='FAILED'",id);return resume(id);}
 
@@ -112,6 +112,17 @@ public class ResumableKnowledgePipelineService {
     else if("HASH_AND_DEDUP".equals(stage))hash(id,run);
     else if("CLASSIFY_DOCUMENTS".equals(stage))classify(id,run);
     else {int processed=finalPipeline.execute(id,run,stage);complete(id,run,stage,processed,0,0);}
+    if("PERSIAN_NORMALIZATION".equals(stage) && finalPipeline.normalizedPageCount(id)==0) {
+        jdbc.update("update knowledge_intake_execution set status='NO_USABLE_PAGES',heartbeat_at=now(),finished_at=now() where id=?",id);
+        jdbc.update("update knowledge_pipeline_run set status='NO_USABLE_PAGES',finished_at=now() where id=?",run);
+        event(id,run,stage,"NO_USABLE_PAGES","No readable or human-approved pages remain; no dataset generated");
+        return;
+    }
+    if("OCR_REQUIRED_PAGES".equals(stage) && finalPipeline.unresolvedOcrPages(id)>0) {
+        jdbc.update("update knowledge_intake_execution set status='WAITING_FOR_PAGE_REVIEW',current_stage='OCR_REQUIRED_PAGES',heartbeat_at=now() where id=?",id);
+        event(id,run,stage,"WAITING_FOR_PAGE_REVIEW","Low quality OCR pages queued for human review; inspect the OCR review tab");
+        return;
+    }
    }
    jdbc.update("update knowledge_intake_execution set status='WAITING_FOR_REVIEW',current_stage='PUBLISH',error_message=null,finished_at=now(),heartbeat_at=now() where id=?",id);
    jdbc.update("update knowledge_pipeline_run set status='WAITING_FOR_REVIEW',stage='PUBLISH',finished_at=now() where id=?",run);

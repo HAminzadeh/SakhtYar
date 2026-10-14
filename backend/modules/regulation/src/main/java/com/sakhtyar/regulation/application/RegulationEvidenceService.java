@@ -37,7 +37,7 @@ public class RegulationEvidenceService {
              select r.id as rule_id,r.stable_key,r.numeric_value,r.operator,rv.subject_code,rv.unit_code,
                rv.scope_country,rv.scope_city,rv.scope_district,rv.source_authority,
                rv.source_sha256,rv.source_page,rv.valid_from,rv.valid_to,rv.reviewer,
-               d.original_name,rel.id as release_id,rel.release_key
+               coalesce(nullif(d.filename,''),d.canonical_path) as original_name,rel.id as release_id,rel.release_key
              from knowledge_rule r join knowledge_rule_review rv on rv.rule_id=r.id and rv.decision='APPROVED'
              join knowledge_release rel on rel.knowledge_version_id=r.knowledge_version_id and rel.status='PUBLISHED'
              join knowledge_source_document d on d.id=rv.source_document_id

@@ -87,29 +87,44 @@ public class KnowledgeFinalPipelineService {
         return rows.size();
     }
 
+    /** Low-confidence OCR pages become human-review tasks; a single bad page never aborts other OCR pages. */
     private int ocrRequired(UUID executionId) throws Exception {
         List<Map<String, Object>> docs = jdbc.queryForList("select distinct i.absolute_path,i.document_id from knowledge_intake_inventory i join knowledge_source_artifact a on a.document_id=i.document_id and a.execution_id=i.execution_id where i.execution_id=? and i.selected_by_user=true and lower(i.file_extension)='pdf' and a.artifact_type='RAW_PAGE' and coalesce(a.quality_score,0)<0.25", executionId);
         int pagesDone = 0;
         for (Map<String, Object> d : docs) {
             UUID doc = (UUID) d.get("document_id");
-            List<Integer> pages = jdbc.queryForList("select page_from from knowledge_source_artifact where execution_id=? and document_id=? and artifact_type='RAW_PAGE' and coalesce(quality_score,0)<0.25 order by page_from", Integer.class, executionId, doc);
-            if (pages.isEmpty()) continue;
-            List<Page> out = runProcessor("ocr", Path.of(String.valueOf(d.get("absolute_path"))), pages);
-            Map<Integer, Page> byPage = out.stream().collect(Collectors.toMap(Page::page, p -> p, (a, b) -> b));
-            for (Integer requiredPage : pages) {
-                Page p = byPage.get(requiredPage);
-                if (p == null || p.text() == null || p.text().strip().isEmpty()) {
-                    throw new IllegalStateException("OCR quality gate failed: page " + requiredPage + " produced empty text.");
+            Path path = Path.of(String.valueOf(d.get("absolute_path")));
+            List<Integer> pages = jdbc.queryForList("select distinct page_from from knowledge_source_artifact where execution_id=? and document_id=? and artifact_type='RAW_PAGE' and coalesce(quality_score,0)<0.25 order by page_from", Integer.class, executionId, doc);
+            for (Integer pageNo : pages) {
+                List<String> decisions = jdbc.queryForList("select status from knowledge_ocr_page_review where execution_id=? and document_id=? and page_no=?", String.class, executionId, doc, pageNo);
+                if (!decisions.isEmpty()) continue;
+                Integer goodExisting = jdbc.queryForObject("select count(*) from knowledge_source_artifact where execution_id=? and document_id=? and page_from=? and artifact_type='OCR_PAGE' and coalesce(quality_score,0)>=0.25 and length(btrim(coalesce(content,'')))>=100", Integer.class, executionId, doc, pageNo);
+                if (goodExisting != null && goodExisting > 0) { pagesDone++; continue; }
+                List<Page> out = runProcessor("ocr", path, List.of(pageNo));
+                Page p = out.stream().filter(x -> x.page() == pageNo).findFirst().orElse(null);
+                if (p == null) throw new IllegalStateException("OCR processor returned no page record: " + path.getFileName() + " page=" + pageNo);
+                boolean acceptable = p.method().startsWith("TESSERACT_") && p.text() != null && p.text().strip().length() >= 100 && p.quality().compareTo(new BigDecimal("0.25")) >= 0;
+                if (acceptable) {
+                    upsertArtifact(executionId, doc, "OCR_PAGE", "document.extract.ocr.tesseract", "0.50.0", p.page(), p.quality(), p.text(), null);
+                    pagesDone++;
+                    continue;
                 }
-                if (p.quality().compareTo(BigDecimal.ZERO) <= 0) {
-                    throw new IllegalStateException("OCR quality gate failed: page " + requiredPage + " has zero quality.");
-                }
-                upsertArtifact(executionId, doc, "OCR_PAGE", "document.extract.ocr.tesseract", "0.23.6", p.page(), p.quality(), p.text(), null);
-                pagesDone++;
+                Integer nativeChars = jdbc.queryForObject("select coalesce(max(length(btrim(coalesce(content,'')))),0) from knowledge_source_artifact where execution_id=? and document_id=? and page_from=? and artifact_type='RAW_PAGE'", Integer.class, executionId, doc, pageNo);
+                String reason = p.method().startsWith("OCR_REVIEW_") ? p.method() : "OCR_LOW_CONFIDENCE";
+                jdbc.update("insert into knowledge_ocr_page_review(execution_id,document_id,page_no,status,reason,native_chars,ocr_chars) values(?,?,?,'PENDING',?,?,?) on conflict (execution_id,document_id,page_no) do nothing", executionId, doc, pageNo, reason, nativeChars == null ? 0 : nativeChars, p.text() == null ? 0 : p.text().length());
             }
         }
         return pagesDone;
     }
+
+    public int unresolvedOcrPages(UUID executionId) {
+        return jdbc.queryForObject("select count(*) from knowledge_ocr_page_review where execution_id=? and status='PENDING'", Integer.class, executionId);
+    }
+
+    public int normalizedPageCount(UUID executionId) {
+        return jdbc.queryForObject("select count(*) from knowledge_source_artifact where execution_id=? and artifact_type='NORMALIZED_PAGE'", Integer.class, executionId);
+    }
+
     private int normalize(UUID executionId) throws Exception {
         List<Map<String, Object>> docs = selected(executionId);
         int count = 0;
@@ -120,16 +135,23 @@ public class KnowledgeFinalPipelineService {
             // Example from actual PDF audit: page 67 native=64 chars / 0.16; OCR=12 chars / 0.045.
             List<Map<String, Object>> pages = jdbc.queryForList("""
                 select r.page_from,
-                       case when pick.use_ocr then o.content else r.content end as content,
-                       case when pick.use_ocr then o.id else r.id end as parent_id,
-                       case when pick.use_ocr then coalesce(o.quality_score,0)
-                            else coalesce(r.quality_score,0) end as source_quality
+                       case when review.status='TEXT_PROVIDED' then review.review_text
+                            when pick.use_ocr then o.content else r.content end as content,
+                       case when pick.use_ocr and review.status is null then o.id else r.id end as parent_id,
+                       case when review.status='TEXT_PROVIDED' then 0.50::numeric
+                            when pick.use_ocr then coalesce(o.quality_score,0)
+                            else coalesce(r.quality_score,0) end as source_quality,
+                       case when review.status='TEXT_PROVIDED' then true else false end as human_text
                   from knowledge_source_artifact r
+                  left join knowledge_ocr_page_review review
+                    on review.execution_id=r.execution_id and review.document_id=r.document_id
+                   and review.page_no=r.page_from
                   left join lateral (
                     select x.id,x.content,x.quality_score
                       from knowledge_source_artifact x
                      where x.execution_id=r.execution_id and x.document_id=r.document_id
                        and x.page_from=r.page_from and x.artifact_type='OCR_PAGE'
+                       and coalesce(x.quality_score,0)>=0.25 and length(btrim(coalesce(x.content,'')))>=100
                      order by x.quality_score desc nulls last,x.created_at desc limit 1
                   ) o on true
                   cross join lateral (
@@ -139,6 +161,13 @@ public class KnowledgeFinalPipelineService {
                              length(btrim(o.content))>=greatest(16,length(btrim(coalesce(r.content,'')))/2))) as use_ocr
                   ) pick
                  where r.execution_id=? and r.document_id=? and r.artifact_type='RAW_PAGE'
+                   and (review.status is null or review.status='TEXT_PROVIDED')
+                   and not exists (
+                     select 1 from knowledge_source_artifact blank
+                      where blank.execution_id=r.execution_id and blank.document_id=r.document_id
+                        and blank.page_from=r.page_from and blank.artifact_type='OCR_BLANK_PAGE'
+                        and review.status is null
+                   )
                  order by r.page_from
                 """, executionId, doc);
             for (Map<String, Object> p : pages) {
@@ -149,7 +178,7 @@ public class KnowledgeFinalPipelineService {
                 UUID parent = (UUID) p.get("parent_id");
                 // Preserve source quality: normalization is not evidence that OCR was accurate.
                 BigDecimal inheritedQuality = (BigDecimal) p.get("source_quality");
-                UUID artifact = upsertArtifact(executionId, doc, "NORMALIZED_PAGE", "text.normalize.persian", "0.26.1", (Integer) p.get("page_from"), inheritedQuality == null ? BigDecimal.ZERO : inheritedQuality, normalized, parent);
+                UUID artifact = upsertArtifact(executionId, doc, "NORMALIZED_PAGE", Boolean.TRUE.equals(p.get("human_text")) ? "text.normalize.human-transcribed" : "text.normalize.persian", "0.50.0", (Integer) p.get("page_from"), inheritedQuality == null ? BigDecimal.ZERO : inheritedQuality, normalized, parent);
                 upsertNode(executionId, artifact, "PAGE", (Integer) p.get("page_from"), "Page " + p.get("page_from"), normalized);
                 count++;
             }
@@ -271,12 +300,44 @@ public class KnowledgeFinalPipelineService {
         return jdbc.queryForList("select absolute_path,relative_path,sha256,document_id from knowledge_intake_inventory where execution_id=? and selected_by_user=true and intake_status<>'SKIP_DUPLICATE_EXACT' order by relative_path", id);
     }
 
+    // V33 created the physical table first. V39's CREATE TABLE IF NOT EXISTS never
+    // replaced it. V48 adds the optional V39 metadata; V33's required identity,
+    // source path and version fields remain authoritative.
     private UUID ensureDocument(UUID executionId, Path file, String hash) throws Exception {
-        List<UUID> ids = jdbc.queryForList("select id from knowledge_source_document where sha256=?", UUID.class, hash);
-        UUID id = ids.isEmpty() ? UUID.randomUUID() : ids.get(0);
-        if (ids.isEmpty())
-            jdbc.update("insert into knowledge_source_document(id,sha256,original_name,media_type,storage_uri) values(?,?,?,?,?)", id, hash, file.getFileName().toString(), media(file), file.toUri().toString());
-        jdbc.update("update knowledge_intake_inventory set document_id=? where execution_id=? and absolute_path=?", id, executionId, file.toString());
+        String canonical = file.toAbsolutePath().normalize().toString();
+        List<Map<String, Object>> prior = jdbc.queryForList("""
+            select id,sha256,document_version
+              from knowledge_source_document where canonical_path=?
+             order by document_version desc
+            """, canonical);
+        for (Map<String, Object> row : prior) {
+            if (hash.equals(row.get("sha256"))) {
+                UUID existingId = (UUID) row.get("id");
+                jdbc.update("update knowledge_intake_inventory set document_id=? where execution_id=? and absolute_path=?",
+                    existingId, executionId, file.toString());
+                return existingId;
+            }
+        }
+        UUID previousId = prior.isEmpty() ? null : (UUID) prior.get(0).get("id");
+        int nextVersion = prior.isEmpty() ? 1 : ((Number) prior.get(0).get("document_version")).intValue() + 1;
+        UUID correlationId = jdbc.queryForObject("""
+            select coalesce(correlation_id,gen_random_uuid())
+              from knowledge_intake_execution where id=?
+            """, UUID.class, executionId);
+        if (correlationId == null) throw new IllegalStateException("Missing knowledge execution: " + executionId);
+        String name = file.getFileName().toString();
+        int dot = name.lastIndexOf('.');
+        String extension = dot >= 0 ? name.substring(dot).toLowerCase(Locale.ROOT) : "";
+        UUID id = UUID.randomUUID();
+        jdbc.update("""
+            insert into knowledge_source_document
+              (id,correlation_id,canonical_path,filename,extension,sha256,size_bytes,
+               document_version,previous_document_id,media_type,storage_uri)
+            values (?,?,?,?,?,?,?,?,?,?,?)
+            """, id, correlationId, canonical, name, extension, hash, Files.size(file),
+                nextVersion, previousId, media(file), file.toUri().toString());
+        jdbc.update("update knowledge_intake_inventory set document_id=? where execution_id=? and absolute_path=?",
+            id, executionId, file.toString());
         return id;
     }
 
@@ -344,7 +405,7 @@ public class KnowledgeFinalPipelineService {
             throw new IllegalStateException("Processor failed (" + p.exitValue() + "): " + output.substring(0, Math.min(4000, output.length())));
         List<Page> result = new ArrayList<>();
         for (String line : output.split("\\R")) {
-            String[] x = line.split("\\t", 4);
+            String[] x = line.split("\\t", -1);
             if (x.length != 4) continue;
             try {
                 result.add(new Page(Integer.parseInt(x[0]), x[1], new BigDecimal(x[2]), new String(Base64.getDecoder().decode(x[3]), StandardCharsets.UTF_8)));
