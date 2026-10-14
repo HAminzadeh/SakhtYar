@@ -186,46 +186,119 @@ public class KnowledgeFinalPipelineService {
         return count;
     }
 
-    private int extractKnowledge(UUID executionId) {
-        Versions v = ensureVersions(executionId);
-        jdbc.update("delete from knowledge_extraction_quality where execution_id=?", executionId);
-        jdbc.update("delete from knowledge_semantic_relation where knowledge_version_id=?", v.knowledge);
-        jdbc.update("delete from construction_catalog_candidate where catalog_version_id=?", v.catalog);
-        jdbc.update("delete from knowledge_rule where knowledge_version_id=?", v.knowledge);
-        jdbc.update("delete from knowledge_fact where knowledge_version_id=?", v.knowledge);
-        List<Map<String, Object>> nodes = jdbc.queryForList("select id,page_from,content from knowledge_source_node where execution_id=? and node_type='PAGE' order by page_from", executionId);
-        int facts = 0;
-        for (Map<String, Object> n : nodes) {
-            String text = Objects.toString(n.get("content"), "");
-            if (text.strip().isEmpty()) throw new IllegalStateException("Knowledge extraction quality gate failed: blank source node " + n.get("id"));
-            UUID node = (UUID) n.get("id");
-            Integer page = (Integer) n.get("page_from");
-            Matcher m = NUMBER.matcher(text);
-            int ordinal = 0;
-            while (m.find()) {
-                if (ordinal >= 2000) {
-                    throw new IllegalStateException("Numeric candidate safety limit exceeded on page " + page + "; split the source rather than silently truncating it.");
+    // Phase V51: Source-preserving Hazm segmentation and strictly bounded Qwen metadata.
+    // This replaces the legacy 70-character numeric snippets. It NEVER approves legal rules.
+    private int extractKnowledge(UUID executionId) throws Exception {
+        Path legalPython = repo.resolve(".local/venv-legal-nlp/Scripts/python.exe");
+        Path script = repo.resolve("python/src/sakhtyar_python/legal/legal_segment_pipeline_v1.py");
+        if (!Files.isRegularFile(legalPython) || !Files.isRegularFile(script))
+            throw new IllegalStateException("Legal NLP is not installed; install offline legal tokenizer using the V51.5 installer.");
+        Path workspace = repo.resolve(".local/knowledge-legal-runtime");
+        Files.createDirectories(workspace);
+        Path input = Files.createTempFile(workspace, "legal-in-", ".tsv");
+        Path output = Files.createTempFile(workspace, "legal-out-", ".tsv");
+        Path report = Files.createTempFile(workspace, "legal-report-", ".json");
+        Path log = Files.createTempFile(workspace, "legal-log-", ".txt");
+        try {
+            List<Map<String,Object>> nodes = jdbc.queryForList("""
+                select a.document_id,n.id as node_id,n.page_from,n.content
+                  from knowledge_source_node n
+                  join knowledge_source_artifact a on a.id=n.artifact_id
+                 where n.execution_id=? and n.node_type='PAGE'
+                   and exists (select 1 from knowledge_intake_inventory i
+                         where i.execution_id=n.execution_id
+                           and i.document_id=a.document_id
+                           and i.selected_by_user=true
+                           and i.intake_status<>'SKIP_DUPLICATE_EXACT')
+                 order by a.document_id,n.page_from,n.id
+                """, executionId);
+            if (nodes.isEmpty()) throw new IllegalStateException("No normalized source pages for legal segment extraction.");
+            try (java.io.BufferedWriter writer = Files.newBufferedWriter(input, StandardCharsets.UTF_8)) {
+                for (Map<String,Object> n : nodes) {
+                    String original = Objects.toString(n.get("content"), "");
+                    if (original.strip().isEmpty()) continue;
+                    String text64 = Base64.getEncoder().encodeToString(original.getBytes(StandardCharsets.UTF_8));
+                    writer.write(n.get("document_id") + "\t" + n.get("node_id") + "\t" + n.get("page_from") + "\t" + text64);
+                    writer.newLine();
                 }
-                String raw = m.group(1).replace(",", ".");
-                BigDecimal num;
-                try { num = new BigDecimal(raw); } catch (Exception ex) { continue; }
-                int from = Math.max(0, m.start() - 70), to = Math.min(text.length(), m.end() + 70);
-                String evidence = text.substring(from, to).replace('\n', ' ').strip();
-                if (evidence.isBlank()) continue;
-                String term = termBefore(text, m.start());
-                if (!term.isBlank()) upsertCandidate(v.catalog, term, node);
-                String key = "AUTO-" + node + "-" + ordinal;
-                UUID factId = UUID.randomUUID();
-                UUID ruleId = UUID.randomUUID();
-                jdbc.update("insert into knowledge_fact(id,knowledge_version_id,fact_type,stable_key,predicate,numeric_value,literal_value,confidence,status,source_node_id,metadata_json) values(?,?,'NUMERIC_STATEMENT',?,'HAS_NUMERIC_VALUE',?,?,0.70,'CANDIDATE',?,jsonb_build_object('rawToken',?,'charOffset',?,'pageNumber',?,'kind','NUMERIC_OBSERVATION'))", factId, v.knowledge, key, num, evidence, node, m.group(1), m.start(), page);
-                jdbc.update("insert into knowledge_rule(id,knowledge_version_id,stable_key,operator,numeric_value,text_value,confidence,status,source_node_id) values(?,?,?,'OBSERVED',?,?,0.65,'CANDIDATE',?)", ruleId, v.knowledge, key, num, evidence, node);
-                jdbc.update("insert into knowledge_extraction_quality(id,execution_id,rule_id,fact_id,source_node_id,evidence_status,evidence_text,page_number,confidence,metadata_json) values(?,?,?,?,?,'SUPPORTED',?,?,0.70,jsonb_build_object('stableKey',?))", UUID.randomUUID(), executionId, ruleId, factId, node, evidence, page, key);
-                facts++; ordinal++;
             }
+            int modelLimit = Integer.parseInt(System.getenv().getOrDefault("SAKHTYAR_LEGAL_MAX_MODEL_CALLS", "8"));
+            String model = System.getenv().getOrDefault("SAKHTYAR_LEGAL_MODEL", "qwen3.5:4b");
+            String ollamaUrl = System.getenv().getOrDefault("SAKHTYAR_OLLAMA_URL", "http://127.0.0.1:11434");
+            List<String> cmd = new ArrayList<>(List.of(legalPython.toString(), script.toString(),
+                "--input", input.toString(), "--output", output.toString(), "--report", report.toString(),
+                "--model", model, "--ollama-url", ollamaUrl,
+                "--max-model-calls", Integer.toString(modelLimit)));
+            ProcessBuilder pb = new ProcessBuilder(cmd);
+            pb.directory(repo.toFile());
+            pb.redirectErrorStream(true);
+            pb.redirectOutput(log.toFile());
+            Process proc = pb.start();
+            if (!proc.waitFor(35, java.util.concurrent.TimeUnit.MINUTES)) {
+                proc.destroyForcibly();
+                throw new IllegalStateException("Hazm/Qwen legal extraction timed out; details at " + log);
+            }
+            if (proc.exitValue() != 0) {
+                String details = Files.readString(log, StandardCharsets.UTF_8);
+                throw new IllegalStateException("Legal extractor failed (" + proc.exitValue() + "): "
+                    + details.substring(0, Math.min(2200, details.length())));
+            }
+
+            // Store a new version of structured candidates; existing successful releases remain untouched.
+            Versions v = ensureVersions(executionId);
+            jdbc.update("delete from knowledge_legal_segment where execution_id=?", executionId);
+            jdbc.update("delete from knowledge_extraction_quality where execution_id=?", executionId);
+            jdbc.update("delete from knowledge_semantic_relation where knowledge_version_id=?", v.knowledge);
+            jdbc.update("delete from construction_catalog_candidate where catalog_version_id=?", v.catalog);
+            jdbc.update("delete from knowledge_rule where knowledge_version_id=?", v.knowledge);
+            jdbc.update("delete from knowledge_fact where knowledge_version_id=?", v.knowledge);
+            int saved = 0;
+            for (String line : Files.readAllLines(output, StandardCharsets.UTF_8)) {
+                if (line.isBlank()) continue;
+                String[] f = line.split("\\t", 10);
+                if (f.length != 10) throw new IllegalStateException("Invalid legal segment record: expected 10 fields");
+                UUID docId = UUID.fromString(f[0]);
+                UUID nodeId = UUID.fromString(f[1]);
+                int pageFrom = Integer.parseInt(f[2]);
+                int pageTo = Integer.parseInt(f[3]);
+                int ordinal = Integer.parseInt(f[4]);
+                String kind = f[5];
+                String label = new String(Base64.getDecoder().decode(f[6]), StandardCharsets.UTF_8);
+                String whole = new String(Base64.getDecoder().decode(f[7]), StandardCharsets.UTF_8);
+                String metadata = new String(Base64.getDecoder().decode(f[8]), StandardCharsets.UTF_8);
+                if (whole.isBlank() || !shaText(whole).equals(f[9]))
+                    throw new IllegalStateException("Legal segment checksum mismatch at page " + pageFrom);
+                boolean legal = "ARTICLE".equals(kind) || "NOTE".equals(kind) || "CLAUSE".equals(kind);
+                UUID ruleId = null;
+                if (legal) {
+                    ruleId = UUID.randomUUID();
+                    String key = "LEGAL-" + nodeId + "-" + ordinal;
+                    jdbc.update("""
+                        insert into knowledge_rule(id,knowledge_version_id,stable_key,operator,numeric_value,
+                          text_value,confidence,status,source_node_id)
+                        values(?,?,?,'TEXT_CLAUSE',null,?,0.50,'CANDIDATE',?)
+                        """, ruleId, v.knowledge, key, whole, nodeId);
+                    jdbc.update("""
+                        insert into knowledge_extraction_quality(id,execution_id,rule_id,source_node_id,
+                          evidence_status,evidence_text,page_number,confidence,metadata_json)
+                        values(?,?,?,?,'SUPPORTED',?,?,0.50,jsonb_build_object('kind',?,'source','EXACT_TEXT','review','REQUIRED'))
+                        """, UUID.randomUUID(), executionId, ruleId, nodeId, whole, pageFrom, kind);
+                }
+                jdbc.update("""
+                    insert into knowledge_legal_segment(id,execution_id,document_id,source_node_id,rule_id,
+                      ordinal,segment_type,article_label,full_text,text_sha256,page_from,page_to,model_metadata)
+                    values(?,?,?,?,?,?,?,?,?,?,?,?,?::jsonb)
+                    """, UUID.randomUUID(), executionId, docId, nodeId, ruleId,
+                    ordinal, kind, label, whole, f[9], pageFrom, pageTo, metadata);
+                saved++;
+            }
+            if (saved == 0) throw new IllegalStateException("No legal source segments extracted.");
+            return saved;
+        } finally {
+            Files.deleteIfExists(input);
+            Files.deleteIfExists(output);
+            // Keep local model reports/logs for diagnosis, but they are not version-controlled.
         }
-        // Phase5181: DO NOT fabricate semantic links from pairs of numbers on the same page.
-        // Legal relations must be typed, source-backed, and separately validated.
-        return facts;
     }
 
     private int validate(UUID executionId) {
@@ -236,7 +309,8 @@ public class KnowledgeFinalPipelineService {
         if (pages == null || pages == 0) throw new IllegalStateException("Quality gate failed: no normalized pages were produced.");
         if (blankPages != null && blankPages > 0) throw new IllegalStateException("Quality gate failed: blank normalized pages=" + blankPages);
         if (blankOcr != null && blankOcr > 0) throw new IllegalStateException("Quality gate failed: blank OCR pages=" + blankOcr);
-        if (evidence == null || evidence == 0) throw new IllegalStateException("Quality gate failed: no extraction evidence was produced.");
+        Integer legalSegments = jdbc.queryForObject("select count(*) from knowledge_legal_segment where execution_id=?", Integer.class, executionId);
+        if ((evidence == null || evidence == 0) && (legalSegments == null || legalSegments == 0)) throw new IllegalStateException("Quality gate failed: no extracted source segments.");
         Versions v = ensureVersions(executionId);
         // Phase515: extracted facts remain candidates; not legal approvals.
         // Phase515: extracted rules remain CANDIDATE until independent review.

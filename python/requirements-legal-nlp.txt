@@ -1,0 +1,2 @@
+# Compatible with Python 3.12 and 3.13. MIT-licensed Persian NLP toolkit.
+hazm==0.12.1

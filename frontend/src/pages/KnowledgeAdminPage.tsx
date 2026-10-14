@@ -31,6 +31,7 @@ import {useEffect, useMemo, useRef, useState} from 'react'
 import type {Key} from 'react'
 import {api} from '../api/client'
 import {KnowledgeResultExplorer} from './KnowledgeResultExplorer'
+import {KnowledgeLegalSegmentsPanel} from './KnowledgeLegalSegmentsPanel'
 import {KnowledgeReviewPanel} from '../features/case/KnowledgeReviewPanel'
 import {KnowledgeOcrPageReviewPanel} from './KnowledgeOcrPageReviewPanel'
 import {KnowledgeGovernanceWorkbench} from './KnowledgeGovernanceWorkbench'
@@ -246,7 +247,8 @@ export function KnowledgeAdminPage() {
       {key:'review',label:'بازبینی و تأیید'},
       {key:'rules',label:'قوانین استخراج‌شده'},
       {key:'categories',label:'دسته‌بندی اسناد'}
-    ])} />
+    ]).concat([{key:'legal',label:'مواد و بندهای استخراج‌شده'}])} />
+    {knowledgeTab === 'legal' && <KnowledgeLegalSegmentsPanel executionId={id ?? undefined}/>} 
     <ContextHelp topic="knowledge" />
     {knowledgeTab === 'ocr-pages' && <KnowledgeOcrPageReviewPanel executionId={id ?? undefined}/>} 
     {knowledgeTab === 'review' && <KnowledgeReviewPanel reviewRule={selectedReviewRule ?? undefined}/>}
