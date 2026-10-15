@@ -293,7 +293,7 @@ public class KnowledgeAiImportService {
         if(!Set.of("APPROVED","REJECTED","PENDING_REVIEW").contains(decision)) throw new IllegalArgumentException("Invalid decision");
         if(notes!=null && notes.length()>2000) throw new IllegalArgumentException("Review notes too long");
         if("APPROVED".equals(decision) && (notes==null || notes.strip().length()<12))
-            throw new IllegalArgumentException("Approval requires 12+ characters explaining source verification");
+            throw new IllegalArgumentException("برای تأیید باید حداقل ۱۲ نویسه درباره بررسی منبع و استناد ثبت شود.");
         transaction.executeWithoutResult(tx -> {
             int affected=jdbc.update("""
                 update knowledge_ai_import_item set review_status=?,review_notes=?,reviewed_by=?,reviewed_at=now()
@@ -313,6 +313,88 @@ public class KnowledgeAiImportService {
         return Map.of("id",itemId.toString(),"status",decision,
             "publication","NOT_PUBLISHED; review is staged only");
     }
+    /** Transactional review in staging only: no canonical knowledge_rule or release writes. */
+    public Map<String,Object> bulkReview(UUID batchId, String scope, List<UUID> itemIds,
+                                         String decision, String notes, Boolean acknowledged,
+                                         Integer expectedCount, String actor) {
+        if (!Set.of("SELECTED", "ALL_PENDING_RULES").contains(scope))
+            throw new IllegalArgumentException("دامنه بازبینی گروهی معتبر نیست.");
+        if (!Set.of("APPROVED", "REJECTED").contains(decision))
+            throw new IllegalArgumentException("تصمیم گروهی معتبر نیست.");
+        if (!Boolean.TRUE.equals(acknowledged))
+            throw new IllegalArgumentException("تأیید آگاهی از بازبینی گروهی الزامی است.");
+        if (notes != null && notes.length() > 2000)
+            throw new IllegalArgumentException("متن یادداشت بیشتر از ۲۰۰۰ نویسه است.");
+        if ("APPROVED".equals(decision) && (notes == null || notes.strip().length() < 12))
+            throw new IllegalArgumentException("برای تأیید گروهی حداقل ۱۲ نویسه توضیح درباره راستی‌آزمایی منبع لازم است.");
+        if (expectedCount == null || expectedCount < 1 || expectedCount > MAX_RECORDS)
+            throw new IllegalArgumentException("تعداد مورد انتظار بازبینی نامعتبر است.");
+        final LinkedHashSet<UUID> selected = new LinkedHashSet<>();
+        if ("SELECTED".equals(scope)) {
+            if (itemIds == null || itemIds.isEmpty() || itemIds.size() > MAX_RECORDS || itemIds.contains(null))
+                throw new IllegalArgumentException("لطفاً قوانین مجاز را انتخاب کن.");
+            selected.addAll(itemIds);
+            if (selected.size() != itemIds.size() || selected.size() != expectedCount)
+                throw new IllegalArgumentException("انتخاب تکراری است یا تعداد موارد تغییر کرده است.");
+        } else if (itemIds != null && !itemIds.isEmpty()) {
+            throw new IllegalArgumentException("در حالت همه قوانین، شناسه‌های جداگانه مجاز نیست.");
+        }
+        return transaction.execute(tx -> {
+            // Lock the batch row to serialize bulk requests, then lock candidate rules.
+            List<Map<String,Object>> batches = jdbc.queryForList(
+                "select id from knowledge_ai_import_batch where id=? for update", batchId);
+            if (batches.size()!=1) throw new IllegalArgumentException("بسته دانش پیدا نشد.");
+            List<Map<String,Object>> rows = jdbc.queryForList("""
+                select i.id::text as id, i.review_status, d.category
+                from knowledge_ai_import_item i
+                join knowledge_ai_import_document d on d.id=i.document_id
+                where i.batch_id=? and i.record_type='RULE'
+                order by i.id
+                for update of i
+                """, batchId);
+            LinkedHashSet<UUID> accepted = new LinkedHashSet<>();
+            for (Map<String,Object> row: rows) {
+                UUID id = UUID.fromString((String)row.get("id"));
+                String status = (String)row.get("review_status");
+                String category = (String)row.get("category");
+                if ("ALL_PENDING_RULES".equals(scope)) {
+                    if ("PENDING_REVIEW".equals(status) && "LAW".equals(category)) accepted.add(id);
+                } else if (selected.contains(id)) {
+                    if (!"PENDING_REVIEW".equals(status))
+                        throw new IllegalArgumentException("بعضی قوانین قبلاً بررسی شده‌اند؛ فهرست را تازه‌سازی کن.");
+                    if (!"LAW".equals(category))
+                        throw new IllegalArgumentException("بازبینی گروهی فقط برای اسناد طبقه‌بندی‌شده به‌عنوان قانون مجاز است.");
+                    accepted.add(id);
+                }
+            }
+            if (accepted.size()!=expectedCount ||
+                ("SELECTED".equals(scope) && !accepted.equals(selected)))
+                throw new IllegalArgumentException("تعداد یا وضعیت قوانین تغییر کرده است؛ فهرست را تازه‌سازی کن.");
+            String auditNote = "[بازبینی گروهی - " + scope + "] " + (notes==null ? "" : notes.strip());
+            for (UUID itemId: accepted) {
+                int changed=jdbc.update("""
+                    update knowledge_ai_import_item
+                    set review_status=?,review_notes=?,reviewed_by=?,reviewed_at=now()
+                    where id=? and batch_id=? and record_type='RULE' and review_status='PENDING_REVIEW'
+                    """, decision, auditNote, actor, itemId, batchId);
+                if (changed!=1) throw new IllegalStateException("ثبت تصمیم گروهی ناقص ماند؛ تراکنش بازگردانده شد.");
+                jdbc.update("""
+                    insert into knowledge_ai_import_review_event(id,item_id,decision,notes,reviewer)
+                    values(?,?,?,?,?)
+                    """, UUID.randomUUID(),itemId,decision,auditNote,actor);
+            }
+            jdbc.update("""
+                update knowledge_ai_import_batch b
+                set status=case when exists(select 1 from knowledge_ai_import_item i
+                    where i.batch_id=b.id and i.review_status='PENDING_REVIEW')
+                    then 'AWAITING_REVIEW' else 'REVIEWED' end
+                where b.id=?
+                """, batchId);
+            return Map.<String,Object>of("updated",accepted.size(),"decision",decision,
+                "publication","NOT_PUBLISHED; staging review only");
+        });
+    }
+
     public List<Map<String,Object>> reviewEvents(UUID batchId,UUID itemId) {
         return jdbc.queryForList("""
             select e.id::text as id,e.decision,e.notes,e.reviewer,e.created_at

@@ -1,6 +1,6 @@
 import { useMemo, useState } from 'react'
 import {
-  Alert, App, Button, Card, Col, Descriptions, Input, Modal, Row,
+  Alert, App, Button, Card, Checkbox, Col, Descriptions, Input, Modal, Row,
   Select, Space, Statistic, Table, Tabs, Tag, Typography, Upload
 } from 'antd'
 import {
@@ -54,6 +54,14 @@ export function KnowledgeImportPage() {
   const [focused,setFocused] = useState<Item | null>(null)
   const [decision,setDecision] = useState('APPROVED')
   const [reviewNotes,setReviewNotes] = useState('')
+  const [selectedRuleKeys,setSelectedRuleKeys] = useState<string[]>([])
+  const [ruleStatusFilter,setRuleStatusFilter] = useState('PENDING_REVIEW')
+  const [documentFilter,setDocumentFilter] = useState<string[]>([])
+  const [bulkOpen,setBulkOpen] = useState(false)
+  const [bulkScope,setBulkScope] = useState<'SELECTED'|'ALL_PENDING_RULES'>('SELECTED')
+  const [bulkDecision,setBulkDecision] = useState<'APPROVED'|'REJECTED'>('APPROVED')
+  const [bulkNotes,setBulkNotes] = useState('')
+  const [bulkAcknowledged,setBulkAcknowledged] = useState(false)
   const [search,setSearch] = useState('')
   const batches = useQuery({queryKey:['ai-import-batches'],queryFn:()=>api<Batch[]>(`${root}/packages`)})
   const selectedId = batchId ?? batches.data?.[0]?.id
@@ -66,6 +74,11 @@ export function KnowledgeImportPage() {
     queryFn:()=>api<Item[]>(`${root}/packages/${selectedId}/items?type=SEGMENT`)})
   const all = useMemo(()=>[...(rules.data??[]),...(segments.data??[])],[rules.data,segments.data])
   const pending = useMemo(()=>all.filter(x=>x.review_status==='PENDING_REVIEW'),[all])
+  const pendingLawRules = useMemo(()=>(rules.data??[]).filter(r=>r.review_status==='PENDING_REVIEW'&&r.category==='LAW'),[rules.data])
+  const ruleRows = useMemo(()=>(rules.data??[]).filter(r=>(!search||[r.document_title,r.item_key,r.article_label,r.full_text].join(' ').includes(search))&&
+    (ruleStatusFilter==='ALL'||r.review_status===ruleStatusFilter)&&
+    (!documentFilter.length||documentFilter.includes(r.doc_key))),[rules.data,search,ruleStatusFilter,documentFilter])
+  const bulkCount = bulkScope==='SELECTED' ? selectedRuleKeys.length : pendingLawRules.length
   const history = useQuery({queryKey:['ai-import-history',selectedId,focused?.id],enabled:!!selectedId&&!!focused,
     queryFn:()=>api<ReviewEvent[]>(`${root}/packages/${selectedId}/items/${focused!.id}/history`)})
   const showError = (err:unknown) => message.error(err instanceof Error ? err.message : 'عملیات انجام نشد')
@@ -94,9 +107,37 @@ export function KnowledgeImportPage() {
       void qc.invalidateQueries({queryKey:['ai-import-segments']})
     },onError:showError
   })
+  const bulkReview = useMutation({
+    mutationFn: async () => {
+      if (!selectedId) throw new Error('ابتدا بسته دانش را انتخاب کن.')
+      if (!bulkAcknowledged) throw new Error('ابتدا تأیید آگاهی از ماهیت بازبینی گروهی را علامت بزن.')
+      if (bulkCount===0) throw new Error('هیچ قانون قابل بررسی انتخاب نشده است.')
+      if (bulkDecision==='APPROVED' && bulkNotes.trim().length<12)
+        throw new Error('برای تأیید، توضیح بررسی منبع باید حداقل ۱۲ نویسه باشد.')
+      return api<{updated:number;publication:string}>(`${root}/packages/${selectedId}/items/bulk-review`,{
+        method:'POST',body:JSON.stringify({
+          scope:bulkScope, itemIds:bulkScope==='SELECTED'?selectedRuleKeys:[],
+          decision:bulkDecision, notes:bulkNotes, acknowledged:true, expectedCount:bulkCount
+        })
+      })
+    },
+    onSuccess: data => {
+      message.success(`تصمیم گروهی برای ${data.updated} قانون ثبت شد؛ انتشار خودکار انجام نشد.`)
+      setBulkOpen(false);setSelectedRuleKeys([]);setBulkNotes('');setBulkAcknowledged(false)
+      void qc.invalidateQueries({queryKey:['ai-import-rules',selectedId]})
+      void qc.invalidateQueries({queryKey:['ai-import-segments',selectedId]})
+      void qc.invalidateQueries({queryKey:['ai-import-batches']})
+      void qc.invalidateQueries({queryKey:['ai-import-history']})
+    },onError:showError
+  })
+  const openBulk=(scope:'SELECTED'|'ALL_PENDING_RULES',next:'APPROVED'|'REJECTED')=>{
+    setBulkScope(scope);setBulkDecision(next);setBulkNotes('');setBulkAcknowledged(false);setBulkOpen(true)
+  }
   const review = useMutation({
     mutationFn:async()=>{
       if(!selectedId || !focused) throw new Error('مورد انتخاب نشده است')
+      if(decision==='APPROVED' && reviewNotes.trim().length<12)
+        throw new Error('برای تأیید، توضیح بررسی منبع باید حداقل ۱۲ نویسه داشته باشد.')
       return api(`${root}/packages/${selectedId}/items/${focused.id}/review`,{
         method:'POST',body:JSON.stringify({decision,notes:reviewNotes})
       })
@@ -150,8 +191,36 @@ export function KnowledgeImportPage() {
         description="استنادهای تولیدشده با AI پیش‌فرض معتبر نیستند. در این مرحله داده‌ها فقط وارد جداول موقتِ بازبینی می‌شوند و در قوانین قطعی و موتور تصمیم‌گیری فعال نمی‌شوند." />
     </Space>},
     {key:'rules',label:'۲. قوانین استخراج‌شده',children:<Card title="قوانین واردشده (نیازمند بررسی)">
-      <Table<Item> rowKey="id" dataSource={filtered(rules.data??[])} loading={rules.isLoading}
-        scroll={{x:1130}} pagination={{pageSize:12}} columns={itemColumns}/>
+      <Alert type="info" showIcon style={{marginBottom:12}}
+        message="بازبینی گروهی تنها برای قوانینِ اسناد طبقه‌بندی‌شده به‌عنوان «قانون» فعال است."
+        description="ابتدا چند نمونه را با «مشاهده و بازبینی» بررسی کن؛ سپس می‌توانی ردیف‌های دلخواه، همه نتایج فیلترشده یا همه قوانین در انتظارِ این بسته را انتخاب کنی. تأیید گروهی تنها وضعیت بازبینی را ثبت می‌کند و هیچ قانونی را خودکار منتشر نمی‌کند."/>
+      <Space wrap style={{marginBottom:12}}>
+        <Select value={ruleStatusFilter} style={{minWidth:180}} onChange={v=>{setRuleStatusFilter(v);setSelectedRuleKeys([])}}
+          options={[{value:'PENDING_REVIEW',label:'در انتظار بازبینی'}, {value:'ALL',label:'همه وضعیت‌ها'},
+            {value:'APPROVED',label:'تأییدشده'}, {value:'REJECTED',label:'ردشده'}]}/>
+        <Select mode="multiple" allowClear showSearch optionFilterProp="label" value={documentFilter}
+          onChange={v=>{setDocumentFilter(v);setSelectedRuleKeys([])}}
+          style={{minWidth:300,maxWidth:460}} maxTagCount="responsive" placeholder="انتخاب اسناد برای فیلتر قوانین"
+          options={(docs.data??[]).map(d=>({value:d.doc_key,label:d.title}))}/>
+        <Button onClick={()=>setSelectedRuleKeys(ruleRows.filter(r=>r.review_status==='PENDING_REVIEW'&&r.category==='LAW').map(r=>r.id))}>
+          انتخاب همه نتایج فیلترشده
+        </Button>
+        <Button onClick={()=>setSelectedRuleKeys([])} disabled={!selectedRuleKeys.length}>لغو انتخاب</Button>
+        <Tag>انتخاب‌شده: {selectedRuleKeys.length.toLocaleString('fa-IR')}</Tag>
+        <Button type="primary" disabled={!selectedRuleKeys.length} onClick={()=>openBulk('SELECTED','APPROVED')}>
+          تأیید انتخاب‌شده‌ها
+        </Button>
+        <Button danger disabled={!selectedRuleKeys.length} onClick={()=>openBulk('SELECTED','REJECTED')}>
+          رد انتخاب‌شده‌ها
+        </Button>
+        <Button disabled={!pendingLawRules.length} onClick={()=>openBulk('ALL_PENDING_RULES','APPROVED')}>
+          تأیید همه قوانین در انتظار این بسته ({pendingLawRules.length.toLocaleString('fa-IR')})
+        </Button>
+      </Space>
+      <Table<Item> rowKey="id" dataSource={ruleRows} loading={rules.isLoading}
+        rowSelection={{selectedRowKeys:selectedRuleKeys,onChange:(keys)=>setSelectedRuleKeys(keys.map(String)),
+          getCheckboxProps:(r:Item)=>({disabled:r.review_status!=='PENDING_REVIEW'||r.category!=='LAW'})}}
+        scroll={{x:1250}} pagination={{pageSize:12,showSizeChanger:true,pageSizeOptions:[12,25,50]}} columns={itemColumns}/>
     </Card>},
     {key:'categories',label:'۳. دسته‌بندی اسناد',children:<Card title="منابع و دسته‌بندی پیشنهادی">
       <Alert type="warning" showIcon style={{marginBottom:12}} message="دسته‌بندی پیشنهادی، جایگزین تأیید اصالت سند نیست." />
@@ -192,7 +261,7 @@ export function KnowledgeImportPage() {
       <Space wrap style={{width:'100%',justifyContent:'space-between'}}>
         <Space wrap><Typography.Text strong>بسته انتخاب‌شده:</Typography.Text>
           <Select showSearch optionFilterProp="label" placeholder="ابتدا یک بسته دانش بارگذاری کن" style={{minWidth:300,maxWidth:'90vw'}}
-            value={selectedId} onChange={setBatchId} options={(batches.data??[]).map(b=>({value:b.id,label:`${b.archive_name} — ${new Date(b.created_at).toLocaleDateString('fa-IR')}`}))}/>
+            value={selectedId} onChange={v=>{setBatchId(v);setSelectedRuleKeys([])}} options={(batches.data??[]).map(b=>({value:b.id,label:`${b.archive_name} — ${new Date(b.created_at).toLocaleDateString('fa-IR')}`}))}/>
         </Space>
         <Button icon={<ReloadOutlined/>} loading={batches.isFetching} onClick={()=>{void batches.refetch();void docs.refetch();void rules.refetch();void segments.refetch()}}>تازه‌سازی</Button>
       </Space>
@@ -217,8 +286,30 @@ export function KnowledgeImportPage() {
       <Alert style={{marginBottom:12}} type="info" showIcon message="این دستور را همراه اسناد اصلی به هوش مصنوعی بده و ZIP یا RAR تولیدشده را اینجا بارگذاری کن."/>
       <Input.TextArea dir="rtl" readOnly rows={21} value={prompt} style={{lineHeight:2,fontFamily:'inherit'}} />
     </Modal>
+    <Modal title="ثبت تصمیم گروهی قوانین" width={760} open={bulkOpen}
+      onCancel={()=>!bulkReview.isPending&&setBulkOpen(false)} okText={bulkDecision==='APPROVED'?'تأیید گروهی و ثبت تاریخچه':'رد گروهی و ثبت تاریخچه'}
+      okButtonProps={{loading:bulkReview.isPending,disabled:!bulkAcknowledged||bulkCount===0||
+        (bulkDecision==='APPROVED'&&bulkNotes.trim().length<12)}}
+      onOk={()=>bulkReview.mutate()}>
+      <Space direction="vertical" size="middle" style={{width:'100%'}}>
+        <Alert type="warning" showIcon message={`تعداد موارد این عملیات: ${bulkCount.toLocaleString('fa-IR')}`}
+          description={bulkScope==='ALL_PENDING_RULES'
+            ? 'این عملیات روی همه قوانینِ در انتظارِ همین بسته که سندشان در دسته «قانون» است انجام می‌شود؛ فیلتر جست‌وجوی صفحه در این حالت اعمال نمی‌شود.'
+            : 'این عملیات فقط روی ردیف‌های تیک‌خورده انجام می‌شود. برای دقت، ابتدا محتوای نمونه‌ها و استنادها را با اسناد اصلی مقایسه کن.'}/>
+        <Select style={{width:'100%'}} value={bulkDecision} onChange={setBulkDecision}
+          options={[{value:'APPROVED',label:'تأیید کارشناسی برای مرحله بعد'},
+            {value:'REJECTED',label:'رد قوانین انتخاب‌شده'}]}/>
+        <Input.TextArea rows={4} maxLength={2000} showCount value={bulkNotes} onChange={e=>setBulkNotes(e.target.value)}
+          placeholder="روش نمونه‌برداری، اسناد و صفحات کنترل‌شده یا دلیل رد را با دقت بنویس (برای تأیید حداقل ۱۲ نویسه)."/>
+        <Checkbox checked={bulkAcknowledged} onChange={e=>setBulkAcknowledged(e.target.checked)}>
+          تأیید می‌کنم که مسئولیت این تصمیم گروهی با بازبین است، موارد لازم را بررسی کرده‌ام و این اقدام به‌معنای انتشار یا تأیید قانونی خودکار نیست.
+        </Checkbox>
+        <Typography.Text type="secondary">تاریخچه مستقل برای هر مورد ثبت می‌شود. هر خطای اعتبارسنجی، کل عملیات گروهی را برگشت می‌دهد.</Typography.Text>
+      </Space>
+    </Modal>
     <Modal title={focused?.article_label||'بازبینی مستندات واردشده'} width={950} open={!!focused}
-      onCancel={()=>setFocused(null)} okText="ثبت تصمیم" okButtonProps={{loading:review.isPending}}
+      onCancel={()=>setFocused(null)} okText="ثبت تصمیم" okButtonProps={{
+        loading:review.isPending,disabled:decision==='APPROVED'&&reviewNotes.trim().length<12}}
       onOk={()=>review.mutate()}>
       {focused && <Space direction="vertical" size="middle" style={{width:'100%'}}>
         <Descriptions bordered size="small" column={{xs:1,md:2}} items={[
@@ -236,8 +327,11 @@ export function KnowledgeImportPage() {
           {value:'REJECTED',label:'رد به‌دلیل کیفیت یا استناد نامعتبر'},
           {value:'PENDING_REVIEW',label:'بازگرداندن به صف بازبینی'}
         ]}/>
-        <Input.TextArea rows={3} maxLength={2000} value={reviewNotes} onChange={e=>setReviewNotes(e.target.value)}
-          placeholder="یادداشت مستند بازبین (برای تأیید حداقل ۱۲ نویسه)"/>
+        <Input.TextArea rows={3} maxLength={2000} showCount value={reviewNotes} onChange={e=>setReviewNotes(e.target.value)}
+          placeholder="مثال: صفحه ۵ سند اصلی بررسی شد و متن بند با نسخه مرجع مطابقت دارد."/>
+        {decision==='APPROVED' && <Alert type={reviewNotes.trim().length>=12?'success':'warning'} showIcon
+          message={reviewNotes.trim().length>=12?'توضیح بازبینی برای ثبت کافی است.':'برای تأیید حداقل ۱۲ نویسه توضیح واقعی درباره بررسی منبع بنویس.'}/>}
+
         <Alert type="info" icon={<SafetyCertificateOutlined/>} showIcon message="تأیید، قانون را خودکار در موتور مقررات منتشر نمی‌کند."/>
         {(history.data??[]).length>0 && <Card size="small" title="تاریخچه تصمیم‌های کارشناسی">
           <Table<ReviewEvent> rowKey="id" size="small" pagination={{pageSize:5}} dataSource={history.data??[]}

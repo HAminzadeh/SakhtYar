@@ -43,6 +43,16 @@ public class KnowledgeAiImportController {
                                      @RequestBody ReviewRequest request,Authentication auth) {
         return service.review(id,itemId,request.decision(),request.notes(),admin(auth));
     }
+    public record BulkReviewRequest(String scope, List<UUID> itemIds, String decision,
+                                    String notes, Boolean acknowledged, Integer expectedCount) {}
+    @PostMapping("/packages/{id}/items/bulk-review")
+    public Map<String,Object> bulkReview(@PathVariable UUID id,
+                                         @RequestBody BulkReviewRequest request,
+                                         Authentication auth) {
+        String actor=admin(auth);
+        return service.bulkReview(id, request.scope(), request.itemIds(), request.decision(),
+            request.notes(), request.acknowledged(), request.expectedCount(), actor);
+    }
     @GetMapping("/packages/{id}/items/{itemId}/history")
     public List<Map<String,Object>> history(@PathVariable UUID id,@PathVariable UUID itemId,Authentication auth) {
         admin(auth);return service.reviewEvents(id,itemId);
