@@ -14,6 +14,7 @@ import { PreferencesPage } from './pages/PreferencesPage'
 import { AiManagementPage } from './pages/AiManagementPage'
 import { OperationsPage } from './pages/OperationsPage'
 import { KnowledgeAdminPage } from './pages/KnowledgeAdminPage'
+import { KnowledgeImportPage } from './pages/KnowledgeImportPage'
 
 import { Phase517MarketPage } from './pages/Phase517MarketPage'
 import { Phase517BuildersPage } from './pages/Phase517BuildersPage'
@@ -57,6 +58,7 @@ export default function App() {
           </Route>
           <Route element={<PermissionRoute permission="USER_MANAGE" />}>
             <Route path="/admin/knowledge" element={<KnowledgeAdminPage />} />
+            <Route path="/admin/knowledge/import" element={<KnowledgeImportPage />} />
           </Route>
         </Route>
       </Route>

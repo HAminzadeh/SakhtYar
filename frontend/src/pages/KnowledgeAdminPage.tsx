@@ -1,3 +1,4 @@
+import '../styles/knowledge-import-v53.css'
 import {
   Alert,
   App as AntdApp,
@@ -231,23 +232,25 @@ export function KnowledgeAdminPage() {
         ساخت‌یار</Typography.Title><Typography.Text type="secondary">Checkpoint • Resume • Safe Stop • Live Progress •
         Durable Log</Typography.Text></div>
     </Space></Card>
-    <Tabs activeKey={knowledgeTab} onChange={setKnowledgeTab} items={(id ? [
+    <Tabs className="sakhtyar-knowledge-tabs" activeKey={knowledgeTab} onChange={setKnowledgeTab} items={(id ? [
       {key:'overview',label:'وضعیت و پیشرفت'},
       {key:'documents',label:'اسناد و انتخاب'},
-      {key:'logs',label:'لاگ و Checkpoint'},
-      {key:'results',label:'نتایج و خروجی'},
-      {key:'ocr-pages',label:'بازبینی انسانی صفحات OCR'},
-      {key:'review',label:'بازبینی و تأیید'},
+      {key:'results',label:'نتایج پردازش'},
+      {key:'logs',label:'گزارش‌ها و نقاط بازیابی'},
+      {key:'ocr-pages',label:'بازبینی صفحات اسکن‌شده'},
       {key:'rules',label:'قوانین استخراج‌شده'},
-      {key:'categories',label:'دسته‌بندی اسناد'}
+      {key:'categories',label:'دسته‌بندی اسناد'},
+      {key:'legal',label:'مواد و بندهای استخراج‌شده'},
+      {key:'review',label:'بازبینی و تأیید'}
     ] : [
-      {key:'source',label:'پوشه و اجرا'},
+      {key:'source',label:'انتخاب پوشه و اجرا'},
       {key:'history',label:'اجراهای اخیر'},
-      {key:'ocr-pages',label:'بازبینی انسانی صفحات OCR'},
-      {key:'review',label:'بازبینی و تأیید'},
       {key:'rules',label:'قوانین استخراج‌شده'},
-      {key:'categories',label:'دسته‌بندی اسناد'}
-    ]).concat([{key:'legal',label:'مواد و بندهای استخراج‌شده'}])} />
+      {key:'categories',label:'دسته‌بندی اسناد'},
+      {key:'legal',label:'مواد و بندهای استخراج‌شده'},
+      {key:'ocr-pages',label:'بازبینی صفحات اسکن‌شده'},
+      {key:'review',label:'بازبینی و تأیید'}
+    ])} />
     {knowledgeTab === 'legal' && <KnowledgeLegalSegmentsPanel executionId={id ?? undefined}/>} 
     <ContextHelp topic="knowledge" />
     {knowledgeTab === 'ocr-pages' && <KnowledgeOcrPageReviewPanel executionId={id ?? undefined}/>} 
@@ -304,13 +307,13 @@ export function KnowledgeAdminPage() {
                             disabled={!['PAUSED', 'FAILED', 'WAITING_FOR_PAGE_REVIEW'].includes(state.data?.status ?? '')}
                             onClick={() => call.mutate({url: `/api/v1/knowledge/admin/pipeline/${id}/resume`})}>ادامه</Button><Button
         icon={<RedoOutlined/>} disabled={state.data?.status !== 'FAILED'}
-        onClick={() => call.mutate({url: `/api/v1/knowledge/admin/pipeline/${id}/retry`})}>Retry خطا</Button><Button
+        onClick={() => call.mutate({url: `/api/v1/knowledge/admin/pipeline/${id}/retry`})}>تلاش دوباره</Button><Button
         onClick={() => {
           setId(null);
           setKnowledgeTab('source');
           localStorage.removeItem('knowledgeExecutionId')
         }}>اجرای دیگر</Button><Tag
-        color={stalled ? 'red' : color(state.data?.status)}>{stalled ? 'STALLED' : faStatus(state.data?.status)}</Tag><Typography.Text
+        color={stalled ? 'red' : color(state.data?.status)}>{stalled ? 'توقف غیرعادی' : faStatus(state.data?.status)}</Tag><Typography.Text
         code>{id}</Typography.Text></Space></Card>
       {stalled && <Alert type="error" showIcon message="Heartbeat اجرای Pipeline متوقف شده است"
                          description={`آخرین heartbeat حدود ${age} ثانیه قبل بوده است. وضعیت RUNNING به تنهایی به معنی سالم بودن Worker نیست.`}/>}

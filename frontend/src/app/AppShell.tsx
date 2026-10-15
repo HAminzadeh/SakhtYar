@@ -7,6 +7,7 @@ import {
   DashboardOutlined,
   UserOutlined,
   BookOutlined,
+  ImportOutlined,
   QuestionCircleOutlined,
 } from '@ant-design/icons'
 import {
@@ -115,11 +116,20 @@ export function AppShell() {
 
           {hasPermission('USER_MANAGE') && (
             <Button
-              type={active('/admin/knowledge') ? 'primary' : 'default'}
+              type={location.pathname === '/admin/knowledge' ? 'primary' : 'default'}
               icon={<BookOutlined />}
               onClick={() => navigate('/admin/knowledge')}
             >
               مرکز دانش
+            </Button>
+          )}
+          {hasPermission('USER_MANAGE') && (
+            <Button
+              type={active('/admin/knowledge/import') ? 'primary' : 'default'}
+              icon={<ImportOutlined />}
+              onClick={() => navigate('/admin/knowledge/import')}
+            >
+              ورود دانش
             </Button>
           )}
           <Button type={active('/help') ? 'primary' : 'default'} icon={<QuestionCircleOutlined />} onClick={() => navigate('/help')}>

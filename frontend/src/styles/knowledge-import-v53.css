@@ -1,0 +1,46 @@
+/* SakhtYar Knowledge UI V53: readable RTL tabs, grouped navigation, responsive cards */
+.sakhtyar-knowledge-tabs { direction: rtl; }
+.sakhtyar-knowledge-tabs > .ant-tabs-nav { margin: 0 0 20px !important; }
+.sakhtyar-knowledge-tabs > .ant-tabs-nav .ant-tabs-nav-wrap {
+  max-width:100%; overflow-x:auto; overflow-y:hidden; scrollbar-width:thin;
+}
+.sakhtyar-knowledge-tabs > .ant-tabs-nav .ant-tabs-nav-list {
+  display:flex; flex-direction:row; gap:8px; padding:6px;
+  border-radius:16px; background:var(--sakhtyar-tabs-bg,rgba(125,145,166,.085));
+}
+.sakhtyar-knowledge-tabs > .ant-tabs-nav .ant-tabs-tab {
+  margin:0 !important; padding:11px 17px !important; min-height:42px;
+  border:1px solid transparent; border-radius:12px; transition:background .2s,box-shadow .2s,border-color .2s;
+  font-family:inherit; font-weight:600; font-size:13px;
+}
+.sakhtyar-knowledge-tabs > .ant-tabs-nav .ant-tabs-tab:hover {
+  background:rgba(22,119,255,.065); border-color:rgba(22,119,255,.12);
+}
+.sakhtyar-knowledge-tabs > .ant-tabs-nav .ant-tabs-tab-active {
+  background:var(--ant-color-bg-container,#fff); border-color:rgba(22,119,255,.22);
+  box-shadow:0 3px 14px rgba(14,48,86,.11);
+}
+.sakhtyar-knowledge-tabs > .ant-tabs-nav .ant-tabs-ink-bar {display:none}
+.sakhtyar-knowledge-tabs .ant-tabs-tab-btn { white-space:nowrap; }
+.sakhtyar-import-page { max-width: 1640px; margin:0 auto; }
+.sakhtyar-import-hero {
+  border-radius:19px !important; overflow:hidden; border-color:rgba(22,119,255,.13) !important;
+  background:linear-gradient(115deg,rgba(22,119,255,.10),rgba(56,185,155,.045) 54%,transparent);
+}
+.sakhtyar-import-hero .ant-typography { color:inherit; }
+.sakhtyar-import-toolbar,.sakhtyar-import-content,.sakhtyar-import-step {border-radius:16px !important}
+.sakhtyar-import-toolbar {border-color:rgba(120,144,176,.19) !important}
+.sakhtyar-import-step {height:100%; box-shadow:0 6px 28px rgba(15,35,64,.05)}
+.sakhtyar-import-step > .ant-card-body {min-height:220px}
+.sakhtyar-import-source-text {
+  max-height:350px; overflow:auto; white-space:pre-wrap; direction:rtl; line-height:2;
+  background:rgba(127,145,160,.065); font-family:inherit;
+}
+.sakhtyar-import-page .ant-upload-drag {border-radius:14px !important; background:rgba(125,145,166,.045)}
+.sakhtyar-import-page .ant-statistic-title { font-weight:600; }
+.sakhtyar-import-page .ant-table-wrapper {direction:rtl}
+@media(max-width:767px){
+  .sakhtyar-knowledge-tabs > .ant-tabs-nav .ant-tabs-tab {padding:9px 12px !important;font-size:12px}
+  .sakhtyar-import-step > .ant-card-body {min-height:unset}
+  .sakhtyar-import-page .ant-card-body {padding:13px}
+}
