@@ -9,6 +9,7 @@ import {
 } from '@ant-design/icons'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { api } from '../api/client'
+import { KnowledgeArchiveFolderImport } from './KnowledgeArchiveFolderImport'
 import '../styles/knowledge-import-v53.css'
 
 type Batch = {
@@ -47,6 +48,8 @@ export function KnowledgeImportPage() {
   const qc = useQueryClient()
   const [activeTab,setActiveTab] = useState('upload')
   const [provider,setProvider] = useState('ChatGPT')
+  const [promptMode,setPromptMode] = useState<'LAW'|'EDUCATION'>('LAW')
+  const [categoryFilter,setCategoryFilter] = useState('ALL')
   const [prompt,setPrompt] = useState('')
   const [showPrompt,setShowPrompt] = useState(false)
   const [archive,setArchive] = useState<File | null>(null)
@@ -111,7 +114,7 @@ export function KnowledgeImportPage() {
   const showError = (err:unknown) => message.error(err instanceof Error ? err.message : 'عملیات انجام نشد')
   const createPrompt = async () => {
     try {
-      const r=await api<Instruction>(`${root}/instructions?provider=${encodeURIComponent(provider)}`)
+      const r=await api<Instruction>(`${root}/instructions?provider=${encodeURIComponent(provider)}&mode=${promptMode}`)
       setPrompt(r.prompt)
       setShowPrompt(true)
     } catch(e) {showError(e)}
@@ -222,11 +225,15 @@ export function KnowledgeImportPage() {
     {key:'upload',label:'۱. ساخت دستور و بارگذاری',children:<Space direction="vertical" size="large" style={{width:'100%'}}>
       <Row gutter={[16,16]}>
         <Col xs={24} xl={12}><Card className="sakhtyar-import-step" title={<><ThunderboltOutlined/> ساخت دستور استخراج برای هوش مصنوعی</>}>
-          <Typography.Paragraph>دستور استاندارد را بساز، همراه با PDFهای مرجع برای ChatGPT یا هوش مصنوعی دلخواه بفرست و فایل خروجی را دریافت کن.</Typography.Paragraph>
+          <Typography.Paragraph>نوع منبع را جداگانه انتخاب کن. خروجی قوانین و جزوه‌های آموزشی از هم تفکیک شده و هیچ مطلب آموزشی به‌صورت خودکار حکم قانونی نمی‌شود.</Typography.Paragraph>
+          <Select style={{width:'100%',marginBottom:12}} value={promptMode} onChange={setPromptMode}
+            options={[{value:'LAW',label:'استخراج قوانین و مقررات'},{value:'EDUCATION',label:'استخراج مطالب آموزشی و فنی'}]}/>
           <Space wrap><Select value={provider} style={{minWidth:190}} onChange={setProvider} options={[
             {value:'ChatGPT',label:'چت‌جی‌پی‌تی'},{value:'Claude',label:'کلود'},
             {value:'Gemini',label:'جمینای'},{value:'Other',label:'سایر مدل‌ها'}]}/>
-          <Button type="primary" icon={<CopyOutlined/>} onClick={()=>void createPrompt()}>تولید دستور استخراج</Button></Space>
+          <Button type="primary" icon={<CopyOutlined/>} onClick={()=>void createPrompt()}>
+            {promptMode==='LAW'?'تولید پرامپت قوانین':'تولید پرامپت فایل‌های آموزشی'}
+          </Button></Space>
         </Card></Col>
         <Col xs={24} xl={12}><Card className="sakhtyar-import-step" title={<><CloudUploadOutlined/> بارگذاری بسته دانش</>}>
           <Alert type="info" showIcon message="بسته ورودی باید چهار فایل مشخص JSON/JSONL داشته باشد؛ تمام اطلاعات نامزد بررسی هستند." style={{marginBottom:16}} />
@@ -240,6 +247,13 @@ export function KnowledgeImportPage() {
           </Upload.Dragger>
           <Button type="primary" style={{marginTop:14}} loading={upload.isPending} disabled={!archive}
             onClick={()=>upload.mutate()}>بررسی ساختار و ورود به مرحله بازبینی</Button>
+          <KnowledgeArchiveFolderImport onImported={newId=>{
+            setBatchId(newId);setActiveTab('categories')
+            void qc.invalidateQueries({queryKey:['ai-import-batches']})
+            void qc.invalidateQueries({queryKey:['ai-import-docs']})
+            void qc.invalidateQueries({queryKey:['ai-import-rules']})
+            void qc.invalidateQueries({queryKey:['ai-import-segments']})
+          }}/>
         </Card></Col>
       </Row>
       <Alert showIcon type="warning" message="ورود امن و بدون انتشار خودکار"
@@ -277,9 +291,22 @@ export function KnowledgeImportPage() {
           getCheckboxProps:(r:Item)=>({disabled:r.review_status!=='PENDING_REVIEW'||r.category!=='LAW'})}}
         scroll={{x:1250}} pagination={{pageSize:12,showSizeChanger:true,pageSizeOptions:[12,25,50]}} columns={itemColumns}/>
     </Card>},
-    {key:'categories',label:'۳. دسته‌بندی اسناد',children:<Card title="منابع و دسته‌بندی پیشنهادی">
+    {key:'education',label:'۳. مطالب آموزشی استخراج‌شده',children:<Card title="بخش‌های آموزشی و فنی (نیازمند بررسی)">
+      <Alert type="info" showIcon style={{marginBottom:12}} message="این مطالب الزام قانونی ایجاد نمی‌کنند."
+        description="تمام متون آموزشی و فنی به‌عنوان قطعه دانش پیشنهادی ثبت شده‌اند؛ صحت آنها باید با جزوه یا سند اصلی بررسی شود."/>
+      <Table<Item> rowKey="id" dataSource={filtered(segments.data??[]).filter(r=>r.category==='EDUCATION'||r.category==='TECHNICAL')}
+        loading={segments.isLoading} scroll={{x:1130}} pagination={{pageSize:12}} columns={itemColumns}/>
+    </Card>},
+    {key:'categories',label:'۴. دسته‌بندی اسناد',children:<Card title="منابع و دسته‌بندی پیشنهادی">
       <Alert type="warning" showIcon style={{marginBottom:12}} message="دسته‌بندی پیشنهادی، جایگزین تأیید اصالت سند نیست." />
-      <Table<Doc> rowKey="id" loading={docs.isLoading} dataSource={docs.data??[]} pagination={{pageSize:12}}
+      <Space wrap style={{marginBottom:12}}><Typography.Text>نوع سند:</Typography.Text>
+        <Select value={categoryFilter} onChange={setCategoryFilter} style={{minWidth:240}}
+          options={[{value:'ALL',label:'همه انواع اسناد'},...Object.entries(cat).map(([value,label])=>({value,label}))]}/>
+        <Tag>قانون: {(docs.data??[]).filter(d=>d.category==='LAW').length}</Tag>
+        <Tag>آموزشی: {(docs.data??[]).filter(d=>d.category==='EDUCATION').length}</Tag>
+      </Space>
+      <Table<Doc> rowKey="id" loading={docs.isLoading}
+        dataSource={(docs.data??[]).filter(d=>categoryFilter==='ALL'||d.category===categoryFilter)} pagination={{pageSize:12}}
         scroll={{x:950}} columns={[
           {title:'عنوان سند',dataIndex:'title',width:240},
           {title:'دسته',dataIndex:'category',width:170,render:(v:string)=><Tag>{cat[v]??v}</Tag>},
@@ -288,11 +315,11 @@ export function KnowledgeImportPage() {
           {title:'شناسه',dataIndex:'doc_key',width:120}
         ]}/>
     </Card>},
-    {key:'segments',label:'۴. مواد و بندهای استخراج‌شده',children:<Card title="مواد، تبصره‌ها و بندها">
+    {key:'segments',label:'۵. مواد و بندهای استخراج‌شده',children:<Card title="مواد، تبصره‌ها و بندها">
       <Table<Item> rowKey="id" dataSource={filtered(segments.data??[])} loading={segments.isLoading}
         scroll={{x:1130}} pagination={{pageSize:12}} columns={itemColumns}/>
     </Card>},
-    {key:'review',label:'۵. بازبینی و تأیید',children:<Space direction="vertical" size="middle" style={{width:'100%'}}>
+    {key:'review',label:'۶. بازبینی و تأیید',children:<Space direction="vertical" size="middle" style={{width:'100%'}}>
       <Alert type="info" showIcon message="ثبت تصمیم کارشناسی" description="تأیید این صفحه صرفاً یک تصمیم مستند روی نسخه واردشده است؛ انتقال به قوانین اجرایی و انتشار، مرحله مجزا و نیازمند طراحی کنترل‌های حقوقی خواهد بود." />
       <Row gutter={[12,12]}>
         <Col xs={12} md={8}><Card><Statistic title="منتظر بررسی" value={pending.length}/></Card></Col>

@@ -73,6 +73,46 @@ public class KnowledgeAiImportService {
         return Map.of("provider", ai, "schemaVersion", "sakhtyar-ai-knowledge-v1", "prompt", prompt);
     }
 
+    /** New explicit mode; the old single-argument method remains for compatibility. */
+    public Map<String,Object> instructions(String provider,String mode) {
+        String ai=provider==null||provider.isBlank()?"ChatGPT":provider.strip();
+        if(ai.length()>80)throw new IllegalArgumentException("Provider label too long");
+        String selected=mode==null||mode.isBlank()?"LAW":mode.trim().toUpperCase(Locale.ROOT);
+        return Map.of("provider",ai,"mode",selected,"schemaVersion","sakhtyar-ai-knowledge-v1",
+                      "prompt",KnowledgeAiPromptLibrary.prompt(selected));
+    }
+
+    /** Hash-only preflight: avoids transferring previously processed ZIP/RAR files. */
+    public Map<String,Object> knownHashes(List<String> supplied) {
+        if(supplied==null||supplied.size()>500)throw new IllegalArgumentException("Hash list must have at most 500 entries");
+        LinkedHashSet<String> hashes=new LinkedHashSet<>();
+        for(String h:supplied){
+            if(h==null||!h.matches("[0-9a-fA-F]{64}"))throw new IllegalArgumentException("Invalid SHA-256 hash");
+            hashes.add(h.toLowerCase(Locale.ROOT));
+        }
+        if(hashes.isEmpty())return Map.of("hashes",List.of());
+        String marks=String.join(",",Collections.nCopies(hashes.size(),"?"));
+        List<String> found=jdbc.queryForList(
+            "select archive_sha256 from knowledge_ai_import_batch where archive_sha256 in ("+marks+")",
+            String.class,hashes.toArray());
+        return Map.of("hashes",found);
+    }
+
+    /** Recent educational passages across all imported AI bundles, never promoted as rules. */
+    public List<Map<String,Object>> educationalItems() {
+        return jdbc.queryForList("""
+            select i.id::text as id, b.archive_name,d.title as document_title,
+                   d.category,d.source_reference,i.segment_type,i.article_label,
+                   i.full_text,i.evidence_quote,i.page_from,i.page_to,i.review_status
+              from knowledge_ai_import_item i
+              join knowledge_ai_import_document d on d.id=i.document_id
+              join knowledge_ai_import_batch b on b.id=i.batch_id
+             where i.record_type='SEGMENT' and d.category in ('EDUCATION','TECHNICAL')
+             order by b.created_at desc,d.title,i.page_from,i.item_key
+             limit 2000
+            """);
+    }
+
     private record Doc(String key, String title, String category, String reference, String authority, String hash) {}
     private record Item(String key, String doc, String recordType, String segmentType,
                         String label, String fullText, String evidence, int from, int to, String hash) {}
@@ -91,7 +131,11 @@ public class KnowledgeAiImportService {
             if (data.length > MAX_ARCHIVE) throw new IllegalArgumentException("Archive too large");
             String archiveHash = sha256(data);
             Integer existing = jdbc.queryForObject("select count(*) from knowledge_ai_import_batch where archive_sha256=?", Integer.class, archiveHash);
-            if (existing != null && existing > 0) throw new IllegalArgumentException("This identical package has already been imported.");
+            if (existing != null && existing > 0) {
+                String oldId=jdbc.queryForObject("select id::text from knowledge_ai_import_batch where archive_sha256=?",String.class,archiveHash);
+                return Map.of("id",oldId,"status","SKIPPED_DUPLICATE","documents",0,
+                    "rules",0,"segments",0,"sha256",archiveHash);
+            }
             Map<String,byte[]> files = "ZIP".equals(fmt) ? unzip(data) : unrar(data);
             JsonNode manifest = mapper.readTree(decode(files.get("manifest.json")));
             if (!"sakhtyar-ai-knowledge-v1".equals(req(manifest,"schema_version",60)))

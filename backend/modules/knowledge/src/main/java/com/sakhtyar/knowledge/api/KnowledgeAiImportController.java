@@ -20,12 +20,22 @@ public class KnowledgeAiImportController {
         return auth.getName();
     }
     @GetMapping("/instructions")
-    public Map<String,Object> instructions(@RequestParam(defaultValue="ChatGPT") String provider, Authentication auth) {
-        admin(auth); return service.instructions(provider);
+    public Map<String,Object> instructions(@RequestParam(defaultValue="ChatGPT") String provider,
+                                             @RequestParam(defaultValue="LAW") String mode, Authentication auth) {
+        admin(auth); return service.instructions(provider,mode);
     }
     @PostMapping(value="/packages",consumes=MediaType.MULTIPART_FORM_DATA_VALUE)
     public Map<String,Object> upload(@RequestParam("file") MultipartFile file,Authentication auth) {
         return service.upload(file,admin(auth));
+    }
+    public record HashesRequest(List<String> hashes) {}
+    @PostMapping("/packages/known-hashes")
+    public Map<String,Object> knownHashes(@RequestBody HashesRequest request, Authentication auth) {
+        admin(auth); return service.knownHashes(request.hashes());
+    }
+    @GetMapping("/educational-items")
+    public List<Map<String,Object>> educationalItems(Authentication auth) {
+        admin(auth);return service.educationalItems();
     }
     @GetMapping("/packages")
     public List<Map<String,Object>> packages(Authentication auth) { admin(auth);return service.batches(); }

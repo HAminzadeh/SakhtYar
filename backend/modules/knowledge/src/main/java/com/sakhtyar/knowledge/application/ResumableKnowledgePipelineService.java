@@ -40,7 +40,7 @@ public class ResumableKnowledgePipelineService {
  @Transactional public Map<String,Object> select(UUID id,List<String> keys,String selectedBy){
    Set<String> requested=new LinkedHashSet<>(keys==null?List.of():keys);
    jdbc.update("update knowledge_intake_inventory set selected_by_user=false where execution_id=?",id);
-   for(String key:requested) jdbc.update("update knowledge_intake_inventory set selected_by_user=true where execution_id=? and relative_path=? and intake_status<>'SKIP_DUPLICATE_EXACT'",id,key);
+   for(String key:requested) jdbc.update("update knowledge_intake_inventory set selected_by_user=true where execution_id=? and relative_path=? and intake_status not in ('SKIP_DUPLICATE_EXACT','SKIP_PROCESSED')",id,key);
    List<Map<String,Object>> acceptedRows=jdbc.queryForList("select relative_path,document_id from knowledge_intake_inventory where execution_id=? and selected_by_user=true order by relative_path",id);
    if(acceptedRows.isEmpty())throw new IllegalArgumentException("Select at least one non-duplicate document.");
    List<String> accepted=acceptedRows.stream().map(r->String.valueOf(r.get("relative_path"))).toList();
@@ -91,7 +91,7 @@ public class ResumableKnowledgePipelineService {
  public Map<String,Object> state(UUID id){
    Map<String,Object> e=jdbc.queryForMap("select * from knowledge_intake_execution where id=?",id);
    e.put("checkpoints",jdbc.queryForList("select stage_code,status,attempt,processed_count,failed_count,skipped_count,error_message,started_at,heartbeat_at,finished_at,updated_at from knowledge_pipeline_checkpoint where execution_id=?",id));
-   e.put("inventory",jdbc.queryForList("select relative_path,detected_title,detected_category,file_extension,sha256,size_bytes,page_count,native_chars,suspicious_pages,intake_status,reason,selected_by_user,document_id from knowledge_intake_inventory where execution_id=? order by detected_category,relative_path",id));
+   e.put("inventory",jdbc.queryForList("select relative_path,detected_title,detected_category,document_kind,file_extension,sha256,size_bytes,page_count,native_chars,suspicious_pages,intake_status,reason,selected_by_user,document_id from knowledge_intake_inventory where execution_id=? order by detected_category,relative_path",id));
    return e;
  }
  public Map<String,Object> result(UUID id){return finalPipeline.result(id);}
@@ -124,6 +124,21 @@ public class ResumableKnowledgePipelineService {
         return;
     }
    }
+   // Register only successfully normalized source documents from the completed pipeline.
+   // Failed / zero-content / unselected documents remain eligible for a future retry.
+   jdbc.update("""
+       insert into knowledge_processed_source(sha256,first_execution_id,source_path,document_kind,processed_at)
+       select distinct on (i.sha256) i.sha256,i.execution_id,i.absolute_path,i.document_kind,now()
+         from knowledge_intake_inventory i
+        where i.execution_id=? and i.selected_by_user=true and i.sha256 is not null
+          and exists(select 1 from knowledge_source_artifact a
+                     where a.execution_id=i.execution_id and a.document_id=i.document_id
+                       and a.artifact_type='NORMALIZED_PAGE' and length(btrim(coalesce(a.content,'')))>=12)
+        order by i.sha256,i.relative_path
+       on conflict(sha256) do update set processed_at=excluded.processed_at,
+                                        source_path=excluded.source_path,
+                                        document_kind=excluded.document_kind
+       """,id);
    jdbc.update("update knowledge_intake_execution set status='WAITING_FOR_REVIEW',current_stage='PUBLISH',error_message=null,finished_at=now(),heartbeat_at=now() where id=?",id);
    jdbc.update("update knowledge_pipeline_run set status='WAITING_FOR_REVIEW',stage='PUBLISH',finished_at=now() where id=?",run);
   }catch(Exception ex){failExecution(id,ex);}
@@ -133,19 +148,25 @@ public class ResumableKnowledgePipelineService {
    Path root=Path.of(String.valueOf(jdbc.queryForObject("select source_root from knowledge_intake_execution where id=?",String.class,id)));
    int n=0;try(Stream<Path>w=Files.walk(root)){for(Path p:(Iterable<Path>)w.filter(Files::isRegularFile).filter(this::supported)::iterator){
     if(stopRequested(id))return;String rel=root.relativize(p).toString();long size=Files.size(p);String fileName=p.getFileName().toString();int dot=fileName.lastIndexOf('.');String title=dot>0?fileName.substring(0,dot):fileName;String ext=dot>=0?fileName.substring(dot+1).toLowerCase(Locale.ROOT):"";Path relPath=Path.of(rel);String category=relPath.getNameCount()>1?relPath.getName(0).toString():"ROOT";
-    jdbc.update("insert into knowledge_intake_inventory(execution_id,run_id,relative_path,absolute_path,size_bytes,detected_title,detected_category,file_extension) values(?,?,?,?,?,?,?,?) on conflict(execution_id,relative_path) do update set size_bytes=excluded.size_bytes,detected_title=excluded.detected_title,detected_category=excluded.detected_category,file_extension=excluded.file_extension,updated_at=now()",id,run,rel,p.toString(),size,title,category,ext);n++;
+    String kind=classifySourceKind(rel);
+    jdbc.update("insert into knowledge_intake_inventory(execution_id,run_id,relative_path,absolute_path,size_bytes,detected_title,detected_category,file_extension,document_kind) values(?,?,?,?,?,?,?,?,?) on conflict(execution_id,relative_path) do update set size_bytes=excluded.size_bytes,detected_title=excluded.detected_title,detected_category=excluded.detected_category,file_extension=excluded.file_extension,document_kind=excluded.document_kind,updated_at=now()",id,run,rel,p.toString(),size,title,category,ext,kind);n++;
     heartbeat(id,"DISCOVER_SOURCES",n);if(n==1||n%25==0)event(id,run,"DISCOVER_SOURCES","PROGRESS","Discovered "+n+" documents; current: "+rel);
    }}jdbc.update("update knowledge_intake_execution set total_documents=? where id=?",n,id);complete(id,run,"DISCOVER_SOURCES",n,0,0);
  }
  private void hash(UUID id,UUID run)throws Exception{
    var rows=jdbc.queryForList("select relative_path,absolute_path,sha256 from knowledge_intake_inventory where execution_id=? order by relative_path",id);Map<String,String> seen=new HashMap<>();int done=0,skip=0;
    for(var r:rows){if(stopRequested(id))return;String rel=(String)r.get("relative_path"),h=(String)r.get("sha256");if(h==null||h.isBlank())h=sha(Path.of((String)r.get("absolute_path")));
-    String first=seen.putIfAbsent(h,rel);String status=first==null?"HASHED":"SKIP_DUPLICATE_EXACT";String reason=first==null?null:"Exact duplicate of "+first;
-    jdbc.update("update knowledge_intake_inventory set sha256=?,intake_status=?,reason=?,updated_at=now() where execution_id=? and relative_path=?",h,status,reason,id,rel);done++;if(first!=null)skip++;heartbeat(id,"HASH_AND_DEDUP",done);if(done==1||done%10==0)event(id,run,"HASH_AND_DEDUP","PROGRESS","Hashed "+done+"/"+rows.size()+"; current: "+rel);
+    String first=seen.putIfAbsent(h,rel);
+    Boolean prior=first==null?jdbc.queryForObject("select exists(select 1 from knowledge_processed_source where sha256=?)",Boolean.class,h):false;
+    String status=first!=null?"SKIP_DUPLICATE_EXACT":Boolean.TRUE.equals(prior)?"SKIP_PROCESSED":"HASHED";
+    String reason=first!=null?"Exact duplicate of "+first:Boolean.TRUE.equals(prior)?"Previously normalized and processed (SHA-256 matched)":null;
+    jdbc.update("update knowledge_intake_inventory set sha256=?,intake_status=?,reason=?,updated_at=now() where execution_id=? and relative_path=?",h,status,reason,id,rel);done++;if(!"HASHED".equals(status))skip++;heartbeat(id,"HASH_AND_DEDUP",done);if(done==1||done%10==0)event(id,run,"HASH_AND_DEDUP","PROGRESS","Hashed "+done+"/"+rows.size()+"; current: "+rel);
    }complete(id,run,"HASH_AND_DEDUP",done,0,skip);
  }
  private void classify(UUID id,UUID run)throws Exception{
    Path py=repo.resolve(".local/venv-persian-intelligence/Scripts/python.exe"),script=repo.resolve("python/src/sakhtyar_python/legacy/dry_run_v07.py");
+   Integer newFiles=jdbc.queryForObject("select count(*) from knowledge_intake_inventory where execution_id=? and intake_status='HASHED'",Integer.class,id);
+   if(newFiles!=null && newFiles==0){int n=jdbc.queryForObject("select count(*) from knowledge_intake_inventory where execution_id=?",Integer.class,id);complete(id,run,"CLASSIFY_DOCUMENTS",n,0,n);return;}
    if(Files.isRegularFile(py)&&Files.isRegularFile(script)){ // Reuse proven intake classifier, then import its report.
     Path sourcePath=Path.of((String)jdbc.queryForObject("select source_root from knowledge_intake_execution where id=?",String.class,id)).toAbsolutePath().normalize();
     ProcessBuilder pb=new ProcessBuilder(py.toString(),script.toString(),"--root",sourcePath.toString());
@@ -158,7 +179,7 @@ public class ResumableKnowledgePipelineService {
  private void importReport(UUID id,Path report)throws Exception{
    String json=Files.readString(report);Matcher m=Pattern.compile("\\{([^{}]*)\\}",Pattern.DOTALL).matcher(json);
    while(m.find()){String b=m.group(1),path=sval(b,"path"),status=sval(b,"status"),reason=sval(b,"reason");int pages=ival(b,"page_count"),chars=ival(b,"native_chars");String file=Path.of(path).getFileName().toString();
-    jdbc.update("update knowledge_intake_inventory set intake_status=?,reason=?,page_count=?,native_chars=?,updated_at=now() where execution_id=? and (absolute_path=? or relative_path like ?) and intake_status<>'SKIP_DUPLICATE_EXACT'",status,reason,pages,chars,id,path,"%"+file);
+    jdbc.update("update knowledge_intake_inventory set intake_status=?,reason=?,page_count=?,native_chars=?,updated_at=now() where execution_id=? and (absolute_path=? or relative_path like ?) and intake_status not in ('SKIP_DUPLICATE_EXACT','SKIP_PROCESSED')",status,reason,pages,chars,id,path,"%"+file);
    }
  }
  private void placeholder(UUID id,UUID run,String stage){int n=jdbc.queryForObject("select count(*) from knowledge_intake_inventory where execution_id=? and selected_by_user=true",Integer.class,id);complete(id,run,stage,n,0,0);}
@@ -170,6 +191,14 @@ public class ResumableKnowledgePipelineService {
  private UUID runId(UUID id){return jdbc.queryForObject("select run_id from knowledge_intake_execution where id=?",UUID.class,id);}
  private String checkpointStatus(UUID id,String s){return jdbc.queryForObject("select status from knowledge_pipeline_checkpoint where execution_id=? and stage_code=?",String.class,id,s);}
  private boolean stopRequested(UUID id){return Boolean.TRUE.equals(jdbc.queryForObject("select stop_requested from knowledge_intake_execution where id=?",Boolean.class,id));}
+ private String classifySourceKind(String relativePath){
+   String n=relativePath.replace('\\','/').toLowerCase(Locale.ROOT);
+   if(n.contains("educational")||n.contains("handout")||n.contains("آموزش")||n.contains("جزوه")||n.contains("lecture")||n.contains("tutorial"))return "EDUCATION";
+   if(n.contains("technical")||n.contains("engineering")||n.contains("فنی")||n.contains("مهندسی"))return "TECHNICAL";
+   if(n.contains("reference")||n.contains("مرجع"))return "REFERENCE";
+   if(n.contains("law")||n.contains("regulation")||n.contains("مقررات")||n.contains("قانون")||n.contains("ضابطه"))return "LAW";
+   return "UNCLASSIFIED";
+ }
  private boolean supported(Path p){String n=p.getFileName().toString().toLowerCase();return n.endsWith(".pdf")||n.endsWith(".docx")||n.endsWith(".pptx")||n.endsWith(".txt")||n.endsWith(".md");}
  private Path resolveSource(String s){Path p=(s==null||s.isBlank()?repo.resolve("DocumentationOfLawsAndRegulations"):Path.of(s));if(!p.isAbsolute())p=repo.resolve(p);p=p.normalize();if(!Files.isDirectory(p))throw new IllegalArgumentException("Source directory not found: "+p);return p;}
  private Path findRepo(Path p){p=p.toAbsolutePath().normalize();for(int i=0;i<6&&p!=null;i++,p=p.getParent())if(Files.isDirectory(p.resolve("backend"))&&Files.isDirectory(p.resolve("frontend")))return p;Path k=Path.of("D:/ChatGPT_Projects/SakhtYar/source");return Files.isDirectory(k)?k.toAbsolutePath():Path.of(System.getProperty("user.dir")).toAbsolutePath();}

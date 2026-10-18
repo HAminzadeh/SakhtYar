@@ -371,7 +371,7 @@ public class KnowledgeFinalPipelineService {
         return 1;
     }
     private List<Map<String, Object>> selected(UUID id) {
-        return jdbc.queryForList("select absolute_path,relative_path,sha256,document_id from knowledge_intake_inventory where execution_id=? and selected_by_user=true and intake_status<>'SKIP_DUPLICATE_EXACT' order by relative_path", id);
+        return jdbc.queryForList("select absolute_path,relative_path,sha256,document_id from knowledge_intake_inventory where execution_id=? and selected_by_user=true and intake_status not in ('SKIP_DUPLICATE_EXACT','SKIP_PROCESSED') order by relative_path", id);
     }
 
     // V33 created the physical table first. V39's CREATE TABLE IF NOT EXISTS never

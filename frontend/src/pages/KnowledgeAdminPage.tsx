@@ -33,6 +33,7 @@ import type {Key} from 'react'
 import {api} from '../api/client'
 import {KnowledgeResultExplorer} from './KnowledgeResultExplorer'
 import {KnowledgeLegalSegmentsPanel} from './KnowledgeLegalSegmentsPanel'
+import {KnowledgeEducationalSegmentsPanel} from './KnowledgeEducationalSegmentsPanel'
 import {KnowledgeReviewPanel} from '../features/case/KnowledgeReviewPanel'
 import {KnowledgeOcrPageReviewPanel} from './KnowledgeOcrPageReviewPanel'
 import {KnowledgeGovernanceWorkbench} from './KnowledgeGovernanceWorkbench'
@@ -55,6 +56,7 @@ type Doc = {
   relative_path: string;
   detected_title?: string;
   detected_category?: string;
+  document_kind?: string;
   file_extension?: string;
   sha256?: string;
   size_bytes: number;
@@ -198,7 +200,7 @@ export function KnowledgeAdminPage() {
   const currentCp = ordered[current];
   const completed = ordered.filter(x => x.status === 'COMPLETED').length
   const docs = state.data?.inventory ?? []
-  const selectableDocs = useMemo(() => docs.filter(d => d.intake_status !== 'SKIP_DUPLICATE_EXACT'), [docs])
+  const selectableDocs = useMemo(() => docs.filter(d => !['SKIP_DUPLICATE_EXACT','SKIP_PROCESSED'].includes(d.intake_status)), [docs])
   const categories = useMemo(() => Array.from(new Set(docs.map(d => d.detected_category ?? 'ROOT'))).sort(), [docs])
   const visibleDocs = useMemo(() => docs.filter(d => {
     const q = selectionSearch.trim().toLowerCase();
@@ -239,6 +241,7 @@ export function KnowledgeAdminPage() {
       {key:'logs',label:'گزارش‌ها و نقاط بازیابی'},
       {key:'ocr-pages',label:'بازبینی صفحات اسکن‌شده'},
       {key:'rules',label:'قوانین استخراج‌شده'},
+      {key:'education',label:'مطالب آموزشی استخراج‌شده'},
       {key:'categories',label:'دسته‌بندی اسناد'},
       {key:'legal',label:'مواد و بندهای استخراج‌شده'},
       {key:'review',label:'بازبینی و تأیید'}
@@ -246,12 +249,14 @@ export function KnowledgeAdminPage() {
       {key:'source',label:'انتخاب پوشه و اجرا'},
       {key:'history',label:'اجراهای اخیر'},
       {key:'rules',label:'قوانین استخراج‌شده'},
+      {key:'education',label:'مطالب آموزشی استخراج‌شده'},
       {key:'categories',label:'دسته‌بندی اسناد'},
       {key:'legal',label:'مواد و بندهای استخراج‌شده'},
       {key:'ocr-pages',label:'بازبینی صفحات اسکن‌شده'},
       {key:'review',label:'بازبینی و تأیید'}
     ])} />
     {knowledgeTab === 'legal' && <KnowledgeLegalSegmentsPanel executionId={id ?? undefined}/>} 
+    {knowledgeTab === 'education' && <KnowledgeEducationalSegmentsPanel/>}
     <ContextHelp topic="knowledge" />
     {knowledgeTab === 'ocr-pages' && <KnowledgeOcrPageReviewPanel executionId={id ?? undefined}/>} 
     {knowledgeTab === 'review' && <KnowledgeReviewPanel reviewRule={selectedReviewRule ?? undefined}/>}
@@ -383,7 +388,7 @@ export function KnowledgeAdminPage() {
       </>}{knowledgeTab === 'documents' && <>{state.data?.status === 'WAITING_FOR_USER' &&
         <Card title="۴. انتخاب اسناد برای پردازش"><Alert showIcon type="info"
                                                          message={`${docs.length} سند پیدا شد؛ فقط موارد تیک‌خورده پردازش می‌شوند.`}
-                                                         description="Duplicateهای دقیق غیرفعال‌اند. انتخاب شما نسخه‌دار ثبت می‌شود و ادامه Pipeline فقط روی همان زیرمجموعه اجرا خواهد شد."/><Row
+                                                         description="نسخه‌های یکسان در همین اجرا و فایل‌هایی که در اجراهای موفق قبلی استخراج شده‌اند، با SHA-256 شناسایی و برای استخراج مجدد غیرفعال می‌شوند؛ اسناد تغییرکرده و ناموفق قابل انتخاب‌اند."/><Row
           gutter={[8, 8]} style={{marginTop: 12, marginBottom: 12}}><Col xs={24} md={10}><Input allowClear prefix={
           <SearchOutlined/>} placeholder="جست‌وجوی نام، مسیر، دسته یا وضعیت..." value={selectionSearch}
                                                                                                 onChange={e => setSelectionSearch(e.target.value)}/></Col><Col
@@ -394,7 +399,7 @@ export function KnowledgeAdminPage() {
         </Space></Col></Row><Space wrap style={{marginBottom: 12}}><Button
           onClick={() => setSelected(selectableDocs.map(d => d.relative_path))}>انتخاب همه قابل پردازش
           ({selectableDocs.length})</Button><Button onClick={() => {
-          const add = visibleDocs.filter(d => d.intake_status !== 'SKIP_DUPLICATE_EXACT').map(d => d.relative_path);
+          const add = visibleDocs.filter(d => !['SKIP_DUPLICATE_EXACT','SKIP_PROCESSED'].includes(d.intake_status)).map(d => d.relative_path);
           setSelected(prev => Array.from(new Set([...prev, ...add])))
         }}>انتخاب نتایج فیلتر ({visibleDocs.length})</Button><Button onClick={() => setSelected([])}>لغو
           همه</Button><Tag color="blue">{selected.length} از {docs.length} انتخاب شده</Tag></Space><Table
@@ -403,17 +408,17 @@ export function KnowledgeAdminPage() {
           selectedRowKeys: selected,
           onChange: setSelected,
           preserveSelectedRowKeys: true,
-          getCheckboxProps: r => ({disabled: r.intake_status === 'SKIP_DUPLICATE_EXACT'})
+          getCheckboxProps: r => ({disabled: ['SKIP_DUPLICATE_EXACT','SKIP_PROCESSED'].includes(r.intake_status)})
         }} columns={[{
           title: 'عنوان تشخیص‌داده‌شده',
           dataIndex: 'detected_title',
           ellipsis: true,
           render: (v, r) => v || r.relative_path
-        }, {title: 'دسته', dataIndex: 'detected_category', render: v => <Tag>{v || 'ROOT'}</Tag>}, {
+        }, {title: 'گروه پوشه', dataIndex: 'detected_category', render: v => <Tag>{v || 'ROOT'}</Tag>}, {title: 'نوع سند', dataIndex:'document_kind', render:v=><Tag>{({LAW:'قانون',EDUCATION:'آموزشی',TECHNICAL:'فنی',REFERENCE:'مرجع',OTHER:'سایر',UNCLASSIFIED:'دسته‌بندی نشده'} as Record<string,string>)[String(v)]||v}</Tag>}, {
           title: 'نوع',
           dataIndex: 'file_extension',
           width: 70
-        }, {title: 'وضعیت', dataIndex: 'intake_status', render: v => <Tag>{v}</Tag>}, {
+        }, {title: 'وضعیت', dataIndex: 'intake_status', render: v => <Tag>{v==='SKIP_PROCESSED'?'قبلاً استخراج شده':v}</Tag>}, {
           title: 'صفحات',
           dataIndex: 'page_count',
           width: 70
