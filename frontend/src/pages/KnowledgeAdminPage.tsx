@@ -32,6 +32,7 @@ import {useEffect, useMemo, useRef, useState} from 'react'
 import type {Key} from 'react'
 import {api} from '../api/client'
 import {KnowledgeResultExplorer} from './KnowledgeResultExplorer'
+import {KnowledgePublishedCataloguePanel} from './KnowledgeCurationPanels'
 import {KnowledgeLegalSegmentsPanel} from './KnowledgeLegalSegmentsPanel'
 import {KnowledgeEducationalSegmentsPanel} from './KnowledgeEducationalSegmentsPanel'
 import {KnowledgeReviewPanel} from '../features/case/KnowledgeReviewPanel'
@@ -244,7 +245,8 @@ export function KnowledgeAdminPage() {
       {key:'education',label:'مطالب آموزشی استخراج‌شده'},
       {key:'categories',label:'دسته‌بندی اسناد'},
       {key:'legal',label:'مواد و بندهای استخراج‌شده'},
-      {key:'review',label:'بازبینی و تأیید'}
+      {key:'review',label:'بازبینی و تأیید'},
+      {key:'ai-catalogue',label:'کاتالوگ دانش منتشرشده'}
     ] : [
       {key:'source',label:'انتخاب پوشه و اجرا'},
       {key:'history',label:'اجراهای اخیر'},
@@ -253,8 +255,10 @@ export function KnowledgeAdminPage() {
       {key:'categories',label:'دسته‌بندی اسناد'},
       {key:'legal',label:'مواد و بندهای استخراج‌شده'},
       {key:'ocr-pages',label:'بازبینی صفحات اسکن‌شده'},
-      {key:'review',label:'بازبینی و تأیید'}
+      {key:'review',label:'بازبینی و تأیید'},
+      {key:'ai-catalogue',label:'کاتالوگ دانش منتشرشده'}
     ])} />
+    {knowledgeTab === 'ai-catalogue' && <KnowledgePublishedCataloguePanel/>}
     {knowledgeTab === 'legal' && <KnowledgeLegalSegmentsPanel executionId={id ?? undefined}/>} 
     {knowledgeTab === 'education' && <KnowledgeEducationalSegmentsPanel/>}
     <ContextHelp topic="knowledge" />
@@ -443,3 +447,4 @@ export function KnowledgeAdminPage() {
     </>}
   </div>
 }
+// SAKHTYAR_V55_CURATION

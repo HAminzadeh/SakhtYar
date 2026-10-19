@@ -59,6 +59,8 @@ export function KnowledgeReviewWorkspace({mode,scope}:{mode:WorkspaceMode;scope:
  const [helpOpen,setHelpOpen]=useState(false),[focused,setFocused]=useState<RowItem|null>(null)
   const [autoNext,setAutoNext]=useState(true),[advance,setAdvance]=useState(false)
   const [archivingId,setArchivingId]=useState<string|null>(null)
+  const [bulkSelected,setBulkSelected]=useState<string[]>([])
+  const [bulkBusy,setBulkBusy]=useState(false)
  const info=useMemo(()=>scopeInfo(scope,packs.data??[]),[scope,packs.data])
  const selectedIds=mode==='rules'?info.lawIds:mode==='education'?info.eduIds:info.selectedIds
  const selectionEmpty=!info.all&&!selectedIds.length
@@ -67,7 +69,7 @@ export function KnowledgeReviewWorkspace({mode,scope}:{mode:WorkspaceMode;scope:
  const scopeCategory=info.all?'ALL':info.lawIds.length&&info.eduIds.length?'ALL':info.lawIds.length?'LAW':'NONLAW'
  const category=mode==='rules'?'LAW':mode==='education'?'NONLAW':scopeCategory
  const effectiveStatus=mode==='review'?'PENDING_REVIEW':status
- useEffect(()=>{setPage(1);setFocused(null);setAdvance(false)},[mode,selectedKey])
+ useEffect(()=>{setPage(1);setFocused(null);setAdvance(false);setBulkSelected([])},[mode,selectedKey])
  const params=qs({page,size,category,recordType,reviewStatus:effectiveStatus,search,batchIds:info.all?undefined:selectedKey})
  const rows=useQuery({queryKey:['knowledge-workspace','rows',params,mode],enabled:!selectionEmpty&&mode!=='categories'&&(!packs.isLoading),queryFn:()=>api<Listing<RowItem>>(ROOT+'/items'+params)})
  const docsParams=qs({page,size,search,category:scopeCategory,batchIds:info.all?undefined:selectedKey})
@@ -115,12 +117,35 @@ export function KnowledgeReviewWorkspace({mode,scope}:{mode:WorkspaceMode;scope:
    })
   }catch(e){message.error(errorMessage(e))}
  }
+ const actionBulk=async(group:'SELECTED'|'PAGE'|'ALL',decisionType:'APPROVED'|'REJECTED')=>{
+   const ids=group==='SELECTED'?bulkSelected:group==='PAGE'?items.filter(v=>v.review_status==='PENDING_REVIEW').map(v=>v.id):[]
+   if(group!=='ALL'&&!ids.length){message.warning('رکورد در انتظار بررسی انتخاب نشده است');return}
+   const body={scope:group,ids,decision:decisionType,confirmed:true,expectedCount:0,
+     filter:{category,recordType,search,batchIds:info.all?undefined:selectedIds}}
+   try{
+     setBulkBusy(true)
+     const impact=await api<{count:number}>('/api/v1/knowledge/admin/ai-curation/review/preview',{method:'POST',body:JSON.stringify(body)})
+     if(impact.count===0){message.info('مورد در انتظار بازبینی در این محدوده وجود ندارد');return}
+     if(impact.count>15000){message.error('حداکثر ۱۵هزار مورد در هر عملیات؛ دامنه را کوچک‌تر کن');return}
+     Modal.confirm({title:decisionType==='APPROVED'?'تأیید گروهی مرحله بازبینی':'رد گروهی مرحله بازبینی',
+       content:`${impact.count.toLocaleString('fa-IR')} رکورد در انتظار بررسی ${decisionType==='APPROVED'?'پذیرفته':'رد'} می‌شوند. این کار هیچ قانون یا مطلبی را منتشر نمی‌کند.`,
+       okText:'ثبت تصمیم گروهی',okButtonProps:{danger:decisionType==='REJECTED'},cancelText:'انصراف',
+       onOk:async()=>{try{
+         const result=await api<{updated:number}>('/api/v1/knowledge/admin/ai-curation/review/apply',{method:'POST',body:JSON.stringify({...body,expectedCount:impact.count})})
+         message.success(`${result.updated.toLocaleString('fa-IR')} تصمیم با موفقیت ثبت شد`)
+         setBulkSelected([]);setFocused(null)
+         await Promise.all([client.invalidateQueries({queryKey:['knowledge-workspace']}),client.invalidateQueries({queryKey:['ai-lifecycle']}),client.invalidateQueries({queryKey:['ai-import-batches']})])
+       }catch(e){message.error(errorMessage(e))}}
+     })
+   }catch(e){message.error(errorMessage(e))}finally{setBulkBusy(false)}
+ }
  const changePage=(nextPage:number,nextSize:number)=>{setPage(nextPage);setSize(nextSize);setFocused(null)}
  const pagination={current:page,pageSize:size,total:mode==='categories'?(documents.data?.total??0):(rows.data?.total??0),
   showSizeChanger:true,pageSizeOptions:sizes,showTotal:(total:number)=>`${num(total)} مورد`,onChange:changePage}
  const docColumns=[{title:'عنوان سند',dataIndex:'title',width:240},{title:'نوع',dataIndex:'category',width:110,render:(v:string)=><Tag>{cat[v]??v}</Tag>},
   {title:'منبع اصلی',dataIndex:'source_reference',width:260,ellipsis:true},{title:'بسته',dataIndex:'archive_name',width:180,ellipsis:true},
-  {title:'رکوردها',dataIndex:'item_count',width:100},{title:'نسخه',dataIndex:'edition_label',width:120}]
+  {title:'رکوردها',dataIndex:'item_count',width:100},{title:'نسخه',dataIndex:'edition_label',width:120},
+  {title:'فایل اصلی PDF',width:142,render:(_:unknown,r:Document)=><a href={`/api/v1/knowledge/admin/ai-curation/documents/${r.id}/source`} target="_blank" rel="noreferrer">دریافت فایل منبع</a>}]
  return <div dir="rtl" className="sakhtyar-quick-review">
   <Space wrap style={{width:'100%',justifyContent:'space-between',marginBottom:10}}>
    <Space wrap><Button size="small" icon={<QuestionCircleOutlined/>} onClick={()=>setHelpOpen(x=>!x)}>راهنمای این بخش</Button>
@@ -135,9 +160,23 @@ export function KnowledgeReviewWorkspace({mode,scope}:{mode:WorkspaceMode;scope:
        {label:'همه وضعیت‌ها',value:'ALL'},{label:'در انتظار بررسی',value:'PENDING_REVIEW'},
        {label:'پذیرفته‌شده',value:'APPROVED'},{label:'ردشده',value:'REJECTED'}]}/>}
     </Space>
+    {mode==='segments'&&<Alert type="info" showIcon style={{marginBottom:10}} message="مرور همه قطعات استخراج‌شده" description="اینجا تمام مواد و بندها، حتی موارد تأییدشده یا ردشده، دیده می‌شوند. برای صف فقط موارد معوق و تصمیم گروهی به تب ۶ برو."/>}
+    {mode==='review'&&<Alert type="info" showIcon style={{marginBottom:10}} message="صف اختصاصی موارد در انتظار بازبینی" description="تفاوت این تب با تب ۵: فقط موارد در انتظار در صف هستند و تصمیم گروهی صفحه یا همه نتایج اینجا ثبت می‌شود؛ تصمیم هنوز انتشار نیست."/>}
+    {mode!=='categories'&&<Space wrap style={{marginBottom:12}}>
+      <Tag color="blue">انتخاب‌شده: {num(bulkSelected.length)}</Tag>
+      <Button size="small" onClick={()=>setBulkSelected(items.filter(r=>r.review_status==='PENDING_REVIEW').map(r=>r.id))}>انتخاب همه موارد در انتظار این صفحه</Button>
+      <Button size="small" onClick={()=>setBulkSelected([])} disabled={!bulkSelected.length}>لغو انتخاب</Button>
+      <Button type="primary" loading={bulkBusy} disabled={!bulkSelected.length} onClick={()=>void actionBulk('SELECTED','APPROVED')}>تأیید انتخابی</Button>
+      <Button danger loading={bulkBusy} disabled={!bulkSelected.length} onClick={()=>void actionBulk('SELECTED','REJECTED')}>رد انتخابی</Button>
+      <Button loading={bulkBusy} onClick={()=>void actionBulk('PAGE','APPROVED')}>تأیید کل صفحه</Button>
+      <Button danger loading={bulkBusy} onClick={()=>void actionBulk('PAGE','REJECTED')}>رد کل صفحه</Button>
+      <Button loading={bulkBusy} onClick={()=>void actionBulk('ALL','APPROVED')}>تأیید همه صفحاتِ نتایج</Button>
+      <Button danger loading={bulkBusy} onClick={()=>void actionBulk('ALL','REJECTED')}>رد همه صفحاتِ نتایج</Button>
+    </Space>}
     {mode==='categories'?
       <Table<Document> size="small" rowKey="id" columns={docColumns} dataSource={documents.data?.items??[]} loading={documents.isFetching} pagination={pagination} scroll={{x:1000,y:510}}/>:
       <Table<RowItem> size="small" rowKey="id" loading={rows.isFetching} dataSource={items} pagination={pagination} scroll={{x:1050,y:510}}
+       rowSelection={{selectedRowKeys:bulkSelected,onChange:keys=>setBulkSelected(keys.map(String)),getCheckboxProps:r=>({disabled:r.review_status!=='PENDING_REVIEW'})}}
        columns={[{title:'سند',dataIndex:'document_title',width:230,ellipsis:true},
         {title:'موضوع / شماره',width:140,render:(_,r)=>r.article_label||r.item_key},
         {title:'نوع',width:110,render:(_,r)=><Tag>{r.category==='LAW'?'قانون':cat[r.category]??'آموزشی'}</Tag>},
@@ -172,3 +211,4 @@ export function KnowledgeReviewWorkspace({mode,scope}:{mode:WorkspaceMode;scope:
   </Modal>
  </div>
 }
+// SAKHTYAR_V55_CURATION

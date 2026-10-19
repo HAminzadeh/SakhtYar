@@ -61,11 +61,12 @@ public class KnowledgeAiLifecycleService {
     public Map<String,Object> documents(Integer page,Integer size,UUID batch,String kind,String query,Boolean includingArchived){
         int take=bounded(size,25,1000), offset=(bounded(page,1,100000)-1)*take;
         String type=kind==null?"ALL":kind.toUpperCase(Locale.ROOT);
-        if(!Set.of("ALL","LAW","EDUCATION","TECHNICAL","REFERENCE","OTHER","UNCLASSIFIED").contains(type))throw new IllegalArgumentException("Invalid category");
+        if(!Set.of("ALL","LAW","NONLAW","EDUCATION","TECHNICAL","REFERENCE","OTHER","UNCLASSIFIED").contains(type))throw new IllegalArgumentException("Invalid category");
         StringBuilder where=new StringBuilder(" where 1=1");List<Object> args=new ArrayList<>();
         if(!Boolean.TRUE.equals(includingArchived))where.append(" and d.archived_at is null and b.archived_at is null");
         if(batch!=null){where.append(" and d.batch_id=?");args.add(batch);}
-        if(!"ALL".equals(type)){where.append(" and d.category=?");args.add(type);}
+        if("NONLAW".equals(type))where.append(" and d.category<>'LAW'");
+        else if(!"ALL".equals(type)){where.append(" and d.category=?");args.add(type);}
         if(query!=null&&!query.isBlank()){where.append(" and (d.title ilike ? or d.source_reference ilike ? or d.regulation_family ilike ?)");String like="%"+query.strip().replace("%","\\%").replace("_","\\_")+"%";args.add(like);args.add(like);args.add(like);}
         String from=" from knowledge_ai_import_document d join knowledge_ai_import_batch b on b.id=d.batch_id ";
         long total=db.queryForObject("select count(*)"+from+where,Long.class,args.toArray());
@@ -369,3 +370,4 @@ public class KnowledgeAiLifecycleService {
     public List<Map<String,Object>> baselines(){return db.queryForList("select id::text,label,note,created_by,created_at,snapshot from knowledge_ai_baseline order by created_at desc limit 100");}
     public List<Map<String,Object>> events(Integer limit){return db.queryForList("select id::text,actor,event_type,scope_type,scope_id,affected_count,note,created_at from knowledge_ai_lifecycle_event order by created_at desc limit ?",bounded(limit,100,500));}
 }
+// SAKHTYAR_V55_CURATION

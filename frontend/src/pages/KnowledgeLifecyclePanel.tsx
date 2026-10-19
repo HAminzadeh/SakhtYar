@@ -1,7 +1,9 @@
 import {useMemo, useState} from 'react'
 import type {Key} from 'react'
-import {Alert, App, Button, Card, Checkbox, Col, Descriptions, Divider, Input, Modal, Row, Select, Space, Statistic, Table, Tabs, Tag, Typography} from 'antd'
+import {Alert, App, Button, Card, Checkbox, Col, Descriptions, Divider, Input, Modal, Row, Select, Space, Statistic, Progress, Table, Tabs, Tag, Typography} from 'antd'
 import {DatabaseOutlined, DeleteOutlined, ReloadOutlined, SafetyCertificateOutlined} from '@ant-design/icons'
+import {KnowledgeDuplicatesPanel,KnowledgeDirectDeletePanel} from './KnowledgeCurationPanels'
+import '../styles/knowledge-curation-v55.css'
 import {useMutation, useQuery, useQueryClient} from '@tanstack/react-query'
 import {api} from '../api/client'
 
@@ -73,7 +75,6 @@ export function KnowledgeLifecyclePanel(){
   const audits=useQuery({queryKey:['ai-lifecycle-events'],queryFn:()=>api<Array<{id:string;actor:string;event_type:string;scope_type:string;affected_count:number;created_at:string;note?:string}>>(ROOT+'/events')})
   const baselines=useQuery({queryKey:['ai-lifecycle-baselines'],queryFn:()=>api<Array<{id:string;label:string;created_at:string;created_by:string}>>(ROOT+'/baselines')})
   const editionDocs=useQuery({queryKey:['ai-lifecycle-editions',family],enabled:family.trim().length>0,queryFn:()=>api<{items:Doc[]}>(ROOT+'/editions'+qs({family}))})
-  const duplicateRows=useQuery({queryKey:['ai-lifecycle-duplicates'],queryFn:()=>api<Array<{content_sha256:string;occurrences:number;batches:number;example_title:string}>>(ROOT+'/duplicates')})
   const asOf=useQuery({queryKey:['ai-lifecycle-asof',lookupDate,family],enabled:!!lookupDate,queryFn:()=>api<{items:Doc[];disclaimer:string}>(ROOT+'/as-of'+qs({date:lookupDate,family}))})
   const diff=useQuery({queryKey:['ai-lifecycle-diff',versionLeft,versionRight],enabled:!!versionLeft&&!!versionRight&&versionLeft!==versionRight,
     queryFn:()=>api<{changes:Difference[];warning:string}>(ROOT+'/compare'+qs({from:versionLeft,to:versionRight}))})
@@ -98,6 +99,21 @@ export function KnowledgeLifecyclePanel(){
       })
     }catch(e){message.error(errorText(e))}
   }
+  const permanentlyDeleteOne=async(r:Item)=>{
+    try{
+      const selection:Scope={type:'ITEM',ids:[r.id]}
+      const impact=await api<{count:number;published:number}>('/api/v1/knowledge/admin/ai-curation/delete/preview',{method:'POST',body:JSON.stringify(selection)})
+      if(impact.count!==1){message.warning('رکورد انتخابی در دسترس نیست؛ فهرست را تازه‌سازی کن.');return}
+      if(impact.published){message.error('این رکورد منتشرشده است؛ ابتدا انتشارش را لغو کن.');return}
+      Modal.confirm({title:'حذف دائمی همین رکورد؟',content:'فقط رکورد موقت AI Import حذف می‌شود؛ نسخه پشتیبان حسابرسی در سرور خودکار ایجاد خواهد شد. این حذف به‌طور عادی قابل بازیابی نیست.',
+       okText:'حذف دائمی یک رکورد',okButtonProps:{danger:true},cancelText:'انصراف',
+       onOk:async()=>{try{
+         await api('/api/v1/knowledge/admin/ai-curation/delete/apply',{method:'POST',body:JSON.stringify({selection,expectedCount:1,confirmation:'DELETE STAGING PERMANENTLY'})})
+         message.success('رکورد به‌صورت دائمی حذف شد');refresh()
+       }catch(e){message.error(errorText(e))}}
+      })
+    }catch(e){message.error(errorText(e))}
+  }
   const scope:Scope=useMemo(()=>({type:selectionMode,ids:selectionMode==='ALL'||selectionMode==='CATEGORY'?[]:selected,category:selectionMode==='CATEGORY'?category:undefined}),[selected,selectionMode,category])
   const choose=(mode:Scope['type'])=>{setSelectionMode(mode);setSelected([]);setPreview(null);setBackupId('');setBackupSnapshot(null)}
   const startPreview=async()=>{if(selectionMode==='CATEGORY'&&category==='ALL'){message.warning('برای پاک‌سازی دسته‌ای، یک دسته مشخص انتخاب کن');return}
@@ -114,7 +130,7 @@ export function KnowledgeLifecyclePanel(){
     try{await api(ROOT+'/documents/'+editionDoc.id+'/edition',{method:'PUT',body:JSON.stringify({regulationFamily:family,editionLabel:edition,calendarType:calendar,publicationDate:publicationDate||null,effectiveFrom:effectiveFrom||null,territorialScope:territory})});message.success('مشخصات نسخه ذخیره شد');setEditionDoc(null);refresh()}catch(e){message.error(errorText(e))}}
   const pagination={current:page,pageSize:size,total:tab==='documents'?documents.data?.total??0:items.data?.total??0,showSizeChanger:true,pageSizeOptions:['10','20','50','100','200','500','1000'],showTotal:(n:number)=>n.toLocaleString('fa-IR')+' رکورد',onChange:(p:number,s:number)=>{setPage(p);setSize(s);setSelected([])}}
   const rowSelect=(mode:Scope['type'])=>({selectedRowKeys:selectionMode===mode?selected:[],onChange:(ids:Key[])=>{setSelectionMode(mode);setSelected(ids.map(String));setPreview(null);setBackupId('')}})
-  const categoryOptions=[{value:'ALL',label:'همه دسته‌ها'},...Object.entries(catNames).map(([value,label])=>({value,label}))]
+  const categoryOptions=[{value:'ALL',label:'همه دسته‌ها'},{value:'NONLAW',label:'آموزشی و منابع غیرقانونی'},...Object.entries(catNames).map(([value,label])=>({value,label}))]
   const overviewCards=[['بسته‌ها',overview.data?.batches],['اسناد',overview.data?.documents],['قوانین پیشنهادی',overview.data?.rules],['مواد و قطعات',overview.data?.segments],['مطالب آموزشی / فنی',overview.data?.education],['در انتظار بازبینی',overview.data?.pending],['خطاهای باز',overview.data?.issues],['موارد آرشیوشده',overview.data?.archived]] as const
   const guide:Record<string,string>={overview:'نمای کلی و آمار بسته‌ها و جدول صفحه‌بندی‌شده.',documents:'مدیریت اسناد، منشأ و شناسنامه نسخه.',laws:'قوانین پیشنهادی و غیرمنتشرشده.',education:'مطالب آموزشی و فنی با دسته‌بندی مستقل.',issues:'خطاهای ورود و قرنطینه.',cleanup:'آرشیو قابل‌بازیابی، نسخه پشتیبان و حذف کنترل‌شده.',versions:'تاریخچه نسخه اسناد و تفاوت‌ها.',duplicates:'رکوردهای دارای متن یکسان.',audit:'تاریخچه تصمیم‌های ثبت‌شده.'}
   const editor=<Modal open={!!editionDoc} title="شناسنامه نسخه سند" onCancel={()=>setEditionDoc(null)} okText="ذخیره شناسنامه" onOk={()=>void saveEdition()}>
@@ -129,7 +145,7 @@ export function KnowledgeLifecyclePanel(){
     </Space>
   </Modal>
   return <div className="sakhtyar-lifecycle" dir="rtl">
-    <Card title={<Space><DatabaseOutlined/>مرکز مدیریت چرخه عمر دانش</Space>}
+    <Card className="sakhtyar-curation-main" title={<Space><DatabaseOutlined/>مرکز مدیریت چرخه عمر دانش</Space>}
       extra={<Space wrap><Checkbox checked={withArchived} onChange={e=>{setWithArchived(e.target.checked);setPage(1)}}>نمایش موارد آرشیوشده</Checkbox>
         <Button icon={<ReloadOutlined/>} onClick={refresh}>تازه‌سازی</Button></Space>}>
       <Space wrap style={{marginBottom:9}}><Button size="small" onClick={()=>setHelpOpen(v=>!v)}>راهنمای این بخش</Button>
@@ -139,7 +155,19 @@ export function KnowledgeLifecyclePanel(){
 
       <Tabs activeKey={tab} onChange={k=>{setTab(k);setHelpOpen(false);setPage(1);setPreview(null);setBackupId('')}} items={[
         {key:'overview',label:'آمار همه بسته‌ها',children:<>
-          <Row gutter={[8,8]}>{overviewCards.map(([label,value])=><Col xs={12} sm={8} xl={3} key={label}><Card size="small"><Statistic title={label} value={value??0} loading={overview.isLoading}/></Card></Col>)}</Row>
+          <Row gutter={[12,12]} className="sakhtyar-curation-kpis">{overviewCards.map(([label,value],index)=><Col xs={12} sm={8} xl={6} xxl={3} key={label}>
+            <Card size="small" className={`sakhtyar-curation-kpi sakhtyar-curation-kpi-${index%4}`}><Statistic title={label} value={value??0} loading={overview.isLoading}/>
+            <div className="sakhtyar-curation-kpi-bar"/></Card></Col>)}</Row>
+          <Row gutter={[12,12]} style={{marginTop:14}}>
+            <Col xs={24} lg={12}><Card size="small" title="پیشرفت بازبینی داده‌های استخراج‌شده">
+              <Progress percent={Math.max(0,100-Math.round(100*(overview.data?.pending??0)/Math.max(1,(overview.data?.rules??0)+(overview.data?.segments??0))))} strokeColor="#2563eb"/>
+              <Typography.Text type="secondary">نسبت رکوردهایی که از انتظار بازبینی خارج شده‌اند؛ نه نسبت اعتبار قانونی.</Typography.Text>
+            </Card></Col>
+            <Col xs={24} lg={12}><Card size="small" title="سهم منابع آموزشی و فنی از قطعات">
+              <Progress percent={Math.round(100*(overview.data?.education??0)/Math.max(1,overview.data?.segments??0))} strokeColor="#0d9488"/>
+              <Typography.Text type="secondary">منابع آموزشی و فنی جداگانه از نامزدهای قانونی نگهداری می‌شوند.</Typography.Text>
+            </Card></Col>
+          </Row>
           <Divider>فهرست همه بسته‌ها</Divider>
           <Input.Search allowClear placeholder="جست‌وجو میان همه نام‌های بسته‌ها" style={{width:330,marginBottom:12}} onSearch={v=>{setPackageSearch(v);setPackagePage(1)}}/>
           <Table<Package> size="small" rowKey="id" loading={packages.isLoading} dataSource={packages.data?.items??[]} scroll={{x:950,y:510}}
@@ -151,9 +179,13 @@ export function KnowledgeLifecyclePanel(){
             <Select value={category} onChange={v=>{setCategory(v);setPage(1)}} style={{width:200}} options={categoryOptions}/>
             <Input.Search allowClear style={{width:240}} placeholder="عنوان سند یا منبع" onSearch={v=>{setSearch(v);setPage(1)}}/>
             <Checkbox checked={withArchived} onChange={e=>setWithArchived(e.target.checked)}>نمایش آرشیو</Checkbox></Space>
+          <Space wrap style={{marginBottom:10}}><Typography.Text type="secondary">تفکیک اسناد:</Typography.Text>
+            <Button size="small" type={category==='ALL'?'primary':'default'} onClick={()=>{setCategory('ALL');setPage(1)}}>همه</Button>
+            <Button size="small" type={category==='LAW'?'primary':'default'} onClick={()=>{setCategory('LAW');setPage(1)}}>قوانین</Button>
+            <Button size="small" type={category==='NONLAW'?'primary':'default'} onClick={()=>{setCategory('NONLAW');setPage(1)}}>آموزشی / فنی / مرجع</Button></Space>
           <Table<Doc> size="small" rowKey="id" loading={documents.isLoading} dataSource={documents.data?.items??[]} pagination={pagination} rowSelection={rowSelect('DOCUMENT')} scroll={{x:1200}}
             columns={[{title:'عنوان',dataIndex:'title',width:250},{title:'دسته',dataIndex:'category',render:v=>catNames[String(v)]??String(v)},
-              {title:'منشأ',dataIndex:'source_reference',width:260},{title:'بسته',dataIndex:'archive_name',width:170},
+              {title:'مرجع فایل',dataIndex:'source_reference',width:250,ellipsis:true},{title:'دریافت PDF',width:140,render:(_,r)=><a href={`/api/v1/knowledge/admin/ai-curation/documents/${r.id}/source`} target="_blank" rel="noreferrer">دانلود فایل اصلی</a>},{title:'بسته',dataIndex:'archive_name',width:170},
               {title:'رکورد',dataIndex:'item_count'},{title:'نسخه',dataIndex:'edition_label'},{title:'وضعیت',render:(_,r)=>r.archived_at?<Tag>آرشیو</Tag>:<Tag color="green">فعال</Tag>},
               {title:'عملیات',render:(_,r)=><Button size="small" onClick={()=>showDocEdit(r)}>تاریخچه / نسخه</Button>}]}/>
         </>},
@@ -170,7 +202,7 @@ export function KnowledgeLifecyclePanel(){
               {title:'وضعیت',dataIndex:'state'},{title:'رسیدگی',render:(_,r)=><Button size="small" disabled={r.state!=='OPEN'} onClick={()=>{setIssueDecision(r);setIssueNote('')}}>ثبت تصمیم</Button>}]}/>
         </>},
         {key:'cleanup',label:<Space><DeleteOutlined/>مدیریت حذف و بازیابی</Space>,children:<>
-          <Alert type="warning" showIcon message="حذف قابل‌بازیابی پیش‌فرض است. حذف دائمی فقط برای مدیر ADMIN پس از نسخه پشتیبان و تأیید جداگانه مجاز است."/>
+          <Alert type="warning" showIcon message="حذف قابل‌بازیابی پیش‌فرض است. حذف دائمی مستقیم فقط برای مدیر ADMIN و پس از تأیید جداگانه مجاز است. سرور خودکار پشتیبان حسابرسی تهیه می‌کند؛ گرفتن پشتیبان دستی اختیاری است."/>
           <Space direction="vertical" style={{width:'100%',marginTop:12}}>
             <Select value={selectionMode} onChange={choose} style={{maxWidth:340}} options={[{value:'ITEM',label:'عنوان / رکورد انتخابی'},{value:'DOCUMENT',label:'اسناد انتخابی'},{value:'BATCH',label:'بسته‌های انتخابی'},{value:'CATEGORY',label:'تمام موارد یک دسته'}, {value:'ALL',label:'تمام داده‌های مرحله AI Import'}]}/>
             {selectionMode==='CATEGORY'&&<Select value={category} onChange={setCategory} style={{width:240}} options={categoryOptions.filter(x=>x.value!=='ALL')}/>}
@@ -192,19 +224,22 @@ export function KnowledgeLifecyclePanel(){
                 {title:'بسته',dataIndex:'archive_name',width:180,ellipsis:true},
                 {title:'صفحه',width:75,render:(_,r)=>r.page_from},
                 {title:'وضعیت',width:100,render:(_,r)=>r.archived_at?<Tag color="orange">آرشیوشده</Tag>:<Tag color="green">فعال</Tag>},
-                {title:'عملیات تک‌ردیفی',width:175,fixed:'left' as const,render:(_,r)=><Button size="small" type={r.archived_at?'default':'primary'} danger={!r.archived_at}
-                  loading={call.isPending} onClick={()=>void singleRecord(r,!!r.archived_at)}>{r.archived_at?'بازیابی همین رکورد':'آرشیو همین رکورد'}</Button>}
+                {title:'عملیات تک‌ردیفی',width:255,fixed:'left' as const,render:(_,r)=><Space wrap><Button size="small" type={r.archived_at?'default':'primary'} danger={!r.archived_at}
+                  loading={call.isPending} onClick={()=>void singleRecord(r,!!r.archived_at)}>{r.archived_at?'بازیابی همین رکورد':'آرشیو همین رکورد'}</Button><Button size="small" danger onClick={()=>void permanentlyDeleteOne(r)}>حذف دائمی</Button></Space>}
               ]}/>
             <Typography.Text type="secondary">انتخاب ردیف‌های همین جدول برای پیش‌نمایش گروهی، آرشیو یا تهیه نسخه پشتیبان نیز قابل استفاده است. حذف دائمی فقط پس از پشتیبان‌گیری و تأیید مدیر انجام می‌شود.</Typography.Text>
             <Space wrap><Button onClick={()=>void startPreview()}>محاسبه اثر عملیات</Button><Button onClick={()=>void archive(true)} disabled={!['ALL','CATEGORY'].includes(selectionMode)&&!selected.length}>بازیابی انتخاب‌ها</Button></Space>
             {preview&&<Descriptions bordered size="small" column={2} items={[{key:'n',label:'کل رکوردهای درگیر',children:preview.items},{key:'l',label:'داده‌های دسته قانون',children:preview.laws},{key:'a',label:'قبلاً بازبینی‌شده',children:preview.approved},{key:'s',label:'محدوده',children:'فقط جداول ورود هوشمند AI'}]}/>}
             <Input.TextArea placeholder="دلیل عملیات؛ حداقل ۸ نویسه" value={reason} onChange={e=>setReason(e.target.value)} rows={2}/>
             <Button danger type="primary" disabled={!preview||preview.items===0||reason.trim().length<8} onClick={()=>void archive()}>آرشیو / حذف قابل‌بازیابی</Button>
-            <Divider>حذف دائمی (صرفاً مدیر ارشد)</Divider>
+            <KnowledgeDirectDeletePanel selected={selected} visible={(cleanupItems.data?.items??[]).map(r=>r.id)} refresh={refresh}/>
+            <details style={{marginTop:12}}><summary>روش پیشرفته با نسخه پشتیبان دستی (اختیاری)</summary>
+            <Divider>حذف دائمی با پشتیبان دستی (روش قدیمی)</Divider>
             <Space wrap><Button icon={<SafetyCertificateOutlined/>} disabled={!preview||preview.items===0} onClick={()=>void prepareBackup()}>۱. تهیه نسخه پشتیبان سمت سرور</Button>
             <Button disabled={!backupSnapshot} onClick={downloadBackup}>۲. دانلود فایل پشتیبان JSON</Button></Space>
             <Input value={deleteConfirm} onChange={e=>setDeleteConfirm(e.target.value)} placeholder="۳. برای تأیید: DELETE STAGING PERMANENTLY"/>
             <Button danger disabled={!backupId||deleteConfirm!=='DELETE STAGING PERMANENTLY'} onClick={()=>Modal.confirm({title:'حذف دائمی و غیرقابل‌بازیابی از جداول فعال',content:'ابتدا مطمئن شو فایل JSON را دانلود کرده‌ای. فقط رکوردهای ورود AI حذف می‌شوند. آیا ادامه می‌دهی؟',okText:'تأیید نهایی',okButtonProps:{danger:true},onOk:()=>hardDelete()})}>۴. حذف دائمی رکوردهای انتخابی</Button>
+            </details>
           </Space>
         </>},
         {key:'versions',label:'تاریخچه و تفاوت نسخه‌ها',children:<>
@@ -225,10 +260,7 @@ export function KnowledgeLifecyclePanel(){
             <Button onClick={()=>void request('/baselines',{label:baseline,note:'Snapshot of AI import inventory; requires human legal review'}).then(()=>setBaseline('')).catch(()=>{})} disabled={baseline.trim().length<4}>ثبت نسخه پایه آماری</Button></Space>
           <Table size="small" rowKey="id" dataSource={baselines.data??[]} pagination={{pageSize:8}} columns={[{title:'نسخه',dataIndex:'label'},{title:'زمان ثبت',dataIndex:'created_at',render:fmt},{title:'ثبت‌کننده',dataIndex:'created_by'}]}/>
         </>},
-        {key:'duplicates',label:'داده‌های تکراری',children:<>
-          <Alert type="info" showIcon style={{marginBottom:12}} message="تکراری بودن بر اساس هش یکسان متن استخراج‌شده بررسی می‌شود؛ شباهت معنایی نیازمند بررسی جداگانه است."/>
-          <Table size="small" rowKey="content_sha256" dataSource={duplicateRows.data??[]} loading={duplicateRows.isLoading} pagination={{pageSize:20}} columns={[{title:'سند نمونه',dataIndex:'example_title'},{title:'تعداد تکرار',dataIndex:'occurrences'},{title:'بسته‌های مختلف',dataIndex:'batches'},{title:'SHA-256 متن',dataIndex:'content_sha256',ellipsis:true}]}/>
-        </>},
+{key:'duplicates',label:'داده‌های تکراری',children:<KnowledgeDuplicatesPanel/>},
         {key:'audit',label:'تاریخچه عملیات',children:<Table rowKey="id" dataSource={audits.data??[]} loading={audits.isLoading} pagination={{pageSize:20}} columns={[{title:'عملیات',dataIndex:'event_type'},{title:'کاربر',dataIndex:'actor'},{title:'نوع',dataIndex:'scope_type'},{title:'تعداد',dataIndex:'affected_count'},{title:'تاریخ',dataIndex:'created_at',render:fmt},{title:'توضیح',dataIndex:'note'}]}/>}
       ]}/>
     </Card>
@@ -259,3 +291,4 @@ function ItemsTable({category,items,pagination,select,setCategory,setPage,curren
       columns={[{title:'سند',dataIndex:'document_title',width:230},{title:'موضوع',dataIndex:'article_label',width:170},{title:'دسته',dataIndex:'category',render:v=>catNames[String(v)]??v},{title:'صفحات',render:(_,r)=>`${r.page_from}–${r.page_to}`},{title:'بسته',dataIndex:'archive_name',width:180},{title:'وضعیت',dataIndex:'review_status',width:150},{title:'متن',dataIndex:'full_text',ellipsis:true,width:320}]}/>
   </>
 }
+// SAKHTYAR_V55_CURATION
