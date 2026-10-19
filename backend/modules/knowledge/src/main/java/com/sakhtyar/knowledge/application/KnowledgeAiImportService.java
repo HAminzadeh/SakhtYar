@@ -107,7 +107,7 @@ public class KnowledgeAiImportService {
               from knowledge_ai_import_item i
               join knowledge_ai_import_document d on d.id=i.document_id
               join knowledge_ai_import_batch b on b.id=i.batch_id
-             where i.record_type='SEGMENT' and d.category in ('EDUCATION','TECHNICAL')
+             where i.record_type='SEGMENT' and d.category in ('EDUCATION','TECHNICAL') and i.archived_at is null and d.archived_at is null and b.archived_at is null
              order by b.created_at desc,d.title,i.page_from,i.item_key
              limit 2000
             """);
@@ -144,48 +144,111 @@ public class KnowledgeAiImportService {
             String provider = req(manifest,"source_ai",160);
             if (!"HUMAN_REQUIRED".equals(req(manifest,"review_policy",40)))
                 throw new IllegalArgumentException("review_policy must be HUMAN_REQUIRED");
-            List<JsonNode> documentLines = jsonl(files.get("documents.jsonl"), "documents.jsonl");
-            List<JsonNode> ruleLines = jsonl(files.get("rules.jsonl"), "rules.jsonl");
-            List<JsonNode> segmentLines = jsonl(files.get("legal_segments.jsonl"), "legal_segments.jsonl");
-            if (documentLines.isEmpty() || ruleLines.size() + segmentLines.size() == 0 ||
-                documentLines.size()+ruleLines.size()+segmentLines.size()>MAX_RECORDS)
-                throw new IllegalArgumentException("Empty documents/items or more than 3000 records");
+            // SAKHTYAR_V533_ROW_QUARANTINE: a broken row cannot block sound rows in the same archive.
+            List<Map<String,Object>> issues = new ArrayList<>();
+            List<JsonNode> documentLines = readJsonlWithIssues(files.get("documents.jsonl"),"documents.jsonl",issues);
+            List<JsonNode> ruleLines = readJsonlWithIssues(files.get("rules.jsonl"),"rules.jsonl",issues);
+            List<JsonNode> segmentLines = readJsonlWithIssues(files.get("legal_segments.jsonl"),"legal_segments.jsonl",issues);
+            if(documentLines.size()+ruleLines.size()+segmentLines.size()+issues.size()>MAX_RECORDS)
+                throw new IllegalArgumentException("More than 3000 input records");
             LinkedHashMap<String,Doc> docs = new LinkedHashMap<>();
-            for(JsonNode row:documentLines) {
-                String key=req(row,"doc_key",120), cat=req(row,"category",30);
-                if(!Set.of("LAW","EDUCATION","TECHNICAL","REFERENCE","OTHER","UNCLASSIFIED").contains(cat))
-                    throw new IllegalArgumentException("Invalid document category for "+key);
-                String srcHash=optional(row,"source_sha256",64);
-                if(srcHash != null && !srcHash.matches("[a-fA-F0-9]{64}"))
-                    throw new IllegalArgumentException("Invalid source_sha256 for "+key);
-                Doc d=new Doc(key,req(row,"title",700),cat,req(row,"source_reference",1800),optional(row,"authority",500),srcHash);
-                if(docs.putIfAbsent(key,d)!=null) throw new IllegalArgumentException("Duplicate doc_key: "+key);
+            String mode = instruction.toLowerCase(Locale.ROOT).contains("education")?"EDUCATION":"LAW";
+            for(int i=0;i<documentLines.size();i++) {
+                JsonNode row=documentLines.get(i);
+                try {
+                    String key=req(row,"doc_key",120), cat=req(row,"category",30);
+                    if(!Set.of("LAW","EDUCATION","TECHNICAL","REFERENCE","OTHER","UNCLASSIFIED").contains(cat))
+                        throw new IllegalArgumentException("Invalid document category for "+key);
+                    String srcHash=optional(row,"source_sha256",64);
+                    if(srcHash != null && !srcHash.matches("[a-fA-F0-9]{64}"))throw new IllegalArgumentException("Invalid source_sha256 for "+key);
+                    // Respect KnowledgeAiPromptLibrary's LAW / EDUCATION separation.
+                    // Contradictions are never auto-promoted to legally binding rules.
+                    if("EDUCATION".equals(mode) && "LAW".equals(cat)) {
+                        issues.add(importIssue("documents.jsonl",i+1,row,"CATEGORY_CONFLICT",
+                            "Education prompt produced LAW category", "Review the source and use EDUCATION/TECHNICAL or the LAW extraction prompt"));
+                        cat="UNCLASSIFIED";
+                    }
+                    if("EDUCATION".equals(mode) && "UNCLASSIFIED".equals(cat))cat="EDUCATION";
+                    String title=req(row,"title",700), reference=req(row,"source_reference",1800);
+                    // Never mistake a course handout for an official statute based on section numbering.
+                    String clues=(title+" "+reference).toLowerCase(Locale.ROOT);
+                    boolean training=clues.matches("(?s).*(جزوه|آموزش|تمرین|درسنامه|کلاس|lecture|tutorial|handout|training).*");
+                    if(training && "LAW".equals(cat)){
+                        issues.add(importIssue("documents.jsonl",i+1,row,"EDUCATIONAL_SOURCE",
+                            "Legal category conflicts with educational title/source", "Classify as EDUCATION; verify any quoted law against the official document"));
+                        cat="EDUCATION";
+                    }
+                    if(training && "UNCLASSIFIED".equals(cat))cat="EDUCATION";
+                    Doc d=new Doc(key,title,cat,reference,optional(row,"authority",500),srcHash);
+                    if(docs.putIfAbsent(key,d)!=null)throw new IllegalArgumentException("Duplicate doc_key: "+key);
+                } catch(Exception ex) {
+                    issues.add(importIssue("documents.jsonl",i+1,row,"DOCUMENT_INVALID",ex.getMessage(),
+                        "Correct the document title/category/source reference, then upload a corrected archive"));
+                }
             }
-            List<Item> items=new ArrayList<>();
-            Set<String> keys=new HashSet<>();
-            readItems(ruleLines,"RULE",docs,keys,items);
-            readItems(segmentLines,"SEGMENT",docs,keys,items);
+            List<Item> items=new ArrayList<>();Set<String> keys=new HashSet<>();
+            appendValidItems(ruleLines,"RULE",docs,keys,items,issues,"rules.jsonl");
+            appendValidItems(segmentLines,"SEGMENT",docs,keys,items,issues,"legal_segments.jsonl");
             UUID batchId=UUID.randomUUID();
             transaction.executeWithoutResult(tx -> {
-                jdbc.update("insert into knowledge_ai_import_batch(id,archive_name,archive_sha256,archive_format,schema_version,source_ai,instruction_version,uploaded_by) values(?,?,?,?,?,?,?,?)",
-                    batchId,filename,archiveHash,fmt,"sakhtyar-ai-knowledge-v1",provider,instruction,actor);
+                jdbc.update("insert into knowledge_ai_import_batch(id,archive_name,archive_sha256,archive_format,schema_version,source_ai,instruction_version,source_mode,uploaded_by) values(?,?,?,?,?,?,?,?,?)",
+                    batchId,filename,archiveHash,fmt,"sakhtyar-ai-knowledge-v1",provider,instruction,mode,actor);
                 Map<String,UUID> documentIds=new HashMap<>();
                 for(Doc d:docs.values()) {
-                    UUID id=UUID.randomUUID(); documentIds.put(d.key(),id);
-                    jdbc.update("insert into knowledge_ai_import_document(id,batch_id,doc_key,title,category,source_reference,authority,source_sha256) values(?,?,?,?,?,?,?,?)",
-                        id,batchId,d.key(),d.title(),d.category(),d.reference(),d.authority(),d.hash());
+                    UUID id=UUID.randomUUID();documentIds.put(d.key(),id);
+                    jdbc.update("insert into knowledge_ai_import_document(id,batch_id,doc_key,title,category,source_reference,authority,source_sha256,suggested_category,classification_reason) values(?,?,?,?,?,?,?,?,?,?)",
+                        id,batchId,d.key(),d.title(),d.category(),d.reference(),d.authority(),d.hash(),d.category(),
+                        "Classification based on declared document category and KnowledgeAiPromptLibrary "+mode+" mode; expert verification required");
                 }
                 for(Item item:items) {
                     jdbc.update("insert into knowledge_ai_import_item(id,batch_id,document_id,item_key,record_type,segment_type,article_label,full_text,evidence_quote,page_from,page_to,content_sha256) values(?,?,?,?,?,?,?,?,?,?,?,?)",
                         UUID.randomUUID(),batchId,documentIds.get(item.doc()),item.key(),item.recordType(),item.segmentType(),item.label(),item.fullText(),item.evidence(),item.from(),item.to(),item.hash());
                 }
+                for(Map<String,Object> issue:issues) {
+                    jdbc.update("insert into knowledge_ai_import_issue(batch_id,origin_file,line_number,doc_key,item_key,issue_code,explanation,suggestion,row_payload) values(?,?,?,?,?,?,?,?,?::jsonb)",
+                        batchId,issue.get("file"),issue.get("line"),issue.get("doc_key"),issue.get("item_key"),issue.get("code"),issue.get("message"),issue.get("suggestion"),issue.get("payload"));
+                }
             });
-            return Map.of("id",batchId.toString(),"status","AWAITING_REVIEW","documents",docs.size(),
-                "rules",ruleLines.size(),"segments",segmentLines.size(),"sha256",archiveHash);
+            return Map.of("id",batchId.toString(),"status",issues.isEmpty()?"AWAITING_REVIEW":"IMPORTED_WITH_ISSUES",
+                "documents",docs.size(),"rules",items.stream().filter(i->"RULE".equals(i.recordType())).count(),
+                "segments",items.stream().filter(i->"SEGMENT".equals(i.recordType())).count(),
+                "issues",issues.size(),"sha256",archiveHash);
         } catch (IllegalArgumentException ex) { throw ex; }
         catch(Exception ex) { throw new IllegalArgumentException("Cannot parse AI knowledge archive: "+ex.getMessage(),ex); }
     }
 
+    /** Parse JSONL independently; retain invalid lines as quarantined diagnostics. */
+    private List<JsonNode> readJsonlWithIssues(byte[] bytes,String file,List<Map<String,Object>> problems) throws Exception {
+        List<JsonNode> rows=new ArrayList<>();int lineNo=0;
+        for(String line:decode(bytes).split("\\R",-1)) {
+            lineNo++;if(line.isBlank())continue;
+            try {JsonNode node=mapper.readTree(line);
+                if(node==null || !node.isObject())throw new IllegalArgumentException("JSONL row must be an object");
+                ((tools.jackson.databind.node.ObjectNode)node).put("__sakhtyar_source_line",lineNo);
+                rows.add(node);
+            }catch(Exception ex){problems.add(importIssue(file,lineNo,null,"INVALID_JSONL",
+                 "Line "+lineNo+": "+ex.getMessage(),"Fix JSON syntax in this line and upload an updated ZIP"));}
+            if(rows.size()+problems.size()>MAX_RECORDS)throw new IllegalArgumentException("More than 3000 rows");
+        }
+        return rows;
+    }
+    private Map<String,Object> importIssue(String file,int line,JsonNode row,String code,String message,String suggestion){
+        Map<String,Object> m=new LinkedHashMap<>();m.put("file",file);m.put("line",row==null?line:row.path("__sakhtyar_source_line").asInt(line));
+        m.put("doc_key",row==null?null:row.path("doc_key").asText(null));
+        m.put("item_key",row==null?null:row.path("item_key").asText(null));
+        m.put("code",code);m.put("message",message==null?code:message);m.put("suggestion",suggestion);
+        m.put("payload",row==null?null:row.toString());return m;
+    }
+    private void appendValidItems(List<JsonNode> rows,String type,Map<String,Doc> docs,Set<String> keys,
+                                  List<Item> out,List<Map<String,Object>> problems,String file){
+        for(int i=0;i<rows.size();i++){
+            JsonNode row=rows.get(i);String key=row.path("item_key").asText("");boolean existed=keys.contains(type+":"+key);
+            try{readItems(List.of(row),type,docs,keys,out);}
+            catch(Exception ex){if(!existed)keys.remove(type+":"+key);
+                problems.add(importIssue(file,i+1,row,"ITEM_INVALID",ex.getMessage(),
+                "Correct record type, evidence_quote, page number or document category, then re-import"));}
+        }
+    }
     private void readItems(List<JsonNode> rows,String type,Map<String,Doc> docs,Set<String> keys,List<Item> out) {
         for(JsonNode row:rows) {
             String key=req(row,"item_key",160), doc=req(row,"doc_key",120);
@@ -313,13 +376,13 @@ public class KnowledgeAiImportService {
               (select count(*) from knowledge_ai_import_document d where d.batch_id=b.id) as documents,
               (select count(*) from knowledge_ai_import_item i where i.batch_id=b.id and i.record_type='RULE') as rules,
               (select count(*) from knowledge_ai_import_item i where i.batch_id=b.id and i.record_type='SEGMENT') as segments
-            from knowledge_ai_import_batch b order by b.created_at desc limit 50
+            from knowledge_ai_import_batch b where b.archived_at is null order by b.created_at desc limit 50
             """);
     }
     public List<Map<String,Object>> documents(UUID batchId) {
         return jdbc.queryForList("""
             select id::text as id,doc_key,title,category,source_reference,authority,source_sha256
-            from knowledge_ai_import_document where batch_id=? order by doc_key limit 3000
+            from knowledge_ai_import_document where batch_id=? and archived_at is null order by doc_key limit 3000
             """,batchId);
     }
     public List<Map<String,Object>> items(UUID batchId,String type) {
@@ -330,7 +393,7 @@ public class KnowledgeAiImportService {
               i.review_status,i.review_notes,i.reviewed_by,i.reviewed_at,
               d.doc_key,d.title as document_title,d.category,d.source_reference
             from knowledge_ai_import_item i join knowledge_ai_import_document d on d.id=i.document_id
-            where i.batch_id=? and i.record_type=? order by d.doc_key,i.page_from,i.item_key limit 3000
+            where i.batch_id=? and i.record_type=? and i.archived_at is null and d.archived_at is null order by d.doc_key,i.page_from,i.item_key limit 3000
             """,batchId,type);
     }
     public Map<String,Object> review(UUID batchId,UUID itemId,String decision,String notes,String actor) {

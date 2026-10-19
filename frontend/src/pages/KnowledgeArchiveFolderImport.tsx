@@ -25,6 +25,18 @@ export function KnowledgeArchiveFolderImport({onImported}: {onImported: (batchId
   const [state,setState] = useState<State>({total:0,scanned:0,uploaded:0,skipped:0,failed:0,current:''})
   const [failures,setFailures] = useState<Failure[]>([])
   const [finished,setFinished] = useState(false)
+  // SAKHTYAR_V533_CSV: local report with exact file and failure explanation.
+  const downloadFailureReport=()=>{
+    const escape=(value:string)=>'"'+value.replace(/"/g,'""')+'"'
+    const csv=['file,reason,suggestion',...failures.map(f=>[
+      escape(f.path),escape(f.reason),
+      escape(f.reason.includes('Evidence quote')?'Repair evidence_quote to be an exact substring of full_text':
+      f.reason.includes('LAW documents')?'Keep educational content as EDUCATION/TECHNICAL and rules.jsonl empty':
+      'Review manifest and JSONL records; re-upload a corrected package')].join(','))].join('\r\n')
+    const blob=new Blob(['\uFEFF'+csv],{type:'text/csv;charset=utf-8'})
+    const url=URL.createObjectURL(blob);const a=document.createElement('a');a.href=url;a.download='sakhtyar-import-errors.csv';a.click();URL.revokeObjectURL(url)
+  }
+
   const fileRows = useMemo(()=>archives.slice(0,30).map((f,i)=>({key:i,path:relativeName(f),size:f.size})),[archives])
 
   useEffect(()=>{
@@ -132,6 +144,7 @@ export function KnowledgeArchiveFolderImport({onImported}: {onImported: (batchId
         <Tag color={state.failed?'red':'default'}>ناموفق: {state.failed}</Tag><Tag>هش‌شده: {state.scanned}/{state.total}</Tag></Space>
       <Typography.Paragraph type="secondary">{state.current}</Typography.Paragraph>
     </div>}
+    {failures.length>0 && <Button onClick={downloadFailureReport}>دریافت گزارش CSV خطاها</Button>}
     {failures.length>0 && <Alert type="warning" showIcon style={{marginTop:10}}
       message={`${failures.length} مورد نیازمند بررسی مجدد`}
       description={<div style={{maxHeight:180,overflow:'auto'}}>{failures.map((f,i)=><div key={i}><strong>{f.path}</strong>: {f.reason}</div>)}</div>}/>} 

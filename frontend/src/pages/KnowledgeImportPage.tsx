@@ -10,6 +10,7 @@ import {
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { api } from '../api/client'
 import { KnowledgeArchiveFolderImport } from './KnowledgeArchiveFolderImport'
+import { KnowledgeLifecyclePanel } from './KnowledgeLifecyclePanel' // SAKHTYAR_V533_LIFECYCLE
 import '../styles/knowledge-import-v53.css'
 
 type Batch = {
@@ -222,6 +223,7 @@ export function KnowledgeImportPage() {
   const filtered=(rows:Item[])=>rows.filter(r=>!search ||
     [r.document_title,r.item_key,r.article_label,r.full_text].join(' ').includes(search))
   const tabs=[
+    {key:'lifecycle',label:'مدیریت جامع دانش',children:<KnowledgeLifecyclePanel/>},
     {key:'upload',label:'۱. ساخت دستور و بارگذاری',children:<Space direction="vertical" size="large" style={{width:'100%'}}>
       <Row gutter={[16,16]}>
         <Col xs={24} xl={12}><Card className="sakhtyar-import-step" title={<><ThunderboltOutlined/> ساخت دستور استخراج برای هوش مصنوعی</>}>
