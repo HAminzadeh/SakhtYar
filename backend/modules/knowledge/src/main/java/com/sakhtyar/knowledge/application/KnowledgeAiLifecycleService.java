@@ -24,6 +24,7 @@ public class KnowledgeAiLifecycleService {
         db.update("insert into knowledge_ai_lifecycle_event(actor,event_type,scope_type,scope_id,affected_count,note,details) values(?,?,?,?,?,?,?::jsonb)",
             actor,event,kind,id,count,note,encode(details));
     }
+    // SAKHTYAR_V534_PAGESIZE: fixed hard limit 100 removed, pagination remains server-side.
     private static int bounded(Integer x,int fallback,int max){return x==null?fallback:Math.max(1,Math.min(max,x));}
     public Map<String,Object> overview(){
         Map<String,Object> result = new LinkedHashMap<>();
@@ -38,7 +39,7 @@ public class KnowledgeAiLifecycleService {
         return result;
     }
     public Map<String,Object> packages(Integer page,Integer size,Boolean includingArchived,String search){
-        int take=bounded(size,25,100), offset=(bounded(page,1,100000)-1)*take;
+        int take=bounded(size,25,1000), offset=(bounded(page,1,100000)-1)*take;
         boolean incl=Boolean.TRUE.equals(includingArchived);
         String filter=" where 1=1"+(incl?"":" and b.archived_at is null");
         List<Object> args=new ArrayList<>();
@@ -58,7 +59,7 @@ public class KnowledgeAiLifecycleService {
         return Map.of("items",rows,"total",total,"page",offset/take+1,"size",take);
     }
     public Map<String,Object> documents(Integer page,Integer size,UUID batch,String kind,String query,Boolean includingArchived){
-        int take=bounded(size,25,100), offset=(bounded(page,1,100000)-1)*take;
+        int take=bounded(size,25,1000), offset=(bounded(page,1,100000)-1)*take;
         String type=kind==null?"ALL":kind.toUpperCase(Locale.ROOT);
         if(!Set.of("ALL","LAW","EDUCATION","TECHNICAL","REFERENCE","OTHER","UNCLASSIFIED").contains(type))throw new IllegalArgumentException("Invalid category");
         StringBuilder where=new StringBuilder(" where 1=1");List<Object> args=new ArrayList<>();
@@ -79,7 +80,7 @@ public class KnowledgeAiLifecycleService {
         return Map.of("items",items,"total",total,"page",offset/take+1,"size",take);
     }
     public Map<String,Object> items(Integer page,Integer size,UUID batch,UUID document,String category,String search,Boolean includingArchived){
-        int take=bounded(size,25,100), offset=(bounded(page,1,100000)-1)*take;
+        int take=bounded(size,25,1000), offset=(bounded(page,1,100000)-1)*take;
         String cat=category==null?"ALL":category.toUpperCase(Locale.ROOT);
         if(!Set.of("ALL","LAW","EDUCATION","TECHNICAL","REFERENCE","OTHER","UNCLASSIFIED","NONLAW").contains(cat))throw new IllegalArgumentException("Invalid category");
         StringBuilder where=new StringBuilder(" where 1=1");List<Object> args=new ArrayList<>();
@@ -88,7 +89,7 @@ public class KnowledgeAiLifecycleService {
         if(document!=null){where.append(" and i.document_id=?");args.add(document);}
         if("NONLAW".equals(cat))where.append(" and d.category <> 'LAW'");
         else if(!"ALL".equals(cat)){where.append(" and d.category=?");args.add(cat);}
-        if(search!=null&&!search.isBlank()){where.append(" and (i.full_text ilike ? or i.article_label ilike ? or d.title ilike ?)");String like="%"+search.strip()+"%";args.add(like);args.add(like);args.add(like);}
+        if(search!=null&&!search.isBlank()){where.append(" and (i.full_text ilike ? or i.article_label ilike ? or i.item_key ilike ? or d.title ilike ?)");String like="%"+search.strip()+"%";args.add(like);args.add(like);args.add(like);args.add(like);}
         String from=" from knowledge_ai_import_item i join knowledge_ai_import_document d on d.id=i.document_id join knowledge_ai_import_batch b on b.id=i.batch_id ";
         long total=db.queryForObject("select count(*)"+from+where,Long.class,args.toArray());
         List<Object> pg=new ArrayList<>(args);pg.add(take);pg.add(offset);

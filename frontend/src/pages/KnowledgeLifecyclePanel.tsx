@@ -35,7 +35,16 @@ export function KnowledgeLifecyclePanel(){
   const {message}=App.useApp();const client=useQueryClient()
   const [tab,setTab]=useState('overview')
   const [packagePage,setPackagePage]=useState(1)
+  const [packageSize,setPackageSize]=useState(50) // SAKHTYAR_V534_PAGINATION
+  const [helpOpen,setHelpOpen]=useState(false)
   const [packageSearch,setPackageSearch]=useState('')
+  const [cleanupSearch,setCleanupSearch]=useState('')
+  const [cleanupDraft,setCleanupDraft]=useState('')
+  const [cleanupCategory,setCleanupCategory]=useState('ALL')
+  const [cleanupBatch,setCleanupBatch]=useState('')
+  const [cleanupPage,setCleanupPage]=useState(1)
+  const [cleanupSize,setCleanupSize]=useState(20)
+  const [cleanupShowArchived,setCleanupShowArchived]=useState(true)
   const [page,setPage]=useState(1);const [size,setSize]=useState(20)
   const [batch,setBatch]=useState('');const [category,setCategory]=useState('ALL');const [search,setSearch]=useState('')
   const [withArchived,setWithArchived]=useState(false)
@@ -53,8 +62,11 @@ export function KnowledgeLifecyclePanel(){
   const [asOfDate,setAsOfDate]=useState('')
   const [lookupDate,setLookupDate]=useState('')
   const overview=useQuery({queryKey:['ai-lifecycle-overview'],queryFn:()=>api<Overview>(ROOT+'/overview')})
-  const packages=useQuery({queryKey:['ai-lifecycle-packages',packagePage,packageSearch],queryFn:()=>api<Listing<Package>>(ROOT+'/packages'+qs({page:packagePage,size:50,includingArchived:true,search:packageSearch}))})
+  const packages=useQuery({queryKey:['ai-lifecycle-packages',packagePage,packageSize,packageSearch],queryFn:()=>api<Listing<Package>>(ROOT+'/packages'+qs({page:packagePage,size:packageSize,includingArchived:true,search:packageSearch}))})
+  const allPackages=useQuery({queryKey:['knowledge-workspace','selector'],queryFn:()=>api<Package[]>('/api/v1/knowledge/admin/ai-workspace/selector')})
   const documents=useQuery({queryKey:['ai-lifecycle-documents',page,size,batch,category,search,withArchived],queryFn:()=>api<Listing<Doc>>(ROOT+'/documents'+qs({page,size,batchId:batch,category,search,includingArchived:withArchived}))})
+  const cleanupItems=useQuery({queryKey:['ai-lifecycle-cleanup-items',cleanupPage,cleanupSize,cleanupBatch,cleanupCategory,cleanupSearch,cleanupShowArchived],
+    enabled:tab==='cleanup',queryFn:()=>api<Listing<Item>>(ROOT+'/items'+qs({page:cleanupPage,size:cleanupSize,batchId:cleanupBatch,category:cleanupCategory,search:cleanupSearch,includingArchived:cleanupShowArchived}))})
   const itemsCategory = tab==='laws' ? 'LAW' : tab==='education' ? (category==='ALL'||category==='LAW'?'NONLAW':category) : category
   const items=useQuery({queryKey:['ai-lifecycle-items',page,size,batch,itemsCategory,search,withArchived],queryFn:()=>api<Listing<Item>>(ROOT+'/items'+qs({page,size,batchId:batch,category:itemsCategory,search,includingArchived:withArchived}))})
   const issues=useQuery({queryKey:['ai-lifecycle-issues',batch],queryFn:()=>api<Issue[]>(ROOT+'/issues'+qs({batchId:batch,limit:500}))})
@@ -65,9 +77,27 @@ export function KnowledgeLifecyclePanel(){
   const asOf=useQuery({queryKey:['ai-lifecycle-asof',lookupDate,family],enabled:!!lookupDate,queryFn:()=>api<{items:Doc[];disclaimer:string}>(ROOT+'/as-of'+qs({date:lookupDate,family}))})
   const diff=useQuery({queryKey:['ai-lifecycle-diff',versionLeft,versionRight],enabled:!!versionLeft&&!!versionRight&&versionLeft!==versionRight,
     queryFn:()=>api<{changes:Difference[];warning:string}>(ROOT+'/compare'+qs({from:versionLeft,to:versionRight}))})
-  const refresh=()=>{void client.invalidateQueries({queryKey:['ai-lifecycle']});void client.invalidateQueries({queryKey:['ai-import-batches']});void client.invalidateQueries({queryKey:['ai-import-docs']});void client.invalidateQueries({queryKey:['ai-import-rules']});void client.invalidateQueries({queryKey:['ai-import-segments']});void client.invalidateQueries({queryKey:['knowledge-educational-extracts']})}
+  const refresh=()=>{void client.invalidateQueries({queryKey:['ai-lifecycle']});void client.invalidateQueries({queryKey:['ai-lifecycle-cleanup-items']});void client.invalidateQueries({queryKey:['ai-import-batches']});void client.invalidateQueries({queryKey:['ai-import-docs']});void client.invalidateQueries({queryKey:['ai-import-rules']});void client.invalidateQueries({queryKey:['ai-import-segments']});void client.invalidateQueries({queryKey:['knowledge-educational-extracts']})}
   const call=useMutation({mutationFn:({url,body}:{url:string;body:unknown})=>api<Record<string,unknown>>(ROOT+url,{method:'POST',body:JSON.stringify(body)}),onSuccess:()=>{refresh();message.success('عملیات ثبت شد')},onError:e=>message.error(errorText(e))})
   const request=(url:string,body:unknown)=>call.mutateAsync({url,body})
+  const singleRecord=async(row:Item,restore:boolean)=>{
+    const selectedScope:Scope={type:'ITEM',ids:[row.id]}
+    try{
+      if(restore){
+        await request('/restore',selectedScope)
+        setPreview(null);setBackupId('');return
+      }
+      const impact=await api<{items:number;laws:number;approved:number}>(ROOT+'/preview',{method:'POST',body:JSON.stringify(selectedScope)})
+      if(impact.items!==1){message.warning('رکورد انتخابی تغییر کرده است؛ فهرست را تازه‌سازی کن.');refresh();return}
+      Modal.confirm({
+        title:'آرشیو همین یک رکورد؟',
+        content:<Space direction="vertical"><Typography.Text>{row.document_title} — {row.article_label||row.item_key}</Typography.Text>
+          <Typography.Text type="secondary">این عمل فقط یک رکورد مرحله ورود AI را از نمایش فعال خارج می‌کند و قابل‌بازیابی است. سابقه بازبینی نگهداری می‌شود.</Typography.Text></Space>,
+        okText:'آرشیو همین رکورد',okButtonProps:{danger:true},cancelText:'انصراف',
+        onOk:async()=>{await request('/archive',{selection:selectedScope,reason:'آرشیو تک‌رکوردی از مدیریت دانش؛ قابل بازیابی'});setPreview(null);setBackupId('')}
+      })
+    }catch(e){message.error(errorText(e))}
+  }
   const scope:Scope=useMemo(()=>({type:selectionMode,ids:selectionMode==='ALL'||selectionMode==='CATEGORY'?[]:selected,category:selectionMode==='CATEGORY'?category:undefined}),[selected,selectionMode,category])
   const choose=(mode:Scope['type'])=>{setSelectionMode(mode);setSelected([]);setPreview(null);setBackupId('');setBackupSnapshot(null)}
   const startPreview=async()=>{if(selectionMode==='CATEGORY'&&category==='ALL'){message.warning('برای پاک‌سازی دسته‌ای، یک دسته مشخص انتخاب کن');return}
@@ -82,10 +112,11 @@ export function KnowledgeLifecyclePanel(){
   const showDocEdit=(d:Doc)=>{setEditionDoc(d);setFamily(d.regulation_family??'');setEdition(d.edition_label??'');setCalendar(d.calendar_type??'JALALI');setPublicationDate(d.publication_date??'');setEffectiveFrom(d.effective_from??'');setTerritory(d.territorial_scope??'')}
   const saveEdition=async()=>{if(!editionDoc)return;
     try{await api(ROOT+'/documents/'+editionDoc.id+'/edition',{method:'PUT',body:JSON.stringify({regulationFamily:family,editionLabel:edition,calendarType:calendar,publicationDate:publicationDate||null,effectiveFrom:effectiveFrom||null,territorialScope:territory})});message.success('مشخصات نسخه ذخیره شد');setEditionDoc(null);refresh()}catch(e){message.error(errorText(e))}}
-  const pagination={current:page,pageSize:size,total:tab==='documents'?documents.data?.total??0:items.data?.total??0,showSizeChanger:true,onChange:(p:number,s:number)=>{setPage(p);setSize(s);setSelected([])}}
+  const pagination={current:page,pageSize:size,total:tab==='documents'?documents.data?.total??0:items.data?.total??0,showSizeChanger:true,pageSizeOptions:['10','20','50','100','200','500','1000'],showTotal:(n:number)=>n.toLocaleString('fa-IR')+' رکورد',onChange:(p:number,s:number)=>{setPage(p);setSize(s);setSelected([])}}
   const rowSelect=(mode:Scope['type'])=>({selectedRowKeys:selectionMode===mode?selected:[],onChange:(ids:Key[])=>{setSelectionMode(mode);setSelected(ids.map(String));setPreview(null);setBackupId('')}})
   const categoryOptions=[{value:'ALL',label:'همه دسته‌ها'},...Object.entries(catNames).map(([value,label])=>({value,label}))]
   const overviewCards=[['بسته‌ها',overview.data?.batches],['اسناد',overview.data?.documents],['قوانین پیشنهادی',overview.data?.rules],['مواد و قطعات',overview.data?.segments],['مطالب آموزشی / فنی',overview.data?.education],['در انتظار بازبینی',overview.data?.pending],['خطاهای باز',overview.data?.issues],['موارد آرشیوشده',overview.data?.archived]] as const
+  const guide:Record<string,string>={overview:'نمای کلی و آمار بسته‌ها و جدول صفحه‌بندی‌شده.',documents:'مدیریت اسناد، منشأ و شناسنامه نسخه.',laws:'قوانین پیشنهادی و غیرمنتشرشده.',education:'مطالب آموزشی و فنی با دسته‌بندی مستقل.',issues:'خطاهای ورود و قرنطینه.',cleanup:'آرشیو قابل‌بازیابی، نسخه پشتیبان و حذف کنترل‌شده.',versions:'تاریخچه نسخه اسناد و تفاوت‌ها.',duplicates:'رکوردهای دارای متن یکسان.',audit:'تاریخچه تصمیم‌های ثبت‌شده.'}
   const editor=<Modal open={!!editionDoc} title="شناسنامه نسخه سند" onCancel={()=>setEditionDoc(null)} okText="ذخیره شناسنامه" onOk={()=>void saveEdition()}>
     <Space direction="vertical" style={{width:'100%'}}>
       <Alert type="info" showIcon message="سال شمسی را به‌صورت عنوان نسخه ثبت کن؛ تاریخ‌های دقیق این فرم میلادی ISO هستند و نباید حدس زده شوند."/>
@@ -101,18 +132,22 @@ export function KnowledgeLifecyclePanel(){
     <Card title={<Space><DatabaseOutlined/>مرکز مدیریت چرخه عمر دانش</Space>}
       extra={<Space wrap><Checkbox checked={withArchived} onChange={e=>{setWithArchived(e.target.checked);setPage(1)}}>نمایش موارد آرشیوشده</Checkbox>
         <Button icon={<ReloadOutlined/>} onClick={refresh}>تازه‌سازی</Button></Space>}>
-      <Alert showIcon type="info" style={{marginBottom:14}} message="منابع آموزشی و قوانین مسیر بازبینی مستقل دارند. اطلاعات این صفحه مربوط به رکوردهای مرحله ورود AI است و حذف آن، قانون منتشرشده را تغییر نمی‌دهد."/>
-      <Tabs activeKey={tab} onChange={k=>{setTab(k);setPage(1);setPreview(null);setBackupId('')}} items={[
+      <Space wrap style={{marginBottom:9}}><Button size="small" onClick={()=>setHelpOpen(v=>!v)}>راهنمای این بخش</Button>
+      <Typography.Text type="secondary">مدیریت داده‌های مرحله ورود AI؛ انتشار مقررات جداگانه انجام می‌شود.</Typography.Text></Space>
+      {helpOpen&&<Alert showIcon closable onClose={()=>setHelpOpen(false)} type="info" style={{marginBottom:12}} message="راهنمای مدیریت دانش"
+        description={guide[tab]??'مورد مورد نظر را باز کرده و جزئیات و وضعیت آن را بررسی کن.'}/>}
+
+      <Tabs activeKey={tab} onChange={k=>{setTab(k);setHelpOpen(false);setPage(1);setPreview(null);setBackupId('')}} items={[
         {key:'overview',label:'آمار همه بسته‌ها',children:<>
-          <Row gutter={[12,12]}>{overviewCards.map(([label,value])=><Col xs={12} md={6} key={label}><Card size="small"><Statistic title={label} value={value??0} loading={overview.isLoading}/></Card></Col>)}</Row>
+          <Row gutter={[8,8]}>{overviewCards.map(([label,value])=><Col xs={12} sm={8} xl={3} key={label}><Card size="small"><Statistic title={label} value={value??0} loading={overview.isLoading}/></Card></Col>)}</Row>
           <Divider>فهرست همه بسته‌ها</Divider>
           <Input.Search allowClear placeholder="جست‌وجو میان همه نام‌های بسته‌ها" style={{width:330,marginBottom:12}} onSearch={v=>{setPackageSearch(v);setPackagePage(1)}}/>
-          <Table<Package> size="small" rowKey="id" loading={packages.isLoading} dataSource={packages.data?.items??[]} scroll={{x:950}}
-            pagination={{current:packagePage,pageSize:50,total:packages.data?.total??0,onChange:p=>setPackagePage(p)}} rowSelection={rowSelect('BATCH')}
+          <Table<Package> size="small" rowKey="id" loading={packages.isLoading} dataSource={packages.data?.items??[]} scroll={{x:950,y:510}}
+            pagination={{current:packagePage,pageSize:packageSize,total:packages.data?.total??0,showSizeChanger:true,pageSizeOptions:['10','20','50','100','200','500','1000'],onChange:(p,s)=>{setPackagePage(p);setPackageSize(s)}}} rowSelection={rowSelect('BATCH')}
             columns={[{title:'بسته',dataIndex:'archive_name',width:270},{title:'زمان ورود',dataIndex:'created_at',render:fmt},{title:'اسناد',dataIndex:'documents'},{title:'قوانین',dataIndex:'rules'},{title:'مواد',dataIndex:'segments'},{title:'خطاها',dataIndex:'issues'},{title:'وضعیت',render:(_,r)=>r.archived_at?<Tag color="orange">آرشیو</Tag>:<Tag color="green">فعال</Tag>}]}/>
         </>},
         {key:'documents',label:'اسناد و طبقه‌بندی',children:<>
-          <Space wrap style={{marginBottom:12}}><Select allowClear placeholder="همه بسته‌ها" value={batch||undefined} onChange={v=>{setBatch(v??'');setPage(1)}} style={{width:230}} options={(packages.data?.items??[]).map(p=>({value:p.id,label:p.archive_name}))}/>
+          <Space wrap style={{marginBottom:12}}><Select allowClear placeholder="همه بسته‌ها" value={batch||undefined} onChange={v=>{setBatch(v??'');setPage(1)}} style={{width:230}} options={(allPackages.data??[]).map(p=>({value:p.id,label:p.archive_name}))}/>
             <Select value={category} onChange={v=>{setCategory(v);setPage(1)}} style={{width:200}} options={categoryOptions}/>
             <Input.Search allowClear style={{width:240}} placeholder="عنوان سند یا منبع" onSearch={v=>{setSearch(v);setPage(1)}}/>
             <Checkbox checked={withArchived} onChange={e=>setWithArchived(e.target.checked)}>نمایش آرشیو</Checkbox></Space>
@@ -122,10 +157,10 @@ export function KnowledgeLifecyclePanel(){
               {title:'رکورد',dataIndex:'item_count'},{title:'نسخه',dataIndex:'edition_label'},{title:'وضعیت',render:(_,r)=>r.archived_at?<Tag>آرشیو</Tag>:<Tag color="green">فعال</Tag>},
               {title:'عملیات',render:(_,r)=><Button size="small" onClick={()=>showDocEdit(r)}>تاریخچه / نسخه</Button>}]}/>
         </>},
-        {key:'laws',label:'قوانین و مقررات',children:<ItemsTable category="LAW" items={items} pagination={pagination} select={rowSelect('ITEM')} setCategory={setCategory} setPage={setPage} currentCategory={category} setBatch={setBatch} batch={batch} packages={packages.data?.items??[]} search={search} setSearch={setSearch}/>},
+        {key:'laws',label:'قوانین و مقررات',children:<ItemsTable category="LAW" items={items} pagination={pagination} select={rowSelect('ITEM')} setCategory={setCategory} setPage={setPage} currentCategory={category} setBatch={setBatch} batch={batch} packages={allPackages.data??[]} search={search} setSearch={setSearch}/>},
         {key:'education',label:'آموزشی و منابع فنی',children:<>
           <Alert type="info" showIcon style={{marginBottom:10}} message="منابع آموزشی، فنی و مرجع، خودکار قانون لازم‌الاجرا محسوب نمی‌شوند."/>
-          <ItemsTable category="EDUCATION" items={items} pagination={pagination} select={rowSelect('ITEM')} setCategory={setCategory} setPage={setPage} currentCategory={category} setBatch={setBatch} batch={batch} packages={packages.data?.items??[]} search={search} setSearch={setSearch}/>
+          <ItemsTable category="EDUCATION" items={items} pagination={pagination} select={rowSelect('ITEM')} setCategory={setCategory} setPage={setPage} currentCategory={category} setBatch={setBatch} batch={batch} packages={allPackages.data??[]} search={search} setSearch={setSearch}/>
         </>},
         {key:'issues',label:'خطاها و قرنطینه',children:<>
           <Alert type="warning" showIcon style={{marginBottom:12}} message="ردیف مشکل‌دار برای اصلاح نگهداری می‌شود و به قانون معتبر تبدیل نخواهد شد. فایل‌های دیگر بدون توقف ادامه می‌یابند."/>
@@ -139,7 +174,28 @@ export function KnowledgeLifecyclePanel(){
           <Space direction="vertical" style={{width:'100%',marginTop:12}}>
             <Select value={selectionMode} onChange={choose} style={{maxWidth:340}} options={[{value:'ITEM',label:'عنوان / رکورد انتخابی'},{value:'DOCUMENT',label:'اسناد انتخابی'},{value:'BATCH',label:'بسته‌های انتخابی'},{value:'CATEGORY',label:'تمام موارد یک دسته'}, {value:'ALL',label:'تمام داده‌های مرحله AI Import'}]}/>
             {selectionMode==='CATEGORY'&&<Select value={category} onChange={setCategory} style={{width:240}} options={categoryOptions.filter(x=>x.value!=='ALL')}/>}
-            <Typography.Text type="secondary">از تب «آمار بسته‌ها»، «اسناد»، «قوانین» یا «آموزشی» موارد را تیک بزن و به این تب برگرد. انتخاب جاری: {selectionMode==='ALL'?'تمام موارد':selectionMode==='CATEGORY'?'دسته '+(catNames[category]??category):selected.length+' مورد'}</Typography.Text>
+            <Typography.Text type="secondary">برای حذف تک‌رکوردی، از فهرست همین تب جست‌وجو کن و «آرشیو همین رکورد» را بزن؛ نیازی به رفتن به تب دیگر نیست. برای عملیات گروهی می‌توانی ردیف‌ها را همین‌جا انتخاب کنی. انتخاب جاری: {selectionMode==='ALL'?'تمام موارد':selectionMode==='CATEGORY'?'دسته '+(catNames[category]??category):selected.length+' مورد'}</Typography.Text>
+            <Divider>انتخاب و آرشیو / بازیابی تک‌رکوردی</Divider>
+            <Space wrap style={{width:'100%'}}>
+              <Input.Search allowClear value={cleanupDraft} onChange={e=>setCleanupDraft(e.target.value)} onSearch={value=>{setCleanupSearch(value);setCleanupPage(1)}} placeholder="جست‌وجوی عنوان، متن یا شناسه" style={{width:310}}/>
+              <Select allowClear value={cleanupBatch||undefined} placeholder="همه بسته‌ها" style={{width:270}} onChange={value=>{setCleanupBatch(value??'');setCleanupPage(1)}} options={(allPackages.data??[]).map(p=>({label:p.archive_name,value:p.id}))}/>
+              <Select value={cleanupCategory} style={{width:195}} onChange={value=>{setCleanupCategory(value);setCleanupPage(1)}} options={[{value:'ALL',label:'همه دسته‌ها'},{value:'LAW',label:'قوانین'},{value:'NONLAW',label:'آموزشی و غیرقانونی'},...['EDUCATION','TECHNICAL','REFERENCE','OTHER','UNCLASSIFIED'].map(value=>({value,label:catNames[value]}))]}/>
+              <Checkbox checked={cleanupShowArchived} onChange={e=>{setCleanupShowArchived(e.target.checked);setCleanupPage(1)}}>نمایش آرشیوی‌ها برای بازیابی</Checkbox>
+            </Space>
+            <Table<Item> size="small" rowKey="id" loading={cleanupItems.isFetching} dataSource={cleanupItems.data?.items??[]}
+              rowSelection={rowSelect('ITEM')} scroll={{x:1080,y:430}}
+              pagination={{current:cleanupPage,pageSize:cleanupSize,total:cleanupItems.data?.total??0,showSizeChanger:true,pageSizeOptions:['10','20','50','100','200','500'],showTotal:n=>`${n.toLocaleString('fa-IR')} رکورد`,onChange:(p,sz)=>{setCleanupPage(p);setCleanupSize(sz)}}}
+              columns={[
+                {title:'سند',dataIndex:'document_title',width:250,ellipsis:true},
+                {title:'عنوان / شناسه',width:190,render:(_,r)=>r.article_label||r.item_key},
+                {title:'نوع',dataIndex:'category',width:145,render:v=>catNames[String(v)]??String(v)},
+                {title:'بسته',dataIndex:'archive_name',width:180,ellipsis:true},
+                {title:'صفحه',width:75,render:(_,r)=>r.page_from},
+                {title:'وضعیت',width:100,render:(_,r)=>r.archived_at?<Tag color="orange">آرشیوشده</Tag>:<Tag color="green">فعال</Tag>},
+                {title:'عملیات تک‌ردیفی',width:175,fixed:'left' as const,render:(_,r)=><Button size="small" type={r.archived_at?'default':'primary'} danger={!r.archived_at}
+                  loading={call.isPending} onClick={()=>void singleRecord(r,!!r.archived_at)}>{r.archived_at?'بازیابی همین رکورد':'آرشیو همین رکورد'}</Button>}
+              ]}/>
+            <Typography.Text type="secondary">انتخاب ردیف‌های همین جدول برای پیش‌نمایش گروهی، آرشیو یا تهیه نسخه پشتیبان نیز قابل استفاده است. حذف دائمی فقط پس از پشتیبان‌گیری و تأیید مدیر انجام می‌شود.</Typography.Text>
             <Space wrap><Button onClick={()=>void startPreview()}>محاسبه اثر عملیات</Button><Button onClick={()=>void archive(true)} disabled={!['ALL','CATEGORY'].includes(selectionMode)&&!selected.length}>بازیابی انتخاب‌ها</Button></Space>
             {preview&&<Descriptions bordered size="small" column={2} items={[{key:'n',label:'کل رکوردهای درگیر',children:preview.items},{key:'l',label:'داده‌های دسته قانون',children:preview.laws},{key:'a',label:'قبلاً بازبینی‌شده',children:preview.approved},{key:'s',label:'محدوده',children:'فقط جداول ورود هوشمند AI'}]}/>}
             <Input.TextArea placeholder="دلیل عملیات؛ حداقل ۸ نویسه" value={reason} onChange={e=>setReason(e.target.value)} rows={2}/>

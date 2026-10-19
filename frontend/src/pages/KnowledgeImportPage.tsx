@@ -11,6 +11,8 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { api } from '../api/client'
 import { KnowledgeArchiveFolderImport } from './KnowledgeArchiveFolderImport'
 import { KnowledgeLifecyclePanel } from './KnowledgeLifecyclePanel' // SAKHTYAR_V533_LIFECYCLE
+import { KnowledgeReviewWorkspace, KnowledgePackageScopePicker, KnowledgeScopeSummary } from './KnowledgeReviewWorkspace' // SAKHTYAR_V534_WORKSPACE
+import type { WorkspaceMode } from './KnowledgeReviewWorkspace'
 import '../styles/knowledge-import-v53.css'
 
 type Batch = {
@@ -55,6 +57,8 @@ export function KnowledgeImportPage() {
   const [showPrompt,setShowPrompt] = useState(false)
   const [archive,setArchive] = useState<File | null>(null)
   const [batchId,setBatchId] = useState<string>()
+  const [knowledgeScope,setKnowledgeScope] = useState<string[]>(['ALL'])
+  const [pageHelp,setPageHelp] = useState(false)
   const [focused,setFocused] = useState<Item | null>(null)
   const [decision,setDecision] = useState('APPROVED')
   const [reviewNotes,setReviewNotes] = useState('')
@@ -130,6 +134,7 @@ export function KnowledgeImportPage() {
     onSuccess: x=>{
       message.success('بسته دانش دریافت و به مرحله بازبینی منتقل شد')
       setBatchId(x.id)
+      setKnowledgeScope([promptMode==='EDUCATION'?'EDU:'+x.id:'LAW:'+x.id])
       setSelectedRuleKeys([]);setSelectedReviewKeys([]);setReviewQueueIds([]);setFocused(null)
       setArchive(null)
       setActiveTab(x.rules>0?'rules':'segments')
@@ -250,7 +255,7 @@ export function KnowledgeImportPage() {
           <Button type="primary" style={{marginTop:14}} loading={upload.isPending} disabled={!archive}
             onClick={()=>upload.mutate()}>بررسی ساختار و ورود به مرحله بازبینی</Button>
           <KnowledgeArchiveFolderImport onImported={newId=>{
-            setBatchId(newId);setActiveTab('categories')
+            setBatchId(newId);setKnowledgeScope(['ALL']);setActiveTab('categories')
             void qc.invalidateQueries({queryKey:['ai-import-batches']})
             void qc.invalidateQueries({queryKey:['ai-import-docs']})
             void qc.invalidateQueries({queryKey:['ai-import-rules']})
@@ -378,24 +383,24 @@ export function KnowledgeImportPage() {
     </Card>
     <Card size="small" className="sakhtyar-import-toolbar">
       <Space wrap style={{width:'100%',justifyContent:'space-between'}}>
-        <Space wrap><Typography.Text strong>بسته انتخاب‌شده:</Typography.Text>
-          <Select showSearch optionFilterProp="label" placeholder="ابتدا یک بسته دانش بارگذاری کن" style={{minWidth:300,maxWidth:'90vw'}}
-            value={selectedId} onChange={v=>{setBatchId(v);setSelectedRuleKeys([]);setSelectedReviewKeys([]);setReviewQueueIds([]);setFocused(null)}} options={(batches.data??[]).map(b=>({value:b.id,label:`${b.archive_name} — ${new Date(b.created_at).toLocaleDateString('fa-IR')}`}))}/>
+        <Space wrap><Typography.Text strong>انتخاب بسته‌ها:</Typography.Text>
+          <KnowledgePackageScopePicker value={knowledgeScope} onChange={setKnowledgeScope}/>
         </Space>
         <Button icon={<ReloadOutlined/>} loading={batches.isFetching} onClick={()=>{void batches.refetch();void docs.refetch();void rules.refetch();void segments.refetch()}}>تازه‌سازی</Button>
       </Space>
-      {batch && <Row gutter={[12,12]} style={{marginTop:14}}>
-        <Col xs={12} md={6}><Statistic title="تعداد اسناد" value={batch.documents}/></Col>
-        <Col xs={12} md={6}><Statistic title="قوانین" value={batch.rules}/></Col>
-        <Col xs={12} md={6}><Statistic title="مواد و بندها" value={batch.segments}/></Col>
-        <Col xs={12} md={6}><Statistic title="وضعیت" value={statusLabel[batch.status]??batch.status} valueStyle={{fontSize:16}}/></Col>
-      </Row>}
+      <KnowledgeScopeSummary value={knowledgeScope}/>
     </Card>
     {batches.isError && <Alert type="error" showIcon message="دریافت بسته‌ها ناموفق بود؛ راه‌اندازی Backend و اجرای Migration V51 را بررسی کن."/>}
     <Card className="sakhtyar-import-content">
-      {activeTab!=='upload' && <Input.Search allowClear placeholder="جست‌وجو در متن و عنوان" value={search}
-        onChange={e=>setSearch(e.target.value)} style={{width:310,maxWidth:'100%',marginBottom:12}}/>}
-      <Tabs className="sakhtyar-knowledge-tabs" activeKey={activeTab} onChange={setActiveTab} items={tabs} />
+
+      <Space wrap style={{marginBottom:10}}><Button size="small" onClick={()=>setPageHelp(v=>!v)}>
+        راهنمای تب {activeTab==='upload'?'ساخت دستور و بارگذاری':activeTab==='lifecycle'?'مدیریت جامع دانش':'بازبینی محتوا'}
+      </Button></Space>
+      {pageHelp&&<Alert style={{marginBottom:12}} type="info" showIcon closable onClose={()=>setPageHelp(false)}
+        message="راهنمای استفاده" description={activeTab==='upload'?'از دو پرامپت قانونی و آموزشیِ موجود استفاده کن و بسته‌های ZIP/RAR را وارد کن. خطاها گزارش می‌شوند و اسناد بدون بررسی رسمی منتشر نمی‌شوند.':activeTab==='lifecycle'?'آمار کل، جست‌وجو، آرشیو قابل‌بازیابی، شناسنامه نسخه‌ها و گزارش تکراری‌ها در این تب است. هر زیرتب راهنمای اختصاصی دارد.':'بسته‌ها را از بالای صفحه به صورت همه، قوانین، آموزشی یا چندتایی انتخاب کن. در بازبینی سریع یکی از سه تصمیم را بزن تا مورد بعدی نشان داده شود.'}/>}
+      <Tabs className="sakhtyar-knowledge-tabs" activeKey={activeTab} onChange={k=>{setActiveTab(k);setPageHelp(false)}}
+        items={tabs.map(t=>['rules','education','categories','segments','review'].includes(t.key)
+          ? {...t,children:<KnowledgeReviewWorkspace mode={t.key as WorkspaceMode} scope={knowledgeScope}/>} : t)} />
     </Card>
     <Modal title="دستور استخراج ساختاریافته" open={showPrompt} width={950} onCancel={()=>setShowPrompt(false)}
       footer={<Space><Button onClick={()=>setShowPrompt(false)}>بستن</Button>
