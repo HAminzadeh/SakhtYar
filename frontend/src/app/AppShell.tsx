@@ -4,6 +4,7 @@ import {
   PoweroffOutlined,
   SafetyCertificateOutlined,
   RobotOutlined,
+  ToolOutlined,
   DashboardOutlined,
   UserOutlined,
   BookOutlined,
@@ -105,6 +106,16 @@ export function AppShell() {
           {hasPermission('AI_MANAGE') && (
             <Button type={active('/admin/ai') ? 'primary' : 'default'} icon={<RobotOutlined />} onClick={() => navigate('/admin/ai')}>
               مدیریت AI
+            </Button>
+          )}
+
+          {hasPermission('USER_MANAGE') && (
+            <Button
+              type={active('/admin/engineering') ? 'primary' : 'default'}
+              icon={<ToolOutlined />}
+              onClick={() => navigate('/admin/engineering')}
+            >
+              Ù…Ø±Ú©Ø² Ù…Ù‡Ù†Ø¯Ø³ÛŒ
             </Button>
           )}
 
