@@ -131,8 +131,18 @@ export function KnowledgeLifecyclePanel(){
   const pagination={current:page,pageSize:size,total:tab==='documents'?documents.data?.total??0:items.data?.total??0,showSizeChanger:true,pageSizeOptions:['10','20','50','100','200','500','1000'],showTotal:(n:number)=>n.toLocaleString('fa-IR')+' رکورد',onChange:(p:number,s:number)=>{setPage(p);setSize(s);setSelected([])}}
   const rowSelect=(mode:Scope['type'])=>({selectedRowKeys:selectionMode===mode?selected:[],onChange:(ids:Key[])=>{setSelectionMode(mode);setSelected(ids.map(String));setPreview(null);setBackupId('')}})
   const categoryOptions=[{value:'ALL',label:'همه دسته‌ها'},{value:'NONLAW',label:'آموزشی و منابع غیرقانونی'},...Object.entries(catNames).map(([value,label])=>({value,label}))]
+  const pdfName=(source:string)=>{
+    for(const part of String(source??'').split('|')){
+      const end=part.toLowerCase().indexOf('.pdf')
+      if(end<0)continue
+      const normalized=part.slice(0,end+4).trim().replace(/\\/g,'/')
+      const name=normalized.split('/').pop()?.trim()??''
+      if(name.toLowerCase().endsWith('.pdf')&&!name.includes('..'))return name
+    }
+    return null
+  }
   const overviewCards=[['بسته‌ها',overview.data?.batches],['اسناد',overview.data?.documents],['قوانین پیشنهادی',overview.data?.rules],['مواد و قطعات',overview.data?.segments],['مطالب آموزشی / فنی',overview.data?.education],['در انتظار بازبینی',overview.data?.pending],['خطاهای باز',overview.data?.issues],['موارد آرشیوشده',overview.data?.archived]] as const
-  const guide:Record<string,string>={overview:'نمای کلی و آمار بسته‌ها و جدول صفحه‌بندی‌شده.',documents:'مدیریت اسناد، منشأ و شناسنامه نسخه.',laws:'قوانین پیشنهادی و غیرمنتشرشده.',education:'مطالب آموزشی و فنی با دسته‌بندی مستقل.',issues:'خطاهای ورود و قرنطینه.',cleanup:'آرشیو قابل‌بازیابی، نسخه پشتیبان و حذف کنترل‌شده.',versions:'تاریخچه نسخه اسناد و تفاوت‌ها.',duplicates:'رکوردهای دارای متن یکسان.',audit:'تاریخچه تصمیم‌های ثبت‌شده.'}
+  const guide:Record<string,string>={overview:'نمای کلی و آمار بسته‌ها و جدول صفحه‌بندی‌شده.',documents:'اسناد قانونی و آموزشی را به‌صورت جداگانه فیلتر کن؛ نام فایل PDF و لینک دانلود فقط هنگامی نمایش داده می‌شود که نام PDF در اطلاعات منبع ثبت شده باشد. تطبیق با نسخه رسمی بر عهده کارشناس است.',laws:'قوانین پیشنهادی و غیرمنتشرشده.',education:'مطالب آموزشی و فنی با دسته‌بندی مستقل.',issues:'خطاهای ورود و قرنطینه.',cleanup:'آرشیو، رکورد موقت را پنهان می‌کند و قابل بازیابی است. بازیابی آن را دوباره فعال می‌کند. حذف دائمی برگشت‌ناپذیر است و فقط برای مدیر با شمارش پیش‌نمایش و تأیید صریح انجام می‌شود؛ پشتیبان حسابرسی خودکار است.',versions:'تاریخچه نسخه اسناد و تفاوت‌ها.',duplicates:'هش متن یکسان همیشه به معنی تکرار قابل حذف نیست. فقط گروه‌های هم‌منبع و هم‌ماده پاک‌سازی می‌شوند؛ تفاوت نسخه، منشأ و سند باعث حفاظت و باقی‌ماندن گروه در جدول می‌شود. گزینه صفحه فقط گروه‌های قابل‌حذف همان صفحه را در نظر می‌گیرد.',audit:'تاریخچه تصمیم‌های ثبت‌شده.'}
   const editor=<Modal open={!!editionDoc} title="شناسنامه نسخه سند" onCancel={()=>setEditionDoc(null)} okText="ذخیره شناسنامه" onOk={()=>void saveEdition()}>
     <Space direction="vertical" style={{width:'100%'}}>
       <Alert type="info" showIcon message="سال شمسی را به‌صورت عنوان نسخه ثبت کن؛ تاریخ‌های دقیق این فرم میلادی ISO هستند و نباید حدس زده شوند."/>
@@ -185,7 +195,7 @@ export function KnowledgeLifecyclePanel(){
             <Button size="small" type={category==='NONLAW'?'primary':'default'} onClick={()=>{setCategory('NONLAW');setPage(1)}}>آموزشی / فنی / مرجع</Button></Space>
           <Table<Doc> size="small" rowKey="id" loading={documents.isLoading} dataSource={documents.data?.items??[]} pagination={pagination} rowSelection={rowSelect('DOCUMENT')} scroll={{x:1200}}
             columns={[{title:'عنوان',dataIndex:'title',width:250},{title:'دسته',dataIndex:'category',render:v=>catNames[String(v)]??String(v)},
-              {title:'مرجع فایل',dataIndex:'source_reference',width:250,ellipsis:true},{title:'دریافت PDF',width:140,render:(_,r)=><a href={`/api/v1/knowledge/admin/ai-curation/documents/${r.id}/source`} target="_blank" rel="noreferrer">دانلود فایل اصلی</a>},{title:'بسته',dataIndex:'archive_name',width:170},
+              {title:'نام فایل مرجع',dataIndex:'source_reference',width:250,render:(v:string)=><Typography.Text ellipsis title={v}>{pdfName(v)??'نام فایل PDF ثبت نشده'}</Typography.Text>},{title:'دریافت PDF',width:140,render:(_,r)=>pdfName(r.source_reference)?<a href={`/api/v1/knowledge/admin/ai-curation/documents/${r.id}/source`} target="_blank" rel="noreferrer" download>دانلود PDF اصلی</a>:<Tag>بدون فایل قابل شناسایی</Tag>},{title:'بسته',dataIndex:'archive_name',width:170},
               {title:'رکورد',dataIndex:'item_count'},{title:'نسخه',dataIndex:'edition_label'},{title:'وضعیت',render:(_,r)=>r.archived_at?<Tag>آرشیو</Tag>:<Tag color="green">فعال</Tag>},
               {title:'عملیات',render:(_,r)=><Button size="small" onClick={()=>showDocEdit(r)}>تاریخچه / نسخه</Button>}]}/>
         </>},

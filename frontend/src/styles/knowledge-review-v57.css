@@ -1,0 +1,21 @@
+/* V57: focused typography, visual hierarchy, responsive review workspace. */
+.sakhtyar-import-page .sakhtyar-review-v57{background:linear-gradient(155deg,#f9fcff 0%,#fff 55%,#f8fbff 100%);border:1px solid #e2eaf6;border-radius:18px;padding:16px;box-shadow:0 12px 32px -30px #1d4ed8}
+.sakhtyar-import-page .sakhtyar-review-v57>.ant-space:first-child{border-bottom:1px solid #e6eef9;padding-bottom:12px;margin-bottom:16px!important}
+.sakhtyar-import-page .sakhtyar-review-v57 .ant-table-wrapper{border:1px solid #e4ebf5;border-radius:14px;overflow:hidden;background:#fff}
+.sakhtyar-import-page .sakhtyar-review-v57 .ant-table-thead>tr>th{background:#edf4ff!important;font-weight:700;color:#27466f}
+.sakhtyar-import-page .sakhtyar-review-v57 .ant-table-row:hover>td{background:#f2f8ff!important}
+.sakhtyar-review-modal-v57 .ant-modal-content{border-radius:20px;overflow:hidden;background:linear-gradient(180deg,#f7fbff 0%,#fff 160px)!important;box-shadow:0 28px 72px -42px #13284c}
+.sakhtyar-review-modal-v57 .ant-modal-header{background:transparent!important;border-bottom:1px solid #e0ebfb;padding-bottom:14px}
+.sakhtyar-review-modal-v57 .ant-modal-title{color:#153d7d;font-size:17px;font-weight:750}
+.sakhtyar-review-modal-v57 .ant-descriptions{border-radius:12px;overflow:hidden;background:#fff}
+.sakhtyar-review-modal-v57 .sakhtyar-review-text-columns .ant-card{border-radius:15px;border:1px solid #dbe7f7;height:100%;box-shadow:0 5px 18px -16px #1d4ed8}
+.sakhtyar-review-modal-v57 .sakhtyar-review-edit-card .ant-card-head{background:#eef5ff;color:#1e40af}
+.sakhtyar-review-modal-v57 .sakhtyar-review-evidence-card .ant-card-head{background:#f5f7fb;color:#334155}
+.sakhtyar-review-modal-v57 .sakhtyar-review-reading-text{max-height:300px;min-height:125px;overflow-y:auto;white-space:pre-wrap;word-break:break-word;line-height:2.05;padding:12px 14px;border-radius:10px;background:#fff;border:1px solid #e9eef7}
+.sakhtyar-review-modal-v57 .sakhtyar-review-editor{line-height:2.05;white-space:pre-wrap;border-radius:12px;background:#fff!important}
+.sakhtyar-review-modal-v57 .sakhtyar-review-history{max-height:210px;overflow:auto;border-top:1px dashed #cbd5e1;margin-top:10px;padding-top:10px}
+.sakhtyar-review-modal-v57 .sakhtyar-review-history>div{background:#f8fafc;border-radius:8px;margin-bottom:8px;padding:10px}
+.sakhtyar-review-modal-v57 .ant-modal-footer{padding-top:12px;border-top:1px solid #e2e8f0}
+.sakhtyar-import-page .sakhtyar-import-hero{background:linear-gradient(115deg,#e0edff,#f7fbff)!important}
+.sakhtyar-import-page .sakhtyar-import-content{border-radius:18px!important;box-shadow:0 8px 30px -28px #1e40af}
+@media(max-width:767px){.sakhtyar-import-page .sakhtyar-review-v57{padding:10px}.sakhtyar-review-modal-v57 .ant-modal-content{padding:16px}.sakhtyar-review-modal-v57 .sakhtyar-review-reading-text{max-height:230px}}

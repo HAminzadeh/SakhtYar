@@ -1,4 +1,5 @@
 import {useEffect,useMemo,useState} from 'react'
+import '../styles/knowledge-review-v57.css'
 import {Alert,App,Button,Card,Checkbox,Col,Descriptions,Input,Modal,Row,Select,Space,Statistic,Table,Tag,Typography} from 'antd'
 import {CheckCircleOutlined,CloseCircleOutlined,QuestionCircleOutlined,ReloadOutlined,RollbackOutlined} from '@ant-design/icons'
 import {useMutation,useQuery,useQueryClient} from '@tanstack/react-query'
@@ -9,7 +10,7 @@ const sizes=['10','20','50','100','200','500','1000']
 export type WorkspaceMode='rules'|'education'|'categories'|'segments'|'review'
 type Package={id:string;archive_name:string;source_mode?:string;documents:number;law_documents:number;education_documents:number;rules:number;legal_segments:number;educational_segments:number}
 type Listing<T>={items:T[];total:number;page:number;size:number}
-type RowItem={id:string;batch_id:string;document_id:string;archive_name:string;document_title:string;category:string;item_key:string;record_type:string;segment_type:string;article_label?:string;full_text:string;evidence_quote:string;page_from:number;page_to:number;source_reference:string;review_status:string}
+type RowItem={id:string;batch_id:string;document_id:string;archive_name:string;document_title:string;category:string;item_key:string;record_type:string;segment_type:string;article_label?:string;full_text:string;evidence_quote:string;page_from:number;page_to:number;source_reference:string;review_status:string;content_sha256:string}
 type Document={id:string;title:string;category:string;archive_name:string;source_reference:string;authority?:string;edition_label?:string;item_count:number}
 const cat:{[name:string]:string}={LAW:'قانون و مقررات',EDUCATION:'آموزشی',TECHNICAL:'فنی و مهندسی',REFERENCE:'مرجع',OTHER:'سایر',UNCLASSIFIED:'نیازمند تعیین نوع'}
 const statusNames:{[name:string]:string}={PENDING_REVIEW:'در انتظار',APPROVED:'پذیرفته برای مرحله بعد',REJECTED:'ردشده'}
@@ -40,10 +41,11 @@ export function KnowledgePackageScopePicker({value,onChange}:{value:string[];onC
    {label:'قوانین و مقررات',options:[{label:'همه بسته‌های قوانین',value:'LAW_ALL'},...p.filter(v=>v.law_documents>0).map(v=>({label:v.archive_name,value:'LAW:'+v.id}))]},
    {label:'مطالب آموزشی و فنی',options:[{label:'همه بسته‌های آموزشی و فنی',value:'EDU_ALL'},...p.filter(v=>v.education_documents>0).map(v=>({label:v.archive_name,value:'EDU:'+v.id}))]}]
  },[packs.data])
- return <Select mode="multiple" maxTagCount="responsive" showSearch optionFilterProp="label" value={value} options={groups} loading={packs.isLoading}
-  placeholder="همه بسته‌ها / قوانین / آموزشی — انتخاب چندگانه" style={{width:'min(640px, 100%)'}}
+ return <div className="sakhtyar-package-picker"><Select mode="multiple" maxTagCount={2} showSearch optionFilterProp="label" value={value} options={groups} loading={packs.isLoading}
+  getPopupContainer={trigger=>trigger.parentElement ?? document.body} popupMatchSelectWidth
+  placeholder="همه بسته‌ها / قوانین / آموزشی — انتخاب چندگانه" style={{width:'100%'}}
   onChange={v=>{const values=v as string[];if(values.includes('ALL'))onChange(value.includes('ALL')&&values.length>1?values.filter(x=>x!=='ALL'):['ALL']);else onChange(values.length?values:['ALL'])}}
-  onClear={()=>onChange(['ALL'])} allowClear/>
+  onClear={()=>onChange(['ALL'])} allowClear/></div>
 }
 export function KnowledgeScopeSummary({value}:{value:string[]}){
  const p=usePackages();const scope=useMemo(()=>scopeInfo(value,p.data??[]),[value,p.data])
@@ -58,6 +60,10 @@ export function KnowledgeReviewWorkspace({mode,scope}:{mode:WorkspaceMode;scope:
  const [draft,setDraft]=useState(''),[search,setSearch]=useState(''),[status,setStatus]=useState('ALL')
  const [helpOpen,setHelpOpen]=useState(false),[focused,setFocused]=useState<RowItem|null>(null)
   const [autoNext,setAutoNext]=useState(true),[advance,setAdvance]=useState(false)
+ const [editingText,setEditingText]=useState(false)
+ const [draftText,setDraftText]=useState('')
+ const [historyVisible,setHistoryVisible]=useState(false)
+ const [lastEditMessage,setLastEditMessage]=useState('')
   const [archivingId,setArchivingId]=useState<string|null>(null)
   const [bulkSelected,setBulkSelected]=useState<string[]>([])
   const [bulkBusy,setBulkBusy]=useState(false)
@@ -75,6 +81,23 @@ export function KnowledgeReviewWorkspace({mode,scope}:{mode:WorkspaceMode;scope:
  const docsParams=qs({page,size,search,category:scopeCategory,batchIds:info.all?undefined:selectedKey})
  const documents=useQuery({queryKey:['knowledge-workspace','documents',docsParams],enabled:mode==='categories'&&!selectionEmpty&&!packs.isLoading,queryFn:()=>api<Listing<Document>>(ROOT+'/documents'+docsParams)})
  const items=rows.data?.items??[]
+ useEffect(()=>{setDraftText(focused?.full_text??'');setEditingText(false);setHistoryVisible(false);setLastEditMessage('')},[focused?.id])
+ const revisions=useQuery({queryKey:['knowledge-text-revisions',focused?.id],enabled:!!focused&&historyVisible,
+  queryFn:()=>api<Array<{id:string;editor:string;edited_at:string;old_full_text:string;new_full_text:string}>>(ROOT+'/items/'+focused!.id+'/text-history')})
+ const saveText=useMutation({mutationFn:({id,text,hash}:{id:string;text:string;hash:string})=>api<{updated:boolean;fullText:string;contentSha256:string;reviewStatus:string;evidenceMatches?:boolean}>(ROOT+'/items/'+id+'/edit-text',{method:'POST',body:JSON.stringify({fullText:text,expectedHash:hash})}),
+  onError:e=>message.error(errorMessage(e))})
+ const saveEditedText=async()=>{
+  if(!focused)return
+  try{
+   const result=await saveText.mutateAsync({id:focused.id,text:draftText,hash:focused.content_sha256})
+   setFocused({...focused,full_text:result.fullText,content_sha256:result.contentSha256,review_status:result.reviewStatus})
+   setDraftText(result.fullText);setEditingText(false)
+   setLastEditMessage(result.updated?'متن اصلاح و در تاریخچه ذخیره شد؛ برای تأیید کارشناسی دوباره بررسی کن.':'متن تغییری نکرده است.')
+   message.success(result.updated?'ویرایش ثبت شد؛ وضعیت به انتظار بازبینی برگشت':'تغییری ثبت نشد')
+   await Promise.all([client.invalidateQueries({queryKey:['knowledge-workspace','rows']}),client.invalidateQueries({queryKey:['ai-lifecycle']}),client.invalidateQueries({queryKey:['ai-curation-publications']}),client.invalidateQueries({queryKey:['knowledge-text-revisions',focused.id]})])
+  }catch{/* Error shown by mutation */}
+ }
+ const normalizeDraft=()=>setDraftText(t=>t.replace(/\r\n?/g,'\n').split('\n').map(line=>line.replace(/[ \t]{2,}/g,' ').trim()).join('\n').replace(/\n{3,}/g,'\n\n').trim())
  useEffect(()=>{if(advance&&!rows.isFetching&&items.length){setFocused(items[0]);setAdvance(false)}},[advance,rows.isFetching,items])
  const decision=useMutation({mutationFn:({id,action}:{id:string;action:'APPROVED'|'REJECTED'|'PENDING_REVIEW'})=>api(ROOT+'/decision',{method:'POST',body:JSON.stringify({itemId:id,decision:action})}),
  onError:e=>message.error(errorMessage(e))})
@@ -142,11 +165,21 @@ export function KnowledgeReviewWorkspace({mode,scope}:{mode:WorkspaceMode;scope:
  const changePage=(nextPage:number,nextSize:number)=>{setPage(nextPage);setSize(nextSize);setFocused(null)}
  const pagination={current:page,pageSize:size,total:mode==='categories'?(documents.data?.total??0):(rows.data?.total??0),
   showSizeChanger:true,pageSizeOptions:sizes,showTotal:(total:number)=>`${num(total)} مورد`,onChange:changePage}
+ const pdfFilename=(source:string)=>{
+  for(const fragment of String(source??'').split('|')){
+   const end=fragment.toLowerCase().indexOf('.pdf')
+   if(end<0)continue
+   const raw=fragment.slice(0,end+4).trim().replace(/\\/g,'/')
+   const basename=raw.split('/').pop()?.trim()??''
+   if(basename.toLowerCase().endsWith('.pdf') && !basename.includes('..'))return basename
+  }
+  return null
+ }
  const docColumns=[{title:'عنوان سند',dataIndex:'title',width:240},{title:'نوع',dataIndex:'category',width:110,render:(v:string)=><Tag>{cat[v]??v}</Tag>},
-  {title:'منبع اصلی',dataIndex:'source_reference',width:260,ellipsis:true},{title:'بسته',dataIndex:'archive_name',width:180,ellipsis:true},
+  {title:'فایل مرجع',dataIndex:'source_reference',width:250,render:(v:string)=><Typography.Text ellipsis title={v}>{pdfFilename(v)??'نام PDF ثبت نشده'}</Typography.Text>},{title:'بسته',dataIndex:'archive_name',width:180,ellipsis:true},
   {title:'رکوردها',dataIndex:'item_count',width:100},{title:'نسخه',dataIndex:'edition_label',width:120},
-  {title:'فایل اصلی PDF',width:142,render:(_:unknown,r:Document)=><a href={`/api/v1/knowledge/admin/ai-curation/documents/${r.id}/source`} target="_blank" rel="noreferrer">دریافت فایل منبع</a>}]
- return <div dir="rtl" className="sakhtyar-quick-review">
+  {title:'فایل اصلی PDF',width:142,render:(_:unknown,r:Document)=>pdfFilename(r.source_reference)?<a href={`/api/v1/knowledge/admin/ai-curation/documents/${r.id}/source`} target="_blank" rel="noreferrer" download>دانلود PDF</a>:<Tag>فایل شناسایی نشد</Tag>}]
+ return <div dir="rtl" className="sakhtyar-quick-review sakhtyar-review-v57">
   <Space wrap style={{width:'100%',justifyContent:'space-between',marginBottom:10}}>
    <Space wrap><Button size="small" icon={<QuestionCircleOutlined/>} onClick={()=>setHelpOpen(x=>!x)}>راهنمای این بخش</Button>
      <Button size="small" icon={<ReloadOutlined/>} onClick={()=>{void rows.refetch();void documents.refetch()}}>تازه‌سازی</Button></Space>
@@ -161,8 +194,9 @@ export function KnowledgeReviewWorkspace({mode,scope}:{mode:WorkspaceMode;scope:
        {label:'پذیرفته‌شده',value:'APPROVED'},{label:'ردشده',value:'REJECTED'}]}/>}
     </Space>
     {mode==='segments'&&<Alert type="info" showIcon style={{marginBottom:10}} message="مرور همه قطعات استخراج‌شده" description="اینجا تمام مواد و بندها، حتی موارد تأییدشده یا ردشده، دیده می‌شوند. برای صف فقط موارد معوق و تصمیم گروهی به تب ۶ برو."/>}
+    {mode==='segments'&&<Alert type="info" showIcon style={{marginBottom:10}} message="کتابخانه مواد و بندهای استخراج‌شده" description="این تب برای مطالعه، جست‌وجو، بررسی متن، وضعیت تصمیم و مراجعه به PDF است. عملیات تأیید و رد گروهی در تب ۶ انجام می‌شود؛ هیچ تصمیمی با صرف مشاهده ثبت نمی‌شود."/>}
     {mode==='review'&&<Alert type="info" showIcon style={{marginBottom:10}} message="صف اختصاصی موارد در انتظار بازبینی" description="تفاوت این تب با تب ۵: فقط موارد در انتظار در صف هستند و تصمیم گروهی صفحه یا همه نتایج اینجا ثبت می‌شود؛ تصمیم هنوز انتشار نیست."/>}
-    {mode!=='categories'&&<Space wrap style={{marginBottom:12}}>
+    {(mode==='rules'||mode==='education'||mode==='review')&&<Space wrap style={{marginBottom:12}}>
       <Tag color="blue">انتخاب‌شده: {num(bulkSelected.length)}</Tag>
       <Button size="small" onClick={()=>setBulkSelected(items.filter(r=>r.review_status==='PENDING_REVIEW').map(r=>r.id))}>انتخاب همه موارد در انتظار این صفحه</Button>
       <Button size="small" onClick={()=>setBulkSelected([])} disabled={!bulkSelected.length}>لغو انتخاب</Button>
@@ -176,34 +210,47 @@ export function KnowledgeReviewWorkspace({mode,scope}:{mode:WorkspaceMode;scope:
     {mode==='categories'?
       <Table<Document> size="small" rowKey="id" columns={docColumns} dataSource={documents.data?.items??[]} loading={documents.isFetching} pagination={pagination} scroll={{x:1000,y:510}}/>:
       <Table<RowItem> size="small" rowKey="id" loading={rows.isFetching} dataSource={items} pagination={pagination} scroll={{x:1050,y:510}}
-       rowSelection={{selectedRowKeys:bulkSelected,onChange:keys=>setBulkSelected(keys.map(String)),getCheckboxProps:r=>({disabled:r.review_status!=='PENDING_REVIEW'})}}
+       rowSelection={mode==='segments'?undefined:{selectedRowKeys:bulkSelected,onChange:keys=>setBulkSelected(keys.map(String)),getCheckboxProps:r=>({disabled:r.review_status!=='PENDING_REVIEW'})}}
        columns={[{title:'سند',dataIndex:'document_title',width:230,ellipsis:true},
         {title:'موضوع / شماره',width:140,render:(_,r)=>r.article_label||r.item_key},
         {title:'نوع',width:110,render:(_,r)=><Tag>{r.category==='LAW'?'قانون':cat[r.category]??'آموزشی'}</Tag>},
         {title:'صفحه',width:80,render:(_,r)=>r.page_from===r.page_to?r.page_from:`${r.page_from}–${r.page_to}`},
         {title:'متن',dataIndex:'full_text',width:310,ellipsis:true},
         {title:'وضعیت',dataIndex:'review_status',width:170,render:v=><Tag color={v==='APPROVED'?'green':v==='REJECTED'?'red':'gold'}>{statusNames[String(v)]??String(v)}</Tag>},
-        {title:'عملیات',fixed:'left' as const,width:245,render:(_,r)=><Space size={4}><Button size="small" onClick={()=>setFocused(r)}>مشاهده و تصمیم</Button>
-          <Button size="small" danger loading={archivingId===r.id} onClick={()=>void archiveOne(r)}>آرشیو رکورد</Button></Space>}]} />}
+        {title:'عملیات',fixed:'left' as const,width:245,render:(_,r)=><Space size={4}><Button size="small" onClick={()=>setFocused(r)}>{mode==='segments'?'مطالعه و منبع':'مشاهده و تصمیم'}</Button>
+          {mode!=='segments'&&<Button size="small" danger loading={archivingId===r.id} onClick={()=>void archiveOne(r)}>آرشیو رکورد</Button>}</Space>}]} />}
   </>}
-  <Modal open={!!focused} title="بازبینی سریع — سه تصمیم مستقیم" width={950} onCancel={()=>{if(!decision.isPending){setFocused(null);setAdvance(false)}}}
-   footer={focused?<Row gutter={[8,8]} align="middle"><Col xs={24} md={9}>
+  <Modal open={!!focused} className="sakhtyar-review-modal-v57" title={mode==='segments'?"کتابخانه مواد و بندها — متن و منبع":"بازبینی کارشناسی — ویرایش متن و ثبت تصمیم"} width={1020} onCancel={()=>{if(!decision.isPending){setFocused(null);setAdvance(false)}}}
+   footer={focused?(mode==='segments'?<Button onClick={()=>setFocused(null)}>بستن کتابخانه</Button>:<Row gutter={[8,8]} align="middle"><Col xs={24} md={9}>
      <Checkbox checked={autoNext} onChange={e=>setAutoNext(e.target.checked)}>پس از تصمیم، مورد بعدی را نمایش بده</Checkbox>
     </Col><Col xs={24} md={15}><Space wrap>
      <Button loading={decision.isPending} icon={<RollbackOutlined/>} onClick={()=>void decide('PENDING_REVIEW')} disabled={focused.review_status==='PENDING_REVIEW'}>بازگرداندن به بازبینی</Button>
      <Button danger loading={decision.isPending} icon={<CloseCircleOutlined/>} onClick={()=>void decide('REJECTED')} disabled={focused.review_status==='REJECTED'}>رد به‌دلیل کیفیت/استناد</Button>
      <Button type="primary" loading={decision.isPending} icon={<CheckCircleOutlined/>} onClick={()=>void decide('APPROVED')} disabled={focused.review_status==='APPROVED'}>تأیید برای مرحله بعد</Button>
-    </Space></Col></Row>:null}>
+    </Space></Col></Row>):null}>
    {focused&&<Space direction="vertical" style={{width:'100%'}} size="middle">
      <Descriptions bordered size="small" column={2} items={[
        {key:'doc',label:'سند',children:focused.document_title,span:2},
        {key:'category',label:'دسته',children:cat[focused.category]??focused.category},
        {key:'page',label:'صفحات',children:`${focused.page_from} تا ${focused.page_to}`},
        {key:'bundle',label:'بسته',children:focused.archive_name,span:2},
-       {key:'source',label:'مرجع ادعاشده',children:focused.source_reference,span:2}
+       {key:'source',label:'فایل مرجع',children:<Space wrap><Typography.Text>{pdfFilename(focused.source_reference)??'نام PDF قابل شناسایی نیست'}</Typography.Text>{pdfFilename(focused.source_reference)&&<a href={`/api/v1/knowledge/admin/ai-curation/documents/${focused.document_id}/source`} target="_blank" rel="noreferrer" download>دانلود PDF اصلی</a>}</Space>,span:2}
      ]}/>
-     <Row gutter={[12,12]}><Col xs={24} md={15}><Card size="small" title="متن دقیق استخراج‌شده" styles={{body:{maxHeight:230,overflowY:'auto',whiteSpace:'pre-wrap',lineHeight:2}}}>{focused.full_text}</Card></Col>
-       <Col xs={24} md={9}><Card size="small" title="شاهد ارائه‌شده" styles={{body:{maxHeight:230,overflowY:'auto',whiteSpace:'pre-wrap',lineHeight:2}}}>{focused.evidence_quote}</Card></Col></Row>
+     <Row gutter={[12,12]} className="sakhtyar-review-text-columns"><Col xs={24} md={15}><Card size="small" className="sakhtyar-review-edit-card" title="متن دقیق استخراج‌شده — قابل اصلاح" extra={<Button size="small" disabled={saveText.isPending} onClick={()=>{setEditingText(x=>!x);setDraftText(focused.full_text)}}>{editingText?'انصراف از ویرایش':'ویرایش متن'}</Button>}>
+       {editingText?<Space direction="vertical" style={{width:'100%'}} size="middle">
+         <Alert type="info" showIcon message="فقط متن پیشنهادی اصلاح می‌شود" description="نسخه قبلی در تاریخچه می‌ماند، شاهد اولیه تغییر نمی‌کند و پس از ذخیره، رکورد برای بازبینی مجدد قرار می‌گیرد. از صحت تغییرات با PDF اصلی مطمئن شو."/>
+         <Input.TextArea className="sakhtyar-review-editor" value={draftText} onChange={e=>setDraftText(e.target.value)} rows={10} maxLength={20000} showCount dir="rtl" spellCheck={false}/>
+         <Space wrap><Button size="small" onClick={normalizeDraft}>مرتب‌سازی فاصله و خطوط اضافی</Button><Button size="small" onClick={()=>setDraftText(focused.full_text)}>بازگردانی متن فعلی</Button><Button type="primary" loading={saveText.isPending} disabled={draftText.trim()===focused.full_text||draftText.trim().length<12} onClick={()=>void saveEditedText()}>ذخیره و ثبت تاریخچه</Button></Space>
+       </Space>:<div className="sakhtyar-review-reading-text" dir="rtl">{focused.full_text}</div>}
+       {lastEditMessage&&<Alert type="success" showIcon style={{marginTop:12}} message={lastEditMessage}/>}
+       <Button type="link" size="small" onClick={()=>setHistoryVisible(x=>!x)} style={{paddingInline:0,marginTop:8}}>{historyVisible?'بستن تاریخچه اصلاحات':'مشاهده تاریخچه اصلاحات'}</Button>
+       {historyVisible&&<div className="sakhtyar-review-history">{revisions.isLoading?'در حال دریافت تاریخچه...':revisions.data?.length?revisions.data.map(rev=><div key={rev.id}><Typography.Text strong>{rev.editor} — {new Date(rev.edited_at).toLocaleString('fa-IR')}</Typography.Text><Typography.Paragraph ellipsis={{rows:2,expandable:true}}>{rev.old_full_text}</Typography.Paragraph></div>):'هنوز ویرایشی ثبت نشده است.'}</div>}
+       </Card></Col>
+       <Col xs={24} md={9}><Card size="small" className="sakhtyar-review-evidence-card" title="شاهد ارائه‌شده (متن اولیه هوش مصنوعی)">
+         <Typography.Paragraph type="secondary" style={{fontSize:12,lineHeight:1.9}}>این نقل‌قول را مدل هوش مصنوعی برای نشان‌دادن محل پشتیبانی متن پیشنهاد کرده است؛ به‌تنهایی مدرک اصالت نیست. با PDF اصلی تطبیق بده. برای حفظ ردپای منبع، این قسمت همراه با ویرایش متن اصلی تغییر نمی‌کند.</Typography.Paragraph>
+         <div className="sakhtyar-review-reading-text" dir="rtl">{focused.evidence_quote}</div>
+         {!focused.full_text.includes(focused.evidence_quote)&&<Alert style={{marginTop:10}} type="warning" showIcon message="شاهد با متن فعلی تطبیق ندارد؛ پیش از تأیید، اصل PDF را بررسی کن."/>}
+       </Card></Col></Row>
      {focused.category==='LAW'&&/drmostafanajafi|جزوه|آموزش|training|tutorial|handout/i.test(focused.source_reference)?
        <Alert type="error" showIcon message="هشدار: مرجع این قانون ظاهراً آموزشی است" description="این متن را قبل از تأیید با نسخه رسمی قانون مطابقت بده. طبقه‌بندی خودکارِ این منبع می‌تواند اشتباه باشد."/>:
        <Alert type="warning" showIcon message="منبع استخراج‌شده هنوز با سند رسمی تطبیق داده نشده است" description="قبل از پذیرش، عنوان و مرجع را بررسی کن. این تصمیم فقط در مرحله بازبینی ذخیره می‌شود و قانون منتشرشده ایجاد نمی‌کند."/>}

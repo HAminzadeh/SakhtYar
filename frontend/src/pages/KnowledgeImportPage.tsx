@@ -323,11 +323,11 @@ export function KnowledgeImportPage() {
           {title:'شناسه',dataIndex:'doc_key',width:120}
         ]}/>
     </Card>},
-    {key:'segments',label:'۵. مرور همه مواد و بندها',children:<Card title="مواد، تبصره‌ها و بندها">
+    {key:'segments',label:'۵. کتابخانه مواد و بندها',children:<Card title="مواد، تبصره‌ها و بندها">
       <Table<Item> rowKey="id" dataSource={filtered(segments.data??[])} loading={segments.isLoading}
         scroll={{x:1130}} pagination={{pageSize:12}} columns={itemColumns}/>
     </Card>},
-    {key:'review',label:'۶. صف بازبینی و تأیید گروهی',children:<Space direction="vertical" size="middle" style={{width:'100%'}}>
+    {key:'review',label:'۶. میز کار بازبینی گروهی',children:<Space direction="vertical" size="middle" style={{width:'100%'}}>
       <Alert type="info" showIcon message="ثبت تصمیم کارشناسی" description="تأیید این صفحه صرفاً یک تصمیم مستند روی نسخه واردشده است؛ انتقال به قوانین اجرایی و انتشار، مرحله مجزا و نیازمند طراحی کنترل‌های حقوقی خواهد بود." />
       <Row gutter={[12,12]}>
         <Col xs={12} md={8}><Card><Statistic title="منتظر بررسی" value={pending.length}/></Card></Col>
@@ -384,12 +384,12 @@ export function KnowledgeImportPage() {
       </Space>
     </Card>
     <Card size="small" className="sakhtyar-import-toolbar">
-      <Space wrap style={{width:'100%',justifyContent:'space-between'}}>
-        <Space wrap><Typography.Text strong>انتخاب بسته‌ها:</Typography.Text>
+      <div className="sakhtyar-package-toolbar">
+        <div className="sakhtyar-package-toolbar__selector"><Typography.Text strong>انتخاب بسته‌ها:</Typography.Text>
           <KnowledgePackageScopePicker value={knowledgeScope} onChange={setKnowledgeScope}/>
-        </Space>
+        </div>
         <Button icon={<ReloadOutlined/>} loading={batches.isFetching} onClick={()=>{void batches.refetch();void docs.refetch();void rules.refetch();void segments.refetch()}}>تازه‌سازی</Button>
-      </Space>
+      </div>
       <KnowledgeScopeSummary value={knowledgeScope}/>
     </Card>
     {batches.isError && <Alert type="error" showIcon message="دریافت بسته‌ها ناموفق بود؛ راه‌اندازی Backend و اجرای Migration V51 را بررسی کن."/>}

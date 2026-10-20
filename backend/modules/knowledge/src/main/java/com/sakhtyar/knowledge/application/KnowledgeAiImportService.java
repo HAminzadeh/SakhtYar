@@ -232,12 +232,14 @@ public class KnowledgeAiImportService {
         }
         return rows;
     }
+    private static String safeIssueText(String s) { return s==null?null:s.replace(String.valueOf((char)0),"[NUL]"); }
     private Map<String,Object> importIssue(String file,int line,JsonNode row,String code,String message,String suggestion){
         Map<String,Object> m=new LinkedHashMap<>();m.put("file",file);m.put("line",row==null?line:row.path("__sakhtyar_source_line").asInt(line));
-        m.put("doc_key",row==null?null:row.path("doc_key").asText(null));
-        m.put("item_key",row==null?null:row.path("item_key").asText(null));
-        m.put("code",code);m.put("message",message==null?code:message);m.put("suggestion",suggestion);
-        m.put("payload",row==null?null:row.toString());return m;
+        m.put("doc_key",row==null?null:safeIssueText(row.path("doc_key").asText(null)));
+        m.put("item_key",row==null?null:safeIssueText(row.path("item_key").asText(null)));
+        m.put("code",code);m.put("message",safeIssueText(message==null?code:message));m.put("suggestion",safeIssueText(suggestion));
+        m.put("payload",row==null?null:row.toString()
+            .replace("\\u0000","[NUL]").replace(String.valueOf((char)0),"[NUL]"));return m;
     }
     private void appendValidItems(List<JsonNode> rows,String type,Map<String,Doc> docs,Set<String> keys,
                                   List<Item> out,List<Map<String,Object>> problems,String file){
@@ -282,6 +284,8 @@ public class KnowledgeAiImportService {
         if(v==null || v.isNull()) return null;
         if(!v.isTextual()) throw new IllegalArgumentException("Expected text at "+name);
         String s=v.asText().strip();
+        if(s.indexOf((char)0)>=0)
+            throw new IllegalArgumentException("Field "+name+" contains forbidden NUL character (U+0000); row quarantined");
         if(s.length()>max) throw new IllegalArgumentException("Field "+name+" exceeds "+max+" characters");
         return s;
     }

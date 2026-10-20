@@ -250,12 +250,24 @@ public class KnowledgeAiCurationController {
     public Map<String,Object> duplicates(@RequestParam(required=false) Integer page,@RequestParam(required=false) Integer size,Authentication auth){
         manager(auth);
         int n=bounded(size,20,200),p=bounded(page,1,100000),offset=(p-1)*n;
+        // Keep the exact hash groups, but disclose which ones CANNOT safely be cleaned.
+        // The context expression mirrors duplicatePlan(): title/category/original filename/edition/type/article.
+        String context="coalesce(d.title,'') || chr(30) || coalesce(d.category,'') || chr(30) || " +
+            "btrim(split_part(coalesce(d.source_reference,''),'|',1)) || chr(30) || " +
+            "coalesce(d.edition_label,'') || chr(30) || i.record_type || chr(30) || coalesce(i.article_label,'null')";
+        String published="count(*) filter (where pub.item_id is not null and pub.revoked_at is null)";
         String from=" from knowledge_ai_import_item i join knowledge_ai_import_document d on d.id=i.document_id " +
-            "join knowledge_ai_import_batch b on b.id=i.batch_id where i.archived_at is null and d.archived_at is null and b.archived_at is null";
-        String grouped=" from (select i.content_sha256"+from+" group by i.content_sha256 having count(*)>1) x";
-        Long total=db.queryForObject("select count(*)"+grouped,Long.class);
-        List<Map<String,Object>> items=db.queryForList("select i.content_sha256,count(*) as occurrences, count(distinct i.batch_id) as batches, min(d.title) as example_title"+
-            from+" group by i.content_sha256 having count(*)>1 order by count(*) desc,i.content_sha256 limit ? offset ?",n,offset);
+            "join knowledge_ai_import_batch b on b.id=i.batch_id " +
+            "left join knowledge_ai_publication pub on pub.item_id=i.id " +
+            "where i.archived_at is null and d.archived_at is null and b.archived_at is null";
+        String grouped="select i.content_sha256, count(*) as occurrences,count(distinct i.batch_id) as batches,"+
+            "min(d.title) as example_title,"+
+            "(count(distinct ("+context+"))=1 and "+published+"<=1) as cleanable,"+
+            "case when count(distinct ("+context+"))>1 then 'DIFFERENT_SOURCE_EDITION_OR_ARTICLE' " +
+            "when "+published+">1 then 'MULTIPLE_PUBLISHED' else 'SAFE_TO_CLEAN' end as protection_reason"+
+            from+" group by i.content_sha256 having count(*)>1";
+        Long total=db.queryForObject("select count(*) from ("+grouped+") grouped",Long.class);
+        List<Map<String,Object>> items=db.queryForList("select * from ("+grouped+") grouped order by occurrences desc,content_sha256 limit ? offset ?",n,offset);
         return Map.of("items",items,"total",total==null?0:total,"page",p,"size",n);
     }
     @PostMapping("/duplicates/preview")
@@ -368,7 +380,7 @@ public class KnowledgeAiCurationController {
         Long total=db.queryForObject("select count(*)"+from+where,Long.class,args.toArray());
         List<Object> paging=new ArrayList<>(args);paging.add(n);paging.add((p-1)*n);
         List<Map<String,Object>> rows=db.queryForList("""
-           select i.id::text as id,i.full_text,i.article_label,i.page_from,i.record_type,
+           select i.id::text as id,i.document_id::text as document_id,i.full_text,i.article_label,i.page_from,i.record_type,
                   d.title as document_title,d.category,d.source_reference,b.archive_name,i.reviewed_by,
                   p.published_at,p.published_by
            """+from+where+" order by i.reviewed_at desc nulls last,i.id limit ? offset ?",paging.toArray());
@@ -381,8 +393,15 @@ public class KnowledgeAiCurationController {
         List<Map<String,Object>> found=db.queryForList("select source_reference from knowledge_ai_import_document where id=?",id);
         if(found.size()!=1)throw new IllegalArgumentException("Document not found");
         String ref=String.valueOf(found.get(0).get("source_reference"));
-        String name=ref.split("\\s*\\|\\s*",2)[0].trim().replace('\\','/');
-        name=name.substring(name.lastIndexOf('/')+1);
+        String name="";
+        for(String fragment:ref.split("\\|")){
+            String candidate=fragment.trim().replace('\\','/');
+            int end=candidate.toLowerCase(Locale.ROOT).indexOf(".pdf");
+            if(end<0)continue;
+            candidate=candidate.substring(0,end+4);
+            candidate=candidate.substring(candidate.lastIndexOf('/')+1).trim();
+            if(!candidate.isBlank()&&!candidate.contains("..")){name=candidate;break;}
+        }
         if(name.isBlank()||!name.toLowerCase(Locale.ROOT).endsWith(".pdf")||name.contains(".."))
             throw new IllegalArgumentException("No verifiable PDF filename is recorded for this document");
         Path dir=Paths.get("").toAbsolutePath().normalize();

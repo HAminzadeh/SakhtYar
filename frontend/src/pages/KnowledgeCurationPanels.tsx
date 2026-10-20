@@ -6,9 +6,19 @@ import {api} from '../api/client'
 const ROOT='/api/v1/knowledge/admin/ai-curation'
 const SIZE_OPTIONS=['10','20','50','100','200','500','1000']
 type Listing<T>={items:T[];total:number;page:number;size:number}
-type PublishedItem={id:string;document_title:string;article_label?:string;full_text:string;source_reference:string;archive_name:string;category:string;published_at?:string;published_by?:string}
-type Duplicate={content_sha256:string;occurrences:number;batches:number;example_title:string}
+type PublishedItem={id:string;document_id:string;document_title:string;article_label?:string;full_text:string;source_reference:string;archive_name:string;category:string;published_at?:string;published_by?:string}
+type Duplicate={content_sha256:string;occurrences:number;batches:number;example_title:string;cleanable:boolean;protection_reason:string}
 type Scope={type:string;ids:string[];category?:string}
+const pdfFilename=(source:string)=>{
+ for(const fragment of String(source??'').split('|')){
+  const end=fragment.toLowerCase().indexOf('.pdf')
+  if(end<0)continue
+  const raw=fragment.slice(0,end+4).trim().replace(/\\/g,'/')
+  const name=raw.split('/').pop()?.trim()??''
+  if(name.toLowerCase().endsWith('.pdf')&&!name.includes('..'))return name
+ }
+ return null
+}
 const err=(e:unknown)=>e instanceof Error?e.message:'عملیات انجام نشد'
 const post=<T,>(path:string,body:unknown)=>api<T>(ROOT+path,{method:'POST',body:JSON.stringify(body)})
 function ask(title:string,description:string,execute:()=>Promise<void>,danger=false){
@@ -60,7 +70,7 @@ export function KnowledgePublicationPanel(){
    rowSelection={{selectedRowKeys:selected,onChange:keys=>setSelected(keys.map(String))}}
    scroll={{x:900,y:470}} pagination={{current:page,pageSize:size,total:list.data?.total??0,showSizeChanger:true,pageSizeOptions:SIZE_OPTIONS,onChange:(p,s)=>{setPage(p);setSize(s);setSelected([])}}}
    columns={[{title:'سند',dataIndex:'document_title',width:220},{title:'عنوان',dataIndex:'article_label',width:130},{title:'متن',dataIndex:'full_text',ellipsis:true,width:350},
-    {title:'منبع اظهارشده',dataIndex:'source_reference',width:210,ellipsis:true},{title:'وضعیت',width:120,render:()=>published?<Tag color="green">منتشر</Tag>:<Tag color="gold">آماده</Tag>}]}/>
+    {title:'PDF مرجع',width:250,render:(_,r)=>pdfFilename(r.source_reference)?<Space direction="vertical" size={0}><Typography.Text ellipsis title={r.source_reference} style={{maxWidth:230}}>{pdfFilename(r.source_reference)}</Typography.Text><a href={`${ROOT}/documents/${r.document_id}/source`} target="_blank" rel="noreferrer" download>دانلود PDF اصلی</a></Space>:<Tag title={r.source_reference}>نام فایل مرجع ثبت نشده</Tag>},{title:'وضعیت',width:120,render:()=>published?<Tag color="green">منتشر</Tag>:<Tag color="gold">آماده</Tag>}]}/>
   {!published&&<Space direction="vertical" style={{width:'100%'}}>
    <Checkbox checked={ack} onChange={e=>setAck(e.target.checked)}>مسئولیت تطبیق متن با منبع معتبر و انتخاب برای کاتالوگ کارشناسی را تأیید می‌کنم.</Checkbox>
    <Input.TextArea rows={2} maxLength={1500} value={note} onChange={e=>setNote(e.target.value)} placeholder="یادداشت مسئول انتشار و استناد"/>
@@ -76,34 +86,36 @@ export function KnowledgeDuplicatesPanel(){
  const {message}=App.useApp(),client=useQueryClient()
  const [page,setPage]=useState(1),[size,setSize]=useState(20),[selected,setSelected]=useState<string[]>([])
  const [permanent,setPermanent]=useState(false),[busy,setBusy]=useState(false)
+ const [lastResult,setLastResult]=useState<{removed:number;preserved:number;skipped:number}|null>(null)
  const list=useQuery({queryKey:['ai-curation-duplicates',page,size],queryFn:()=>api<Listing<Duplicate>>(ROOT+`/duplicate-groups?page=${page}&size=${size}`)})
  const rows=list.data?.items??[]
  const go=async(scope:'SELECTED'|'PAGE'|'ALL')=>{
-  const hashes=scope==='SELECTED'?selected:scope==='PAGE'?rows.map(x=>x.content_sha256):[]
+  const hashes=scope==='SELECTED'?selected:scope==='PAGE'?rows.filter(x=>x.cleanable).map(x=>x.content_sha256):[]
   if(scope!=='ALL'&&!hashes.length){message.warning('ابتدا گروه تکراری انتخاب کن');return}
   const body={scope,hashes,permanent,expectedCount:0,confirmation:'DEDUPLICATE CONFIRMED'}
   setBusy(true)
   try{
    const preview=await post<{remove:number;preserved:number;skipped:number}>('/duplicates/preview',body)
-   if(!preview.remove){message.info('هیچ تکراری با منشأ و شناسه یکسان برای حذف ایمن پیدا نشد.');return}
+   if(!preview.remove){setLastResult({removed:0,preserved:preview.preserved,skipped:preview.skipped});message.warning(`هیچ تکراری قابل پاک‌سازی نبود؛ ${preview.skipped} گروه به دلیل تفاوت منبع، نسخه یا انتشار محافظت شده‌اند.`);await list.refetch();return}
    ask(permanent?'حذف دائمی تکراری‌ها':'آرشیو تکراری‌ها',
     `${preview.remove} رکورد تکراری ${permanent?'دائماً حذف':'آرشیو'} می‌شود؛ ${preview.preserved} نسخه نگه داشته می‌شود و ${preview.skipped} گروه با منشأ/موضوع متفاوت محافظت می‌شود.`,async()=>{
-    try{await post('/duplicates/apply',{...body,expectedCount:preview.remove});message.success('عملیات تکراری‌ها ثبت شد');setSelected([]);void client.invalidateQueries({queryKey:['ai-curation-duplicates']});void client.invalidateQueries({queryKey:['ai-lifecycle']})}
+    try{const outcome=await post<{removed:number;preserved:number;skipped:number}>('/duplicates/apply',{...body,expectedCount:preview.remove});setLastResult(outcome);message.success(`${outcome.removed} رکورد اضافی پاک‌سازی شد؛ ${outcome.skipped} گروه محافظت شد.`);setSelected([]);setPage(1);await client.invalidateQueries({queryKey:['ai-curation-duplicates']});void client.invalidateQueries({queryKey:['ai-lifecycle']})}
     catch(e){message.error(err(e))}
    },permanent)
   }catch(e){message.error(err(e))}finally{setBusy(false)}
  }
  return <Card size="small" title="پاک‌سازی هوشمند تکراری‌ها">
   <Alert showIcon type="warning" style={{marginBottom:12}} message="تنها تکراری‌های کاملاً هم‌منشأ قابل ادغام خودکار هستند"
-   description="برای جلوگیری از حذف اشتباه نسخه‌های تاریخی قوانین، گروه‌هایی که عنوان سند، منبع یا شماره ماده متفاوت دارند دست‌نخورده می‌مانند. همیشه یک رکورد نماینده باقی می‌ماند."/>
+   description="هش یکسان به‌تنهایی دلیل یکی‌بودن سند نیست. اگر عنوان، منبع PDF، نسخه تاریخی یا شماره ماده متفاوت باشد، گروه با برچسب محافظت‌شده باقی می‌ماند. پاک‌سازی موفق فقط زمانی است که تعداد فعال تکراری‌ها واقعاً کاهش یافته باشد."/>
+  {lastResult&&<Alert showIcon type={lastResult.removed?'success':'warning'} style={{marginBottom:12}} message={`گزارش واقعی: ${lastResult.removed} حذف/آرشیو، ${lastResult.preserved} نسخه حفظ‌شده، ${lastResult.skipped} گروه محافظت‌شده`} description="گروه‌های محافظت‌شده همچنان در جدول دیده می‌شوند؛ این موضوع نشانه اجرای ناموفق عملیات نیست."/>}
   <Table<Duplicate> size="small" rowKey="content_sha256" loading={list.isFetching} dataSource={rows}
-   rowSelection={{selectedRowKeys:selected,onChange:keys=>setSelected(keys.map(String))}}
-   scroll={{x:850,y:465}} pagination={{current:page,pageSize:size,total:list.data?.total??0,showSizeChanger:true,pageSizeOptions:['10','20','50','100','200'],onChange:(p,s)=>{setPage(p);setSize(s);setSelected([])}}}
-   columns={[{title:'سند نمونه',dataIndex:'example_title',width:320},{title:'تکرار',dataIndex:'occurrences',width:90},{title:'بسته‌ها',dataIndex:'batches',width:95},{title:'SHA-256',dataIndex:'content_sha256',ellipsis:true,width:300}]}/>
+   rowSelection={{selectedRowKeys:selected,onChange:keys=>setSelected(keys.map(String)),getCheckboxProps:r=>({disabled:!r.cleanable})}}
+   scroll={{x:1000,y:465}} pagination={{current:page,pageSize:size,total:list.data?.total??0,showSizeChanger:true,pageSizeOptions:['10','20','50','100','200'],onChange:(p,s)=>{setPage(p);setSize(s);setSelected([])}}}
+   columns={[{title:'سند نمونه',dataIndex:'example_title',width:270},{title:'تکرار فعال',dataIndex:'occurrences',width:100},{title:'بسته‌ها',dataIndex:'batches',width:95},{title:'امکان پاک‌سازی',width:180,render:(_,r)=>r.cleanable?<Tag color="green">قابل پاک‌سازی</Tag>:<Tag color="orange" title={r.protection_reason}>محافظت‌شده (تفاوت منبع/نسخه)</Tag>},{title:'SHA-256',dataIndex:'content_sha256',ellipsis:true,width:300}]}/>
   <Space direction="vertical" style={{width:'100%'}}>
    <Checkbox checked={permanent} onChange={e=>setPermanent(e.target.checked)}>حذف دائمی (فقط مدیر ADMIN)؛ پشتیبان حسابرسی در سرور به‌صورت خودکار ساخته شود</Checkbox>
    <Space wrap><Button disabled={busy||!selected.length} onClick={()=>void go('SELECTED')}>پاک‌سازی انتخابی ({selected.length})</Button>
-    <Button disabled={busy||!rows.length} onClick={()=>void go('PAGE')}>پاک‌سازی همین صفحه</Button>
+    <Button disabled={busy||!rows.some(x=>x.cleanable)} onClick={()=>void go('PAGE')}>پاک‌سازی قابل‌حذف‌های همین صفحه</Button>
     <Button danger={permanent} disabled={busy||!list.data?.total} onClick={()=>void go('ALL')}>پاک‌سازی همه صفحات</Button></Space>
   </Space>
  </Card>
@@ -164,6 +176,6 @@ export function KnowledgePublishedCataloguePanel(){
       {title:'ماده / بند',dataIndex:'article_label',width:120},
       {title:'متن قابل استفاده',dataIndex:'full_text',width:370,ellipsis:true},
       {title:'انتشار',dataIndex:'published_at',width:180,render:v=>String(v??'').slice(0,19)},
-      {title:'فایل PDF',width:120,render:(_,r)=><a target="_blank" rel="noreferrer" href={`/api/v1/knowledge/admin/ai-curation/documents/${r.document_id}/source`}>دریافت منبع</a>}]}/>
+      {title:'فایل PDF',width:190,render:(_,r)=>pdfFilename(r.source_reference)?<Space direction="vertical" size={0}><Typography.Text ellipsis style={{maxWidth:185}} title={r.source_reference}>{pdfFilename(r.source_reference)}</Typography.Text><a target="_blank" rel="noreferrer" download href={`/api/v1/knowledge/admin/ai-curation/documents/${r.document_id}/source`}>دانلود PDF اصلی</a></Space>:<Tag>PDF شناسایی نشد</Tag>}]}/>
  </Card>
 }

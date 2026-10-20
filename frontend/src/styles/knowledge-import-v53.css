@@ -44,3 +44,17 @@
   .sakhtyar-import-step > .ant-card-body {min-height:unset}
   .sakhtyar-import-page .ant-card-body {padding:13px}
 }
+
+/* V56: stable, usable RTL multi-package selector; avoid collapsing Select to 40px. */
+.sakhtyar-package-toolbar{display:flex;align-items:flex-start;justify-content:space-between;gap:16px;flex-wrap:wrap;width:100%}
+.sakhtyar-package-toolbar__selector{display:flex;align-items:center;gap:12px;flex:1 1 560px;min-width:min(100%,330px);flex-wrap:wrap}
+.sakhtyar-package-picker{flex:1 1 440px;min-width:min(100%,300px);max-width:720px;direction:rtl;position:relative}
+.sakhtyar-package-picker .ant-select{width:100%!important;min-width:0}
+.sakhtyar-package-picker .ant-select-dropdown{min-width:min(520px,calc(100vw - 32px))!important;max-width:min(700px,calc(100vw - 32px))!important;max-height:480px!important;overflow-y:auto!important}
+.sakhtyar-package-picker .ant-select-dropdown .ant-select-item-option{min-height:34px;height:auto;white-space:normal;line-height:1.8;padding-block:6px}
+.sakhtyar-package-picker .ant-select-dropdown .ant-select-item-option-content{white-space:normal;overflow-wrap:anywhere}
+.sakhtyar-package-toolbar + .ant-row .ant-col{min-width:0}
+.sakhtyar-import-toolbar .ant-statistic{min-width:0}
+.sakhtyar-import-toolbar .ant-statistic-title{white-space:normal;line-height:1.6;overflow-wrap:anywhere}
+.sakhtyar-import-toolbar .ant-statistic-content{font-size:clamp(18px,2.1vw,26px);overflow-wrap:anywhere;min-width:0}
+@media(max-width:640px){.sakhtyar-package-picker{flex-basis:100%;width:100%;max-width:100%}.sakhtyar-package-toolbar__selector{min-width:0}.sakhtyar-package-picker .ant-select-dropdown{min-width:min(350px,calc(100vw - 32px))!important}}
