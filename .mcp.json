@@ -1,0 +1,16 @@
+{
+  "mcpServers": {
+    "codegraph": {
+      "type": "stdio",
+      "command": "cmd.exe",
+      "args": [
+        "/d",
+        "/c",
+        "codegraph.cmd",
+        "serve",
+        "--mcp"
+      ],
+      "env": {}
+    }
+  }
+}

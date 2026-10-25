@@ -1,0 +1,198 @@
+{
+  "date": "2026-10-24",
+  "repository": "HAminzadeh/SakhtYar",
+  "reviewed_branch": "v2",
+  "prompt_count": 38,
+  "prompts": [
+    {
+      "id": "01",
+      "title": "چشم‌انداز محصول و قواعد کسب‌وکار",
+      "english": "Product Vision & Business Rules"
+    },
+    {
+      "id": "02",
+      "title": "معماری ماژولار و مرز سرویس‌ها",
+      "english": "Modular Monolith & Architecture"
+    },
+    {
+      "id": "03",
+      "title": "مدل داده و مهاجرت‌ها",
+      "english": "Database ERD & Migrations"
+    },
+    {
+      "id": "04",
+      "title": "هویت، حساب‌ها و دسترسی",
+      "english": "Identity, RBAC & SSO"
+    },
+    {
+      "id": "05",
+      "title": "املاک و اطلاعات مکانی",
+      "english": "Property, Address & Geo"
+    },
+    {
+      "id": "06",
+      "title": "مالکان و مالکیت",
+      "english": "Owners & Ownership"
+    },
+    {
+      "id": "07",
+      "title": "پرونده مشارکت",
+      "english": "Construction Case Lifecycle"
+    },
+    {
+      "id": "08",
+      "title": "پروفایل سازندگان و تطبیق",
+      "english": "Builder Profiles & Matching"
+    },
+    {
+      "id": "09",
+      "title": "بازار، پیشنهاد و مذاکرات",
+      "english": "Marketplace & Negotiations"
+    },
+    {
+      "id": "10",
+      "title": "قرارداد و اسناد حقوقی",
+      "english": "Contracts & Legal Records"
+    },
+    {
+      "id": "11",
+      "title": "اسناد، فایل و ذخیره‌سازی",
+      "english": "Documents, Versions & Object Storage"
+    },
+    {
+      "id": "12",
+      "title": "دانش و کاتالوگ منابع",
+      "english": "Knowledge Platform & Catalog"
+    },
+    {
+      "id": "13",
+      "title": "واردسازی و استخراج دانش",
+      "english": "Knowledge Ingestion & Extraction"
+    },
+    {
+      "id": "14",
+      "title": "بازبینی متن و گردش کار دانش",
+      "english": "Knowledge Review Workbench"
+    },
+    {
+      "id": "15",
+      "title": "حاکمیت دانش و انتشار",
+      "english": "Knowledge Governance & Release"
+    },
+    {
+      "id": "16",
+      "title": "دانش حقوقی و کنترل مستندات",
+      "english": "Legal Source Verification"
+    },
+    {
+      "id": "17",
+      "title": "دانش آموزشی و فنی",
+      "english": "Educational & Engineering Knowledge"
+    },
+    {
+      "id": "18",
+      "title": "خزش و تأمین داده بیرونی",
+      "english": "Crawler & Source Ingestion"
+    },
+    {
+      "id": "19",
+      "title": "مصالح و قیمت‌های مرجع",
+      "english": "Materials & Price Intelligence"
+    },
+    {
+      "id": "20",
+      "title": "متره و اسمبلی",
+      "english": "Assembly Cost Engine"
+    },
+    {
+      "id": "21",
+      "title": "بسته کیفیت و سناریوها",
+      "english": "Quality Packages & Scenarios"
+    },
+    {
+      "id": "22",
+      "title": "ضوابط شهری",
+      "english": "Urban Regulation Engine"
+    },
+    {
+      "id": "23",
+      "title": "امکان‌سنجی ساخت",
+      "english": "Feasibility Assessment"
+    },
+    {
+      "id": "24",
+      "title": "مشارکت مالی و سود",
+      "english": "Financial Participation Engine"
+    },
+    {
+      "id": "25",
+      "title": "حساسیت و تحلیل فرضیات",
+      "english": "Sensitivity Analysis"
+    },
+    {
+      "id": "26",
+      "title": "نسخه تحلیل و تبار داده",
+      "english": "Analysis Snapshot & Data Lineage"
+    },
+    {
+      "id": "27",
+      "title": "یادگیری از نتایج و چرخه اصلاح",
+      "english": "Learning Loop & Feedback"
+    },
+    {
+      "id": "28",
+      "title": "چندکشوری و تنظیمات جغرافیا",
+      "english": "Globalization, Geography & Currency"
+    },
+    {
+      "id": "29",
+      "title": "عامل فارسی و AI محصول",
+      "english": "Persian Intelligence & Runtime Agents"
+    },
+    {
+      "id": "30",
+      "title": "مرکز مهندسی AI و مهارت‌ها",
+      "english": "AI Engineering Harness & Admin UI"
+    },
+    {
+      "id": "31",
+      "title": "رابط فارسی RTL و طراحی تجربه",
+      "english": "Persian RTL UI/UX"
+    },
+    {
+      "id": "32",
+      "title": "پیکربندی سامانه و پنل مدیر",
+      "english": "Admin Configuration & Operations"
+    },
+    {
+      "id": "33",
+      "title": "اعلان، رویداد و اتوماسیون",
+      "english": "Events, Notifications & Automations"
+    },
+    {
+      "id": "34",
+      "title": "BFF و قراردادهای API",
+      "english": "Web BFF & API Contracts"
+    },
+    {
+      "id": "35",
+      "title": "پایش، امنیت و استقرار",
+      "english": "Observability, Security & Deployment"
+    },
+    {
+      "id": "36",
+      "title": "وب‌سایت و اتصال محصول",
+      "english": "Marketing Website & Product Integration"
+    },
+    {
+      "id": "37",
+      "title": "مدل درآمدی و اشتراک",
+      "english": "Subscription, Pricing & Entitlements"
+    },
+    {
+      "id": "38",
+      "title": "تضمین کیفیت و فرآیند توسعه",
+      "english": "QA, Tests & Change Management"
+    }
+  ]
+}

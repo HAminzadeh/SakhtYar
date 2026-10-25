@@ -1,0 +1,20 @@
+# SakhtYar Claude Launcher v2
+
+Separate Maven/JavaFX module installed by `Start-SakhtYar.ps1`.
+
+## Implemented
+- Category checkboxes, defaults ON, atomic JSON persistence, reset.
+- Backend PowerShell Preflight / Launch / Diagnostics with live output and stop button.
+- Optional v2rayN process check, local proxy port selection (use `SAKHTYAR_PROXY_PORT`), HTTPS geo-IP via proxy (Germany option), monitoring every ~15 seconds and child shutdown on failed check.
+- Child-scoped HTTP(S) proxy environment, Claude CLI auto-detection (does not need legacy `Start-Claude-Free-Lite.ps1`), resume option.
+- Basic Java/Node/npm, Claude CLI, CCR presence, auth mode, CLAUDE.md and Git checks, optional handoff script invocation.
+- Basic diagnostic file, optional run logs (UI activity shown).
+
+## Important limitations
+- Checkboxes for proxy leak blocking, retry, model/profile switching, accurate usage billing, version management, Git protection, Hooks, Java tests, API vault, Windows notifications and duplicate launcher protection are *not yet implemented*. An enabled checkbox does not imply those operations are active. This package does not claim to complete all features.
+- Process environment variables cannot prevent direct traffic from programs that ignore proxies. True fail-closed behavior requires separately configured Windows Firewall enforcement and verified network routing; no TUN required.
+- This launcher does not modify Windows system proxy, enable TUN, install Claude, or provide VPN service.
+- Geo-IP via public endpoint may fail due to network filtering or provider limits; failure prevents launch when checks enabled.
+- `Start-Process -NoNewWindow` console input behavior may differ across PowerShell hosts. Use a terminal-native launch mode if interactive Claude input is not responsive.
+- Profile compatibility, authentication, and official service availability remain governed by providers.
+- The Powershell backend should be tested on Windows before relying on it for security.
