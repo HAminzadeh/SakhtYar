@@ -1,16 +1,9 @@
-# SakhtYar Claude Control Center v4
+# SakhtYar Claude Launcher (Java-first)
 
-Separate JavaFX module. Requires Windows, Java 17+, Maven, v2rayN with working HTTP/Mixed proxy, CCR CLI and an enabled Agent Config profile named `Claude-Free`.
+All core logic belongs to Java (`LauncherCore`); the JavaFX `Dashboard` is the presentation layer. `Run-Claude-Free.cmd` is the minimal bootstrap and terminal hand-off required to start the interactive CCR CLI in the same IntelliJ Terminal. No PowerShell business scripts.
 
-- Home: Continue project (CCR profile `Claude-Free` with Claude `--continue`), new conversation, or choose previous conversation (`--resume`).
-- Sessions: history is not deleted; Claude Code stores history under the current project path.
-- Usage: shows **unavailable** rather than fabricating token costs. CCR management UI can provide real usage data based on configured provider.
-- Settings: categories collapsed by default; existing feature checkbox JSON preserved; extra profile names stored in `_claude_launcher/provider-profiles.json`.
-- New providers: first configure and enable their matching Agent Config profiles within CCR, then add the exact profile name to this UI. Paid billing belongs to the provider, not this launcher.
-- No TUN, no guaranteed leak prevention or Windows firewall rules.
+Run from IntelliJ Terminal at the repository root: `Run-Claude-Free.cmd` (PowerShell: `.\Run-Claude-Free.cmd`). Requires JDK 17+, Maven, `ccr.cmd`, v2rayN HTTP/Mixed proxy, CCR profile `Claude-Free`.
 
-## Limitations
-Some legacy feature checkboxes are still configuration toggles, not fully implemented behavior. CCR launch is detached into a dedicated console, so the dashboard does not supervise that interactive terminal after startup. Avoid claiming live kill-guard protection from this version. The `Usage` tab intentionally does not display synthetic usage or infer prices. CCR argument syntax depends on installed version, consult `ccr --help` when needed.
+The UI supports Persian RTL (default) and English LTR, keeps project sessions (`--continue`, `--resume`) and stores preferences under `_claude_launcher/control-center-settings.json`. CCR is started via Java if not already listening on port 3456. Germany proxy check uses ipwho.is via HTTP proxy port 10808. Port overrides: `SAKHTYAR_PROXY_PORT` and `SAKHTYAR_CCR_PORT`.
 
-## Upgrade
-Put `Start-SakhtYar-v4.ps1` in project root and execute it; the embedded archive installs/backs up changed module files. Existing `_claude_launcher/launcher-settings.json` is retained. `-InstallOnly` extracts without starting JavaFX.
+No TUN, no firewall leak prevention. Usage is only shown when trustworthy data exists. Enabling feature settings does not imply every advanced feature is implemented. The router and network checks run on a worker thread. The CMD shim launches CCR after JavaFX exits, preserving IntelliJ terminal input.
