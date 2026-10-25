@@ -1,9 +1,14 @@
-# SakhtYar Claude Launcher (Java-first)
+# SakhtYar Claude Control Center + Context Engine
 
-All core logic belongs to Java (`LauncherCore`); the JavaFX `Dashboard` is the presentation layer. `Run-Claude-Free.cmd` is the minimal bootstrap and terminal hand-off required to start the interactive CCR CLI in the same IntelliJ Terminal. No PowerShell business scripts.
+Launch with `Run-Claude-Free.cmd` from IntelliJ Terminal in the SakhtYar source root. The CMD uses Maven only for compilation and runtime dependency copying, then directly executes `LauncherEntry` through `java.exe` so its child CCR CLI inherits the real IntelliJ terminal.
 
-Run from IntelliJ Terminal at the repository root: `Run-Claude-Free.cmd` (PowerShell: `.\Run-Claude-Free.cmd`). Requires JDK 17+, Maven, `ccr.cmd`, v2rayN HTTP/Mixed proxy, CCR profile `Claude-Free`.
+### New UI
+- Home: CCR `Claude-Free` continue/new/choose, German proxy preflight, JavaFX remains open during same-console interactive CCR process.
+- Skills: curated backend/frontend/architecture skills; adapted entries opt-in install after confirmation, catalog entries blocked until reviewed.
+- Memory: SQLite/FTS5, CodeGraph MCP connection probe, indexing changed source files, local search and explicit Claude JSONL transcript import.
+- Usage: imports a locally selected CCR JSON/JSONL log export; token counts only when present, no fabricated costs.
+- Settings: default CodeGraph tool profile `core`, optional `ENABLE_TOOL_SEARCH=auto:5` opt-in (model-dependent), old connection/session options preserved.
 
-The UI supports Persian RTL (default) and English LTR, keeps project sessions (`--continue`, `--resume`) and stores preferences under `_claude_launcher/control-center-settings.json`. CCR is started via Java if not already listening on port 3456. Germany proxy check uses ipwho.is via HTTP proxy port 10808. Port overrides: `SAKHTYAR_PROXY_PORT` and `SAKHTYAR_CCR_PORT`.
+Requires Java 17+, Maven, CCR installed, existing local provider profile `Claude-Free`, CodeGraph setup in `.mcp.json` and v2rayN HTTP/Mixed proxy.
 
-No TUN, no firewall leak prevention. Usage is only shown when trustworthy data exists. Enabling feature settings does not imply every advanced feature is implemented. The router and network checks run on a worker thread. The CMD shim launches CCR after JavaFX exits, preserving IntelliJ terminal input.
+Read `README_INSTALL_FA.md` at the project root of this release for upgrade instructions and limitations.

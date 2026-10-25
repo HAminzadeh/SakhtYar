@@ -1,16 +1,15 @@
 {
-  "mcpServers": {
-    "codegraph": {
-      "type": "stdio",
-      "command": "cmd.exe",
-      "args": [
-        "/d",
-        "/c",
-        "codegraph.cmd",
-        "serve",
-        "--mcp"
-      ],
-      "env": {}
+  "mcpServers" : {
+    "codegraph" : {
+      "type" : "stdio",
+      "command" : "cmd.exe",
+      "args" : [ "/d", "/c", "codegraph.cmd", "serve", "--mcp" ],
+      "env" : { }
+    },
+    "sakhtyar-context" : {
+      "type" : "stdio",
+      "command" : "cmd.exe",
+      "args" : [ "/d", "/c", "claude-context-engine\\context-server.cmd" ]
     }
   }
 }
