@@ -106,28 +106,14 @@ export function AppShell() {
 
           {hasPermission('AI_MANAGE') && (
             <Button type={active('/admin/ai') ? 'primary' : 'default'} icon={<RobotOutlined />} onClick={() => navigate('/admin/ai')}>
-              مدیریت AI
+              مدیریت هوش مصنوعی
             </Button>
           )}
 
-          {hasPermission('USER_MANAGE') && (
-            <Button
-              type={active('/admin/engineering') ? 'primary' : 'default'}
-              icon={<ToolOutlined />}
-              onClick={() => navigate('/admin/engineering')}
-            >
-              Ù…Ø±Ú©Ø² Ù…Ù‡Ù†Ø¯Ø³ÛŒ
-            </Button>
-          )}
 
           {hasPermission('OPERATIONS_READ') && (
             <Button type={active('/admin/operations') ? 'primary' : 'default'} icon={<DashboardOutlined />} onClick={() => navigate('/admin/operations')}>
               عملیات
-            </Button>
-          )}
-          {hasPermission('QUALITY_VIEW') && (
-            <Button type={active('/admin/quality') ? 'primary' : 'default'} icon={<AuditOutlined />} onClick={() => navigate('/admin/quality')}>
-              مرکز آزمون
             </Button>
           )}
 
@@ -148,6 +134,14 @@ export function AppShell() {
             >
               ورود دانش
             </Button>
+          )}
+          {(hasPermission('USER_MANAGE') || hasPermission('QUALITY_VIEW')) && (
+            <Dropdown trigger={['click']} placement="bottomRight" menu={{items: [
+              ...(hasPermission('QUALITY_VIEW') ? [{ key:'quality',label:'مرکز آزمون و تضمین کیفیت',icon:<AuditOutlined />,onClick:()=>navigate('/admin/quality') }] : []),
+              ...(hasPermission('USER_MANAGE') ? [{ key:'engineering',label:'مرکز راهبری هوش مصنوعی',icon:<ToolOutlined />,onClick:()=>navigate('/admin/engineering') }] : []),
+            ]}}>
+              <Button type={active('/admin/quality') || active('/admin/engineering') ? 'primary' : 'default'} icon={<ToolOutlined />}>مراکز تخصصی</Button>
+            </Dropdown>
           )}
           <Button type={active('/help') ? 'primary' : 'default'} icon={<QuestionCircleOutlined />} onClick={() => navigate('/help')}>
             آموزش
