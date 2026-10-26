@@ -57,7 +57,7 @@ public final class Dashboard extends Application {
         language=new ComboBox<>(); language.getItems().addAll("فارسی","English");language.setValue(persian?"فارسی":"English");language.setOnAction(e->{boolean p="فارسی".equals(language.getValue());if(p!=persian){persian=p;save();build();}});
         HBox header=new HBox(14,title,new Region(),language);HBox.setHgrow(header.getChildren().get(1),Priority.ALWAYS);header.setPadding(new Insets(18));root.setTop(header);
         tabs.getTabs().clear();tabs.setTabClosingPolicy(TabPane.TabClosingPolicy.UNAVAILABLE);
-        tabs.getTabs().addAll(tab(tr("خانه","Home"),home()),tab(tr("توانایی‌ها","Skills"),skillsTab()),tab(tr("حافظه","Memory"),memoryTab()),tab(tr("مصرف","Usage"),usage()),tab(tr("گفتگوها","Sessions"),sessions()),tab(tr("تنظیمات","Settings"),settings()),tab(tr("گزارش","Activity"),logs()));
+        tabs.getTabs().addAll(tab(tr("خانه","Home"),home()),tab(tr("گفتگو","Chat"),new ChatWorkspace(core,providers).view(persian)),tab(tr("توانایی‌ها","Skills"),skillsTab()),tab(tr("حافظه","Memory"),memoryTab()),tab(tr("مصرف","Usage"),new UsageChartsPanel().view(persian)),tab(tr("ارائه‌دهندگان","Providers"),new RouterProvidersPanel(core,providers).view(persian)),tab(tr("گفتگوها","Sessions"),sessions()),tab(tr("تنظیمات","Settings"),settings()),tab(tr("گزارش","Activity"),logs()));
         root.setCenter(tabs);scene=new Scene(root,850,610);scene.setNodeOrientation(persian?NodeOrientation.RIGHT_TO_LEFT:NodeOrientation.LEFT_TO_RIGHT);stage.setScene(scene);
     }
     private Tab tab(String name,javafx.scene.Node node){return new Tab(name,node);}
@@ -71,37 +71,51 @@ public final class Dashboard extends Application {
     }
     private VBox skillsTab(){
         VBox body=new VBox(12);body.setPadding(new Insets(20));
-        Label info=new Label(tr("فایل‌های adapted را پس از تأیید نصب کن؛ draftهای catalog هشدار دارند.","Install reviewed adapted skills only; catalog drafts require further work."));info.setWrapText(true);
-        body.getChildren().add(info);
-        var manager=new SkillCatalog(core.root());
-        try{
-            Map<String,VBox> containers=new LinkedHashMap<>();
-            Map<String,List<CheckBox>> selections=new LinkedHashMap<>();
-            for(var item:manager.list()){
-                VBox group=containers.computeIfAbsent(item.group(),k->new VBox(7));
-                CheckBox cb=new CheckBox(item.name()+"  ["+item.maturity()+"] "+(item.installed()?"✓":""));
-                cb.setUserData(item);cb.setSelected("adapted".equals(item.maturity()));
-                group.getChildren().add(cb);selections.computeIfAbsent(item.group(),k->new ArrayList<>()).add(cb);
-            }
-            for(var e:containers.entrySet()){
-                Button install=new Button(tr("نصب موارد انتخاب‌شده","Install selected"));
-                install.setOnAction(ev->{
-                    Alert confirm=new Alert(Alert.AlertType.CONFIRMATION,tr("Skillهای انتخاب‌شده از سورس داخلی پروژه کپی شوند؟","Install selected local reviewed skills?"),ButtonType.YES,ButtonType.NO);
-                    if(confirm.showAndWait().orElse(ButtonType.NO)!=ButtonType.YES)return;
-                    StringBuilder logText=new StringBuilder();
-                    for(CheckBox cb:selections.get(e.getKey()))if(cb.isSelected()){
-                        var skill=(SkillCatalog.Skill)cb.getUserData();
-                        try{logText.append(manager.install(skill.name(),false)).append("\n");}
-                        catch(Exception x){logText.append(skill.name()).append(": ").append(x.getMessage()).append("\n");}
+        Label info=new Label(tr("تیک سبز به معنی نصب واقعی در .claude/skills است. فقط Skills بازبینی‌شده قابل نصب‌اند. حذف جداگانه انجام می‌شود.","Checkboxes reflect actual .claude/skills installations. Catalog drafts cannot be installed until reviewed."));
+        info.setWrapText(true);body.getChildren().add(info);
+        SkillCatalog manager=new SkillCatalog(core.root());
+        try {
+            for(var group:SkillCatalog.GROUPS.entrySet()) {
+                VBox entries=new VBox(8);List<CheckBox> checks=new ArrayList<>();
+                for(var item:manager.list())if(item.group().equals(group.getKey())) {
+                    CheckBox cb=new CheckBox(item.name()+"   ["+item.maturity()+"]"+(item.installed()?"  ✓ Installed":""));
+                    cb.setSelected(item.installed());cb.setUserData(item);
+                    cb.setDisable(!item.present()||(!"adapted".equals(item.maturity())&&!item.installed()));
+                    cb.setTooltip(new Tooltip(!item.present()?"Missing SKILL.md":!"adapted".equals(item.maturity())?"Catalog draft requires review":"Installed state is verified on refresh"));
+                    checks.add(cb);entries.getChildren().add(cb);
+                }
+                Button apply=new Button(tr("نصب موارد تیک‌خورده","Install checked skills"));
+                Button remove=new Button(tr("حذف مواردی که تیکشان برداشته شده","Uninstall unchecked managed skills"));
+                apply.setOnAction(ev->{
+                    List<SkillCatalog.Skill> chosen=new ArrayList<>();
+                    for(CheckBox cb:checks)if(cb.isSelected()){
+                        SkillCatalog.Skill sk=(SkillCatalog.Skill)cb.getUserData();if(!sk.installed())chosen.add(sk);
                     }
-                    activity.appendText(logText.toString());
+                    if(chosen.isEmpty()){info.setText(tr("همه موارد انتخاب‌شده قبلاً نصب شده‌اند.","All checked items already installed."));return;}
+                    Alert confirmation=new Alert(Alert.AlertType.CONFIRMATION,tr("نصب "+chosen.size()+" Skill از سورس محلی پروژه؟","Install "+chosen.size()+" locally reviewed skills?"),ButtonType.YES,ButtonType.NO);
+                    if(confirmation.showAndWait().orElse(ButtonType.NO)!=ButtonType.YES)return;
+                    StringBuilder result=new StringBuilder();int success=0;
+                    for(var sk:chosen){try{result.append(manager.install(sk.name(),false)).append("\n");success++;}
+                    catch(Exception ex){result.append("FAILED ").append(sk.name()).append(": ").append(ex.getMessage()).append("\n");}}
+                    activity.appendText(result.toString());info.setText(tr("نصب موفق: ","Installed: ")+success+" / "+chosen.size());
+                    refreshSkillsPage();
                 });
-                e.getValue().getChildren().add(install);
-                TitledPane pane=new TitledPane(e.getKey(),e.getValue());pane.setExpanded(false);body.getChildren().add(pane);
+                remove.setOnAction(ev->{List<SkillCatalog.Skill> toRemove=new ArrayList<>();
+                    for(CheckBox cb:checks){SkillCatalog.Skill sk=(SkillCatalog.Skill)cb.getUserData();if(sk.installed()&&!cb.isSelected())toRemove.add(sk);}
+                    if(toRemove.isEmpty()){info.setText(tr("موردی برای حذف انتخاب نشده است.","No installed items selected for removal."));return;}
+                    Alert confirmation=new Alert(Alert.AlertType.CONFIRMATION,tr("حذف "+toRemove.size()+" Skill مدیریت‌شده؟","Uninstall "+toRemove.size()+" managed skills?"),ButtonType.YES,ButtonType.NO);
+                    if(confirmation.showAndWait().orElse(ButtonType.NO)!=ButtonType.YES)return;
+                    for(var sk:toRemove){try{manager.removeIfManaged(sk.name());activity.appendText("Uninstalled "+sk.name()+"\n");}
+                    catch(Exception ex){activity.appendText("Uninstall rejected "+sk.name()+": "+ex.getMessage()+"\n");}}
+                    refreshSkillsPage();
+                });
+                entries.getChildren().add(new HBox(8,apply,remove));
+                TitledPane pane=new TitledPane(group.getKey(),entries);pane.setExpanded("Programming".equals(group.getKey()));body.getChildren().add(pane);
             }
         }catch(Exception e){body.getChildren().add(new Label(e.getMessage()));}
         ScrollPane panel=new ScrollPane(body);panel.setFitToWidth(true);VBox shell=new VBox(panel);VBox.setVgrow(panel,Priority.ALWAYS);return shell;
     }
+    private void refreshSkillsPage(){int selected=tabs.getSelectionModel().getSelectedIndex();tabs.getTabs().set(2,tab(tr("توانایی‌ها","Skills"),skillsTab()));tabs.getSelectionModel().select(selected);}
     private VBox memoryTab(){
         TextField query=new TextField();query.setPromptText(tr("کلمه، کلاس یا موضوع موردنظر","Search phrase, class, or topic"));
         Button search=new Button(tr("جست‌وجو","Search"));
@@ -177,7 +191,10 @@ public final class Dashboard extends Application {
         toolSearch.selectedProperty().addListener((o,a,b)->{try{
             Map<String,Object> conf=new LinkedHashMap<>(core.readSettings());conf.put("toolSearchEnabled",b);core.writeSettings(conf);
         }catch(Exception ex){activity.appendText(ex.getMessage()+"\n");}});
-        body.getChildren().add(new TitledPane(tr("بهینه‌سازی ابزارها","Tool optimization"),new VBox(9,new Label(tr("پروفایل CodeGraph","CodeGraph profile")),codeGraphProfile,toolSearch,new Label(tr("مقدار پیش‌فرض core است؛ Tool Search تنها پس از تست فعال شود.","Core is default; enable Tool Search only after compatibility testing.")))));
+        CheckBox shortPrompt=new CheckBox(tr("توضیحات کوتاه System Tools (پیشنهادی)","Short system/tool descriptions (recommended)"));
+        shortPrompt.setSelected(!Boolean.FALSE.equals(core.readSettings().get("shortToolDescriptions")));
+        shortPrompt.selectedProperty().addListener((o,oldVal,newVal)->{try{Map<String,Object> conf=new LinkedHashMap<>(core.readSettings());conf.put("shortToolDescriptions",newVal);core.writeSettings(conf);}catch(Exception ex){activity.appendText(ex.getMessage()+"\n");}});
+        body.getChildren().add(new TitledPane(tr("بهینه‌سازی ابزارها","Tool optimization"),new VBox(9,new Label(tr("پروفایل CodeGraph","CodeGraph profile")),codeGraphProfile,shortPrompt,toolSearch,new Label(tr("بهینه‌سازی System tools تضمینی نیست؛ با /context مقایسه کن.","Compare /context before and after; system tools cannot be removed by local memory.")))));
         Button reset=new Button(tr("بازگشت به پیش‌فرض","Restore defaults"));reset.setOnAction(e->{for(String key:KEYS)preferences.put(key,true);save();build();});body.getChildren().add(reset);ScrollPane s=new ScrollPane(body);s.setFitToWidth(true);return s;
     }
     private VBox logs(){VBox b=new VBox(12,activity);VBox.setVgrow(activity,Priority.ALWAYS);b.setPadding(new Insets(20));return b;}
@@ -203,7 +220,7 @@ public final class Dashboard extends Application {
     }
     private void choose(LauncherCore.Action action){status.setText(tr("بررسی پیش‌نیازها...","Checking prerequisites..."));String profile=providers.getValue();new Thread(()->{
         try{core.preflight();Platform.runLater(()->{
-            if(!prepareInstalledSkills()) {status.setText(tr("اجرای Claude لغو شد.","Launch cancelled."));return;}
+            
             boolean queued=TerminalCoordinator.enqueue(new LauncherCore.Request(action,profile),status::setText);
             status.setText(queued?tr("کلود در همان ترمینال IntelliJ در حال اجراست؛ فرم باز می‌ماند.","Claude is launching in this IntelliJ terminal; dashboard stays open."):tr("نشست دیگری در حال اجراست.","Another session is active."));
         });}

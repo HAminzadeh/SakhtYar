@@ -22,7 +22,12 @@ public final class ContextCli {
     }
     public static void main(String[] args)throws Exception{
         if(args.length<2){System.err.println("Usage: ContextCli <bootstrap|index|status|search|graph|skills|install|note> <root> [argument]");System.exit(2);}
-        String verb=args[0];Path root=Path.of(args[1]).toAbsolutePath().normalize();
+        String verb=args[0];
+        String rawRoot=args[1].trim();
+        if(rawRoot.startsWith("\""))rawRoot=rawRoot.substring(1);
+        if(rawRoot.endsWith("\""))rawRoot=rawRoot.substring(0,rawRoot.length()-1);
+        if(rawRoot.isBlank())throw new IllegalArgumentException("Invalid project root");
+        Path root=Path.of(rawRoot).toAbsolutePath().normalize();
         switch(verb){
             case "bootstrap" -> setup(root);
             case "graph" -> System.out.println(new CodeGraphBridge(root).inspect());

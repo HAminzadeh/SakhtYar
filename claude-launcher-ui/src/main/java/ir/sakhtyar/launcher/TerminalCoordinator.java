@@ -36,6 +36,7 @@ public final class TerminalCoordinator {
                 pb.environment().put("HTTPS_PROXY","http://127.0.0.1:"+proxy);
                 // Local CodeGraph supports narrowed MCP tool surface when this profile flag is understood.
                 var saved=new LauncherCore(root).readSettings();
+                if(!Boolean.FALSE.equals(saved.get("shortToolDescriptions")))pb.environment().put("CLAUDE_CODE_SIMPLE_SYSTEM_PROMPT","1");
                 String codeGraphProfile=String.valueOf(saved.getOrDefault("codeGraphProfile","core"));
                 if(Set.of("core","graph","memory","all").contains(codeGraphProfile))pb.environment().put("CODEGRAPH_TOOL_PROFILE",codeGraphProfile);
                 // Opt-in only: some free gateway models do not implement native tool search.

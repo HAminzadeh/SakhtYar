@@ -10,7 +10,7 @@ where java.exe >nul 2>nul
 if errorlevel 1 (echo [ERROR] Java 17+ is required. & exit /b 1)
 call :sakhtyarMaven -q -f "%~dp0claude-context-engine\pom.xml" -DskipTests install dependency:copy-dependencies -DincludeScope=runtime
 if errorlevel 1 (echo [ERROR] Context engine build failed. & exit /b 1)
-java -Dfile.encoding=UTF-8 -cp "%~dp0claude-context-engine\target\classes;%~dp0claude-context-engine\target\dependency\*" ir.sakhtyar.context.ContextCli bootstrap "%~dp0"
+java -Dfile.encoding=UTF-8 -cp "%~dp0claude-context-engine\target\classes;%~dp0claude-context-engine\target\dependency\*" ir.sakhtyar.context.ContextCli bootstrap "%~dp0."
 if errorlevel 1 (echo [ERROR] Local memory MCP registration failed. & exit /b 1)
 call :sakhtyarMaven -q -f "%~dp0claude-launcher-ui\pom.xml" -DskipTests compile dependency:copy-dependencies -DincludeScope=runtime
 if errorlevel 1 (echo [ERROR] JavaFX launcher build failed. & exit /b 1)

@@ -8,11 +8,15 @@ import java.util.*;
 /** Curated, auditable local skills; no automatic third-party download or execution. */
 public final class SkillCatalog {
     public record Skill(String name,String group,String maturity,boolean installed,boolean present,String digest) { }
-    public static final Map<String,List<String>> GROUPS = Map.of(
-        "Backend",List.of("java-coding-standards","springboot-patterns","springboot-tdd","springboot-security","springboot-verification","database-migrations","postgres-patterns","api-design"),
-        "Frontend",List.of("react-patterns","react-testing","react-performance","design-system","e2e-testing","sakhtyar-persian-rtl"),
-        "Architecture",List.of("architecture-decision-records","knowledge-ops","security-review","git-workflow","sakhtyar-debugging","sakhtyar-skill-development")
-    );
+    public static final Map<String,List<String>> GROUPS;
+    static {
+        Map<String,List<String>> groups = new LinkedHashMap<>();
+        groups.put("Backend",List.of("springboot-patterns","springboot-tdd","springboot-security","springboot-verification","database-migrations","postgres-patterns","api-design"));
+        groups.put("Frontend",List.of("react-patterns","react-testing","react-performance","design-system","e2e-testing","sakhtyar-persian-rtl"));
+        groups.put("Architecture",List.of("architecture-decision-records","knowledge-ops","security-review","git-workflow","sakhtyar-debugging","sakhtyar-skill-development"));
+        groups.put("Programming",List.of("springboot-patterns","react-patterns","api-design","e2e-testing","security-review","frontend-design-direction","sakhtyar-debugging","java-coding-standards","springboot-tdd","docker-patterns"));
+        GROUPS = Collections.unmodifiableMap(groups);
+    }
     private final Path root;
     public SkillCatalog(Path root){this.root=root.toAbsolutePath().normalize();}
     private static String slug(String key){return key.startsWith("sakhtyar-")?key:"sakhtyar-"+key;}
@@ -26,7 +30,7 @@ public final class SkillCatalog {
             String maturity=body.contains("maturity: adapted")?"adapted":body.contains("maturity: catalog")?"catalog":"unknown";
             out.add(new Skill(name,g.getKey(),maturity,Files.isRegularFile(t),exists,exists?ContextStore.sha256(body).substring(0,12):""));
         }
-        out.sort(Comparator.comparing(Skill::group).thenComparing(Skill::name));return out;
+        return out;
     }
     /** Install one reviewed project-local markdown skill; never overwrite an existing different skill. */
     public synchronized String install(String name,boolean allowCatalog)throws IOException {
@@ -57,7 +61,9 @@ public final class SkillCatalog {
     public synchronized boolean removeIfManaged(String name)throws IOException {
         Path p=target(name);if(!Files.isRegularFile(p))return false;
         String body=Files.readString(p,StandardCharsets.UTF_8);
-        if(!(body.contains("origin: sakhtyar-chatgpt-adaptation")||body.contains("origin: sakhtyar-custom"))||!body.contains("name: "+slug(name)))throw new IOException("Not a managed SakhtYar skill");
+        Path marker=p.getParent().resolve(".sakhtyar-installed.sha256");
+        if(!Files.isRegularFile(marker)||!Files.readString(marker,StandardCharsets.UTF_8).trim().equals(ContextStore.sha256(body)))
+            throw new IOException("Modified/unmanaged skill: will not remove " + p);
         Files.delete(p);Files.deleteIfExists(p.getParent().resolve(".sakhtyar-installed.sha256"));return true;
     }
 }
