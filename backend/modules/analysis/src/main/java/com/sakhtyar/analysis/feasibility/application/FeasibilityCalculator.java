@@ -36,7 +36,11 @@ public final class FeasibilityCalculator {
         List<Reason> reasons=new ArrayList<>();
         int score=100;
 
-        if(input.regulationStatus()==EvaluationStatus.NON_COMPLIANT) {
+        if(input.regulationStatus()==null) {
+            reasons.add(new Reason(FeasibilityReasonType.WARNING,"REGULATION_EVIDENCE_MISSING",
+                    "Regulation verification is unavailable; feasibility cannot be asserted."));
+            score-=30;
+        } else if(input.regulationStatus()==EvaluationStatus.NON_COMPLIANT) {
             reasons.add(new Reason(FeasibilityReasonType.BLOCKER,"REGULATION_NON_COMPLIANT",
                     "Urban regulation evaluation contains one or more failed rules."));
             score-=60;
@@ -77,7 +81,7 @@ public final class FeasibilityCalculator {
         score=Math.max(0,Math.min(100,score));
 
         long blockers=reasons.stream().filter(r->r.type()==FeasibilityReasonType.BLOCKER).count();
-        boolean missingCritical=input.landAreaM2()==null || input.totalBuiltAreaM2()==null || input.scenarioCost()==null;
+        boolean missingCritical=input.regulationStatus()==null || input.landAreaM2()==null || input.totalBuiltAreaM2()==null || input.scenarioCost()==null;
 
         FeasibilityStatus status;
         if(blockers>0) status=FeasibilityStatus.NOT_FEASIBLE;

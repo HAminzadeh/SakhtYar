@@ -44,6 +44,6 @@ app:
       service-api-key: ${NESHAN_SERVICE_API_KEY:}
 
   bootstrap-admin:
-    reset-password-on-startup: ${APP_BOOTSTRAP_ADMIN_RESET_PASSWORD_ON_STARTUP:true}
+    reset-password-on-startup: ${APP_BOOTSTRAP_ADMIN_RESET_PASSWORD_ON_STARTUP:false}
   dev-seed:
-    enabled: ${APP_DEV_SEED_ENABLED:true}
+    enabled: ${APP_DEV_SEED_ENABLED:false}

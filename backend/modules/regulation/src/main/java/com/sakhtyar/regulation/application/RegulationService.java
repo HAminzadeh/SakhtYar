@@ -41,6 +41,16 @@ public class RegulationService {
         this.evidence=evidence;
     }
 
+    private static void requireRuleManager() {
+        var auth = org.springframework.security.core.context.SecurityContextHolder
+                .getContext().getAuthentication();
+        if (auth == null || !auth.isAuthenticated() || auth.getAuthorities().stream()
+                .noneMatch(a -> "USER_MANAGE".equals(a.getAuthority()))) {
+            throw new org.springframework.security.access.AccessDeniedException(
+                    "Only a regulation manager may change urban rules.");
+        }
+    }
+
     @Transactional(readOnly=true)
     public List<RuleResponse> rules() {
         return ruleRepo.findAllByOrderByPriorityAscCodeAsc().stream().map(RuleResponse::from).toList();
@@ -48,6 +58,7 @@ public class RegulationService {
 
     @Transactional
     public RuleResponse createRule(UpsertRuleRequest r,Authentication auth) {
+        requireRuleManager();
         String code=r.code().trim().toUpperCase(Locale.ROOT);
         ruleRepo.findByCodeIgnoreCase(code).ifPresent(x->{throw new IllegalArgumentException("Urban rule code already exists.");});
         validateRuleRequest(r);
@@ -63,6 +74,7 @@ public class RegulationService {
 
     @Transactional
     public RuleResponse updateRule(UUID id,UpsertRuleRequest r) {
+        requireRuleManager();
         var e=requireRule(id);
         if(!e.getCode().equalsIgnoreCase(r.code().trim())) throw new IllegalArgumentException("Urban rule code is immutable.");
         validateRuleRequest(r);

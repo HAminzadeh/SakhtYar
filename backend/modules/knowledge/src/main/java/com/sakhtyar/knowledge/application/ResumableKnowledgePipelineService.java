@@ -1,5 +1,7 @@
 package com.sakhtyar.knowledge.application;
 
+import tools.jackson.databind.JsonNode;
+import tools.jackson.databind.ObjectMapper;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Service;
@@ -20,7 +22,9 @@ import java.util.stream.Stream;
 public class ResumableKnowledgePipelineService {
  private static final List<String> STAGES=List.of("DISCOVER_SOURCES","HASH_AND_DEDUP","CLASSIFY_DOCUMENTS","USER_SELECTION","NATIVE_EXTRACTION","PAGE_QUALITY_GATE","OCR_REQUIRED_PAGES","PERSIAN_NORMALIZATION","KNOWLEDGE_EXTRACTION","QUALITY_GATE","DATASET_BUILD","PUBLISH");
  private final JdbcTemplate jdbc; private final Path repo; private final ExecutorService workers=Executors.newFixedThreadPool(2); private final KnowledgeFinalPipelineService finalPipeline;
- public ResumableKnowledgePipelineService(JdbcTemplate jdbc,KnowledgeFinalPipelineService finalPipeline,@Value("${sakhtyar.repo-root:${user.dir}}") String root){this.jdbc=jdbc;this.finalPipeline=finalPipeline;this.repo=findRepo(Path.of(root));}
+ private final ObjectMapper mapper;
+ private final Set<UUID> activeJobs=ConcurrentHashMap.newKeySet();
+ public ResumableKnowledgePipelineService(JdbcTemplate jdbc,KnowledgeFinalPipelineService finalPipeline,ObjectMapper mapper,@Value("${sakhtyar.repo-root:${user.dir}}") String root){this.jdbc=jdbc;this.finalPipeline=finalPipeline;this.mapper=mapper;this.repo=findRepo(Path.of(root));}
 
  @Transactional public Map<String,Object> start(String sourceRoot,String user){
    Path src=resolveSource(sourceRoot);UUID workflow=UUID.randomUUID(),correlation=UUID.randomUUID(),run=UUID.randomUUID(),exec=UUID.randomUUID();
@@ -33,7 +37,7 @@ public class ResumableKnowledgePipelineService {
    return state(exec);
  }
 
- public Map<String,Object> resume(UUID id){if(finalPipeline.unresolvedOcrPages(id)>0)throw new IllegalStateException("Review all pending OCR pages before continuing");jdbc.update("update knowledge_intake_execution set stop_requested=false,status='RUNNING',error_message=null,resumed_at=now(),heartbeat_at=now() where id=?",id);UUID run=runId(id);jdbc.update("update knowledge_pipeline_run set status='RUNNING',error_message=null,finished_at=null where id=?",run);workers.submit(()->advance(id));return state(id);}
+ public synchronized Map<String,Object> resume(UUID id){if(activeJobs.contains(id))throw new IllegalStateException("Pipeline execution already active");if(finalPipeline.unresolvedOcrPages(id)>0)throw new IllegalStateException("Review all pending OCR pages before continuing");jdbc.update("update knowledge_intake_execution set stop_requested=false,status='RUNNING',error_message=null,resumed_at=now(),heartbeat_at=now() where id=?",id);UUID run=runId(id);jdbc.update("update knowledge_pipeline_run set status='RUNNING',error_message=null,finished_at=null where id=?",run);enqueue(id);return state(id);}
  public Map<String,Object> stop(UUID id){jdbc.update("update knowledge_intake_execution set stop_requested=true,status='STOPPING' where id=?",id);return state(id);}
  public Map<String,Object> retry(UUID id){jdbc.update("update knowledge_pipeline_checkpoint set status='PENDING',error_message=null where execution_id=? and status='FAILED'",id);return resume(id);}
 
@@ -68,16 +72,21 @@ public class ResumableKnowledgePipelineService {
    if(!Files.isDirectory(base))throw new IllegalArgumentException("Directory not found: "+base);
    List<Map<String,Object>> result=new ArrayList<>();
    Path parent=base.getParent();
-   if(parent!=null)result.add(Map.of("name","..","path",parent.toString(),"parent",true));
+   if(parent!=null && parent.startsWith(checkedDirectory(repo)))result.add(Map.of("name","..","path",parent.toString(),"parent",true));
    try(Stream<Path> stream=Files.list(base)){
     stream.filter(Files::isDirectory).sorted(Comparator.comparing(p->p.getFileName().toString().toLowerCase(Locale.ROOT))).limit(250)
       .forEach(p->result.add(Map.of("name",p.getFileName().toString(),"path",p.toAbsolutePath().normalize().toString(),"parent",false)));
    }catch(IOException e){throw new IllegalStateException("Cannot browse directory: "+base,e);}
    return result;
  }
- private Path resolveBrowsePath(String value){Path p=Path.of(value);if(!p.isAbsolute())p=repo.resolve(p);return p.toAbsolutePath().normalize();}
+ private Path resolveBrowsePath(String value){Path p=Path.of(value);if(!p.isAbsolute())p=repo.resolve(p);return checkedDirectory(p);}
+ private void enqueue(UUID id){
+   if(!activeJobs.add(id))throw new IllegalStateException("Pipeline execution already active");
+   try{workers.execute(()->{try{advance(id);}finally{activeJobs.remove(id);}});}
+   catch(RuntimeException rejected){activeJobs.remove(id);throw rejected;}
+ }
  private void dispatchAfterCommit(UUID id){
-   Runnable job=()->workers.submit(()->advance(id));
+   Runnable job=()->enqueue(id);
    if(TransactionSynchronizationManager.isActualTransactionActive()){
     TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization(){@Override public void afterCommit(){job.run();}});
    }else job.run();
@@ -177,12 +186,22 @@ public class ResumableKnowledgePipelineService {
    int n=jdbc.queryForObject("select count(*) from knowledge_intake_inventory where execution_id=?",Integer.class,id);complete(id,run,"CLASSIFY_DOCUMENTS",n,0,0);
  }
  private void importReport(UUID id,Path report)throws Exception{
-   String json=Files.readString(report);Matcher m=Pattern.compile("\\{([^{}]*)\\}",Pattern.DOTALL).matcher(json);
-   while(m.find()){String b=m.group(1),path=sval(b,"path"),status=sval(b,"status"),reason=sval(b,"reason");int pages=ival(b,"page_count"),chars=ival(b,"native_chars");String file=Path.of(path).getFileName().toString();
-    jdbc.update("update knowledge_intake_inventory set intake_status=?,reason=?,page_count=?,native_chars=?,updated_at=now() where execution_id=? and (absolute_path=? or relative_path like ?) and intake_status not in ('SKIP_DUPLICATE_EXACT','SKIP_PROCESSED')",status,reason,pages,chars,id,path,"%"+file);
+   JsonNode result=mapper.readTree(Files.readString(report));
+   // The verified dry_run_v07.py classifier writes a top-level JSON array.
+   if(result==null || !result.isArray())throw new IllegalStateException("Invalid intake report: array expected");
+   for(JsonNode item:result){
+     String path=item.path("path").asText("");
+     String status=item.path("status").asText("");
+     if(path.isBlank() || status.isBlank())throw new IllegalStateException("Invalid intake report row");
+     String reason=item.path("reason").asText("");
+     int pages=item.path("page_count").asInt(0),chars=item.path("native_chars").asInt(0);
+     // Exact path match only: never update unrelated documents by basename.
+     int updated=jdbc.update("update knowledge_intake_inventory set intake_status=?,reason=?,page_count=?,native_chars=?,updated_at=now() where execution_id=? and (absolute_path=? or relative_path=?) and intake_status not in ('SKIP_DUPLICATE_EXACT','SKIP_PROCESSED')",status,reason,pages,chars,id,path,path);
+     if(updated>1)throw new IllegalStateException("Intake report path matched multiple inventory rows");
    }
  }
- private void placeholder(UUID id,UUID run,String stage){int n=jdbc.queryForObject("select count(*) from knowledge_intake_inventory where execution_id=? and selected_by_user=true",Integer.class,id);complete(id,run,stage,n,0,0);}
+
+  private void placeholder(UUID id,UUID run,String stage){int n=jdbc.queryForObject("select count(*) from knowledge_intake_inventory where execution_id=? and selected_by_user=true",Integer.class,id);complete(id,run,stage,n,0,0);}
  private void begin(UUID id,UUID run,String s){jdbc.update("update knowledge_pipeline_checkpoint set status='RUNNING',attempt=attempt+1,started_at=coalesce(started_at,now()),heartbeat_at=now(),updated_at=now() where execution_id=? and stage_code=?",id,s);jdbc.update("update knowledge_intake_execution set current_stage=?,status='RUNNING',heartbeat_at=now() where id=?",s,id);event(id,run,s,"STARTED",s);}
  private void complete(UUID id,UUID run,String s,int p,int f,int sk){jdbc.update("update knowledge_pipeline_checkpoint set status='COMPLETED',processed_count=?,failed_count=?,skipped_count=?,finished_at=now(),heartbeat_at=now(),updated_at=now() where execution_id=? and stage_code=?",p,f,sk,id,s);event(id,run,s,"COMPLETED",s);}
  private void heartbeat(UUID id,String s,int p){jdbc.update("update knowledge_pipeline_checkpoint set processed_count=?,heartbeat_at=now(),updated_at=now() where execution_id=? and stage_code=?",p,id,s);jdbc.update("update knowledge_intake_execution set heartbeat_at=now() where id=?",id);}
@@ -200,7 +219,15 @@ public class ResumableKnowledgePipelineService {
    return "UNCLASSIFIED";
  }
  private boolean supported(Path p){String n=p.getFileName().toString().toLowerCase();return n.endsWith(".pdf")||n.endsWith(".docx")||n.endsWith(".pptx")||n.endsWith(".txt")||n.endsWith(".md");}
- private Path resolveSource(String s){Path p=(s==null||s.isBlank()?repo.resolve("DocumentationOfLawsAndRegulations"):Path.of(s));if(!p.isAbsolute())p=repo.resolve(p);p=p.normalize();if(!Files.isDirectory(p))throw new IllegalArgumentException("Source directory not found: "+p);return p;}
+ private Path checkedDirectory(Path p){
+   try{
+     Path allowed=repo.toRealPath(),resolved=p.toRealPath();
+     if(!resolved.startsWith(allowed))throw new IllegalArgumentException("Directory outside allowed repository");
+     if(!Files.isDirectory(resolved))throw new IllegalArgumentException("Not a directory");
+     return resolved;
+   }catch(IOException e){throw new IllegalArgumentException("Directory cannot be resolved",e);}
+ }
+ private Path resolveSource(String s){Path p=(s==null||s.isBlank()?repo.resolve("DocumentationOfLawsAndRegulations"):Path.of(s));if(!p.isAbsolute())p=repo.resolve(p);return checkedDirectory(p);}
  private Path findRepo(Path p){p=p.toAbsolutePath().normalize();for(int i=0;i<6&&p!=null;i++,p=p.getParent())if(Files.isDirectory(p.resolve("backend"))&&Files.isDirectory(p.resolve("frontend")))return p;Path k=Path.of("D:/ChatGPT_Projects/SakhtYar/source");return Files.isDirectory(k)?k.toAbsolutePath():Path.of(System.getProperty("user.dir")).toAbsolutePath();}
  private String sha(Path p)throws Exception{MessageDigest md=MessageDigest.getInstance("SHA-256");try(InputStream in=Files.newInputStream(p)){byte[]b=new byte[1024*1024];for(int n;(n=in.read(b))>0;)md.update(b,0,n);}return HexFormat.of().formatHex(md.digest());}
  private String sval(String b,String k){Matcher m=Pattern.compile("\""+Pattern.quote(k)+"\"\\s*:\\s*\"((?:\\\\.|[^\"])*)\"").matcher(b);return m.find()?m.group(1).replace("\\\\","\\").replace("\\\"","\""):"";}

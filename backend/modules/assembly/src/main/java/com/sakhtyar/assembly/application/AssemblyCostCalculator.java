@@ -13,6 +13,9 @@ public final class AssemblyCostCalculator {
             BigDecimal wasteFactor,
             BigDecimal requestedAssemblyQuantity
     ) {
+        nonNegative(componentQuantity,"componentQuantity");
+        nonNegative(wasteFactor,"wasteFactor");
+        nonNegative(requestedAssemblyQuantity,"requestedAssemblyQuantity");
         return componentQuantity
                 .multiply(BigDecimal.ONE.add(wasteFactor))
                 .multiply(requestedAssemblyQuantity)
@@ -26,15 +29,24 @@ public final class AssemblyCostCalculator {
             BigDecimal average,
             BigDecimal median
     ) {
-        return switch (basis) {
+        if(basis==null)throw new IllegalArgumentException("Price basis required.");
+        BigDecimal selected = switch (basis) {
             case MIN -> min;
             case MAX -> max;
             case AVERAGE -> average;
             case MEDIAN -> median;
         };
+        nonNegative(selected,"chosen unit price");
+        return selected;
+    }
+
+    private static void nonNegative(BigDecimal value,String field){
+        if(value==null || value.signum()<0)throw new IllegalArgumentException(field+" must be non-negative.");
     }
 
     public static BigDecimal lineTotal(BigDecimal effectiveQuantity, BigDecimal unitPrice) {
+        nonNegative(effectiveQuantity,"effectiveQuantity");
+        nonNegative(unitPrice,"unitPrice");
         return effectiveQuantity.multiply(unitPrice).setScale(2, RoundingMode.HALF_UP);
     }
 }

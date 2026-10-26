@@ -150,8 +150,17 @@ async function rawRequest(
     if (refreshed) response = await performFetch(path, init)
   }
 
+  // A generic 403 is an authorization denial, NOT permission to replay a mutation.
+  // Re-submit at most once, and only after a specifically identified CSRF failure.
   if (response.status === 403 && unsafe(method) && !authEndpoint) {
-    response = await performFetch(path, init)
+    let csrfError = false
+    try {
+      const errorPayload = (await response.clone().json()) as { code?: string }
+      csrfError = errorPayload.code === 'CSRF_MISSING' || errorPayload.code === 'CSRF_INVALID'
+    } catch {
+      // An absent or malformed error code is not evidence of a CSRF failure.
+    }
+    if (csrfError) response = await performFetch(path, init)
   }
 
   return response

@@ -189,7 +189,10 @@ http
                         .requestMatchers("/api/v1/notifications/**").hasAuthority("USER_MANAGE")
                         .requestMatchers("/api/v1/intelligence/**").hasAuthority("AGENT_USE")
                         .requestMatchers("/api/v1/knowledge/admin/governance/**").hasAuthority("USER_MANAGE")
+                        .requestMatchers("/api/v1/knowledge/admin/**").hasAuthority("USER_MANAGE")
                         .requestMatchers("/api/v1/regulations/admin/**").hasAuthority("USER_MANAGE")
+                        .requestMatchers(HttpMethod.POST, "/api/v1/regulations/rules").hasAuthority("USER_MANAGE")
+                        .requestMatchers(HttpMethod.PUT, "/api/v1/regulations/rules/*").hasAuthority("USER_MANAGE")
                         .requestMatchers(HttpMethod.GET,"/api/v1/regulations/cases/*/verified-evidence").hasAuthority("CASE_READ")
 
                         .requestMatchers(

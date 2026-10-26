@@ -92,7 +92,8 @@ public class AuthService {
         return user;
     }
 
-    @Transactional
+    // Invalid-password exceptions must not roll back the persisted lockout counter.
+    @Transactional(noRollbackFor = ResponseStatusException.class)
     public UserEntity authenticate(String username, String password) {
         String normalized = username == null ? "" : username.trim();
 

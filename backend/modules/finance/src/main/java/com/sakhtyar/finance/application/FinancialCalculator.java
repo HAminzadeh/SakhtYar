@@ -84,10 +84,13 @@ public final class FinancialCalculator {
         if(participants==null || participants.isEmpty())
             throw new IllegalArgumentException("At least one participant is required.");
 
+        Set<String> participantKeys=new HashSet<>();
         BigDecimal valueTotal=BigDecimal.ZERO;
         BigDecimal costTotal=BigDecimal.ZERO;
 
         for(var p:participants) {
+            if(p==null || p.key()==null || p.key().isBlank() || !participantKeys.add(p.key().trim()))
+                throw new IllegalArgumentException("Each participant requires a unique nonblank key.");
             requirePercent(p.valueSharePercent(),"valueSharePercent");
             requirePercent(p.costSharePercent(),"costSharePercent");
             valueTotal=valueTotal.add(p.valueSharePercent());

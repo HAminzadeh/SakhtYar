@@ -19,16 +19,19 @@ public class CaseService {
 
     private final CaseRepository repository;
     private final AuditService auditService;
+    private final CaseAccessService access;
 
-    public CaseService(CaseRepository repository, AuditService auditService) {
+    public CaseService(CaseRepository repository, AuditService auditService, CaseAccessService access) {
         this.repository = repository;
         this.auditService = auditService;
+        this.access = access;
     }
 
     @Transactional(readOnly = true)
     public List<CaseResponse> list() {
         return repository.findAllByOrderByUpdatedAtDesc()
                 .stream()
+                .filter(access::canRead)
                 .map(CaseResponse::from)
                 .toList();
     }
@@ -116,7 +119,10 @@ public class CaseService {
     }
 
     private CaseEntity require(UUID id) {
-        return repository.findById(id)
-                .orElseThrow(() -> new IllegalArgumentException("Case not found."));
+        CaseEntity result = repository.findById(id)
+                .orElseThrow(() -> new org.springframework.web.server.ResponseStatusException(
+                    org.springframework.http.HttpStatus.NOT_FOUND, "Case not found."));
+        access.requireRead(result);
+        return result;
     }
 }
