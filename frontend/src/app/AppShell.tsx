@@ -6,6 +6,7 @@ import {
   RobotOutlined,
   ToolOutlined,
   DashboardOutlined,
+  AuditOutlined,
   UserOutlined,
   BookOutlined,
   ImportOutlined,
@@ -122,6 +123,11 @@ export function AppShell() {
           {hasPermission('OPERATIONS_READ') && (
             <Button type={active('/admin/operations') ? 'primary' : 'default'} icon={<DashboardOutlined />} onClick={() => navigate('/admin/operations')}>
               عملیات
+            </Button>
+          )}
+          {hasPermission('QUALITY_VIEW') && (
+            <Button type={active('/admin/quality') ? 'primary' : 'default'} icon={<AuditOutlined />} onClick={() => navigate('/admin/quality')}>
+              مرکز آزمون
             </Button>
           )}
 

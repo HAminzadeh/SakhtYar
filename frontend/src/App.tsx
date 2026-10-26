@@ -13,6 +13,7 @@ import { UsersPage } from './pages/UsersPage'
 import { PreferencesPage } from './pages/PreferencesPage'
 import { AiManagementPage } from './pages/AiManagementPage'
 import { OperationsPage } from './pages/OperationsPage'
+import { QualityCenterPage } from './pages/QualityCenterPage'
 import { EngineeringHubPage } from './pages/EngineeringHubPage'
 import { KnowledgeAdminPage } from './pages/KnowledgeAdminPage'
 import { KnowledgeImportPage } from './pages/KnowledgeImportPage'
@@ -59,6 +60,9 @@ export default function App() {
           </Route>
           <Route element={<PermissionRoute permission="OPERATIONS_READ" />}>
             <Route path="/admin/operations" element={<OperationsPage />} />
+          </Route>
+          <Route element={<PermissionRoute permission="QUALITY_VIEW" />}>
+            <Route path="/admin/quality" element={<QualityCenterPage />} />
           </Route>
           <Route element={<PermissionRoute permission="USER_MANAGE" />}>
             <Route path="/admin/knowledge" element={<KnowledgeAdminPage />} />

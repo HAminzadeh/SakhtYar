@@ -45,6 +45,8 @@ jobs:
           python-version: '3.12'
       - name: Golden evaluation regression tests
         run: python scripts/test_phase515.py
+      - name: Validate Quality Center scenario registry
+        run: python scripts/check_quality_catalog.py
       - name: Validate Golden Dataset draft without claiming expert truth
         run: python scripts/golden_evaluate.py --validate-only --dataset docs/phase-5/phase-5.15-golden/tehran-golden-draft.json
       - name: Validate compose syntax without starting production services

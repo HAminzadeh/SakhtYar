@@ -14,5 +14,7 @@ public enum Permission {
     USER_MANAGE,
     AI_MANAGE,
     OPERATIONS_READ,
+    QUALITY_VIEW,
+    QUALITY_RUN_SAFE,
     AUDIT_READ
 }

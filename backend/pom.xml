@@ -44,6 +44,7 @@
         <module>modules/notification</module>
         <module>modules/monitoring</module>
         <module>modules/web-bff</module>
+    <module>modules/quality</module>
     <module>app</module>
   </modules>
   <properties>
