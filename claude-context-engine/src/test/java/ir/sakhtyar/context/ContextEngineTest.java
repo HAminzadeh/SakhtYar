@@ -36,4 +36,20 @@ public class ContextEngineTest {
             assertEquals(1,store.status().sources());
         }
     }
+
+    @Test void catalogDraftCanBeInstalledOnlyWithApprovalAndSurvivesRestart()throws Exception {
+        Path dir=Files.createTempDirectory("skills-draft-");
+        Path src=dir.resolve("engineering/ai-harness/skills/java-coding-standards/SKILL.md");
+        Files.createDirectories(src.getParent());
+        Files.writeString(src,"---\nname: java-coding-standards\ndescription: Draft\nmaturity: catalog\norigin: sakhtyar-chatgpt-adaptation\n---\nManual draft");
+        SkillCatalog catalog=new SkillCatalog(dir);
+        assertThrows(java.io.IOException.class,()->catalog.install("java-coding-standards",false));
+        catalog.install("java-coding-standards",true);
+        SkillCatalog reopened=new SkillCatalog(dir);
+        assertTrue(reopened.list().stream().anyMatch(x->x.name().equals("java-coding-standards")&&x.installed()));
+        Path installed=dir.resolve(".claude/skills/sakhtyar-java-coding-standards/SKILL.md");
+        assertTrue(Files.readString(installed).contains("disable-model-invocation: true"));
+        assertTrue(reopened.removeIfManaged("java-coding-standards"));
+        assertFalse(new SkillCatalog(dir).list().stream().anyMatch(x->x.name().equals("java-coding-standards")&&x.installed()));
+    }
 }

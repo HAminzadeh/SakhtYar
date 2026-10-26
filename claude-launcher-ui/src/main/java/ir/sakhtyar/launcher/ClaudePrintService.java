@@ -20,8 +20,15 @@ public final class ClaudePrintService {
     public Reply ask(String profile, String text, String sessionId, boolean toolsEnabled) throws Exception {
         if (!LauncherCore.validProfile(profile)) throw new IllegalArgumentException("Invalid CCR profile");
         if (text == null || text.isBlank() || text.length() > 100000) throw new IllegalArgumentException("Invalid prompt size");
-        List<String> cmd = new ArrayList<>(List.of("cmd.exe", "/d", "/c", "ccr.cmd", profile, "cli", "--", "-p", "--output-format", "json", "--max-turns", "3"));
-        if (!toolsEnabled) cmd.addAll(List.of("--permission-mode", "plan"));
+        List<String> cmd = new ArrayList<>(List.of("cmd.exe", "/d", "/c", "ccr.cmd", profile, "cli", "--", "-p", "--output-format", "json", "--max-turns", toolsEnabled ? "3" : "1"));
+        // Plain chat must not inherit the 33k-token coding-tool surface.
+        // --permission-mode plan DOES NOT disable tools; it actually retains read/plan tools.
+        if (!toolsEnabled) {
+            cmd.addAll(List.of("--tools", "", "--disallowedTools", "mcp__*", "--disable-slash-commands"));
+        } else {
+            // Project mode can read the repository and call configured MCPs, never write source.
+            cmd.addAll(List.of("--tools", "Read,Glob,Grep", "--permission-mode", "plan"));
+        }
         if (sessionId != null && !sessionId.isBlank()) cmd.addAll(List.of("--resume", sessionId));
         ProcessBuilder pb = new ProcessBuilder(cmd).directory(root.toFile()).redirectErrorStream(true);
         Map<String,String> env = pb.environment();
@@ -53,18 +60,39 @@ public final class ClaudePrintService {
             String result;
             synchronized (captured) { result = captured.toString(StandardCharsets.UTF_8); }
             String payload = result.strip();
+            boolean errorResult=false;
             try {
                 JsonNode doc=JSON.readTree(payload);
                 if (doc.isObject()) {
                     String reply=doc.path("result").asText("");
                     if (reply.isBlank()) reply=doc.path("message").asText("");
                     String id=doc.path("session_id").asText("");
-                    if (!reply.isBlank()) return new Reply(reply,id.isBlank()?sessionId:id,p.exitValue());
+                    errorResult=doc.path("is_error").asBoolean(false);
+                    if (!reply.isBlank() && p.exitValue()==0 && !errorResult) return new Reply(reply,id.isBlank()?sessionId:id,p.exitValue());
                 }
             } catch(Exception ignored) { }
-            if (p.exitValue()!=0) throw new IOException("CCR returned exit code " + p.exitValue() + ": " + scrub(payload));
+            if (p.exitValue()!=0 || errorResult)
+                throw new IOException(explainFailure(payload, p.exitValue()));
             return new Reply(scrub(payload), sessionId, p.exitValue());
         } finally {running=null;}
+    }
+    /** Redact verbose router errors before exposing them to a chat bubble. */
+    static String explainFailure(String payload, int exitCode) {
+        String lower=payload.toLowerCase(Locale.ROOT);
+        if (lower.contains("not configured for target provider") || lower.contains("model_resolution"))
+            return "CCR model routing failed. The configured fallback model is missing from its target provider. "
+                + "Open CCR > Global Routing and Agent Profiles; remove or repair the invalid fallback. "
+                + "Test the profile using CCR's own provider check. (exit " + exitCode + ")";
+        if (lower.contains("all target providers failed") || lower.contains("ccr_fallback"))
+            return "CCR provider/fallback request failed. Check CCR Logs and the selected profile's global and rule-level fallback settings. (exit " + exitCode + ")";
+        if (lower.contains("401") || lower.contains("unauthorized"))
+            return "Provider authentication failed (401). Check credentials in CCR; do not share API keys.";
+        if (lower.contains("429"))return "Provider rate limit (429). Wait or select a configured alternative provider.";
+        if (lower.contains("not recognized") && lower.contains("tools"))
+            return "Claude CLI rejected tool-restriction flags; check Claude Code version and --help.";
+        String tail=scrub(payload);
+        return "Claude/CCR request failed (exit " + exitCode + "): " +
+            (tail.length()>850?tail.substring(0,850)+"...":tail);
     }
     private static String scrub(String s) {
         String clipped=s.length()>12000?s.substring(0,12000)+"\n[truncated]":s;

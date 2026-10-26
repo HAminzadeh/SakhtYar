@@ -19,6 +19,7 @@ public final class ChatWorkspace {
     private final TextArea prompt=new TextArea();
     private final Label attachments=new Label();
     private final Label status=new Label();
+    private final CheckBox projectMode=new CheckBox();
     private final List<Path> selected=new ArrayList<>();
     private final Button send=new Button("Send / ارسال");
     private final Button cancel=new Button("Stop / توقف");
@@ -28,12 +29,14 @@ public final class ChatWorkspace {
     public ChatWorkspace(LauncherCore core,ComboBox<String> profile) {this.core=core;this.profile=profile;this.service=new ClaudePrintService(core.root());}
     public Node view(boolean persian) {
         VBox shell=new VBox(12);shell.setPadding(new Insets(16));shell.setNodeOrientation(persian?NodeOrientation.RIGHT_TO_LEFT:NodeOrientation.LEFT_TO_RIGHT);
+        projectMode.setText(persian?"دسترسی خواندنی به سورس و CodeGraph (Context بیشتر)":"Read-only project tools & CodeGraph (more context)");
+        projectMode.setSelected(false);
         Label hint=new Label(persian?"گفتگوی فارسی با Claude-Free؛ پیوست‌ها به درخواست معرفی می‌شوند. در مدل متنی، تحلیل تصویر تضمین‌شده نیست.":"Chat with Claude-Free. Images require a vision-capable provider.");
         hint.setWrapText(true);
         Button add=new Button(persian?"افزودن فایل / عکس":"Attach files / images");
         add.setOnAction(e->{FileChooser c=new FileChooser();c.setTitle("Attach local files");var files=c.showOpenMultipleDialog(shell.getScene()==null?null:shell.getScene().getWindow());if(files!=null){for(var f:files){if(selected.size()>=8)break;selected.add(f.toPath());}refreshAttachments();}});
         Button clear=new Button(persian?"گفتگوی جدید":"New conversation");clear.setOnAction(e->{if(busy)return;sessionId=null;messages.getChildren().clear();status.setText("New session / نشست جدید");});
-        HBox toolbar=new HBox(9,add,clear,status);
+        HBox toolbar=new HBox(9,add,clear,projectMode,status);
         ScrollPane scroll=new ScrollPane(messages);scroll.setFitToWidth(true);messages.setPadding(new Insets(12));messages.setFillWidth(true);
         messages.heightProperty().addListener((obs,oldValue,newValue)->scroll.setVvalue(1));
         prompt.setPromptText(persian?"پیامت را به فارسی یا انگلیسی بنویس...":"Type your message here...");prompt.setWrapText(true);prompt.setPrefRowCount(4);prompt.setNodeOrientation(persian?NodeOrientation.RIGHT_TO_LEFT:NodeOrientation.LEFT_TO_RIGHT);
@@ -69,13 +72,21 @@ public final class ChatWorkspace {
                 }catch(Exception ex){query.append("Attachment unavailable: ").append(ex.getMessage()).append("\n");}
             }
         }
+        // Files intended for the Read tool require project mode; text snippets are attached directly.
+        if (!files.isEmpty() && !projectMode.isSelected() && files.stream().anyMatch(file -> {
+            String lower=file.getFileName().toString().toLowerCase(Locale.ROOT);
+            return List.of(".png", ".jpg", ".jpeg", ".webp", ".pdf", ".docx").stream().anyMatch(lower::endsWith);
+        })) {
+            status.setText("Attachments requiring Read/Vision need Project Mode and a compatible model.");
+        }
         String profileName=profile.getValue();if(profileName==null)profileName="Claude-Free";
         bubble("You / شما",text+(files.isEmpty()?"":"\n📎 "+files.size()+" files"),true);
         busy=true;send.setDisable(true);cancel.setDisable(false);status.setText("Waiting for Claude...");
         final String targetProfile=profileName, priorSession=sessionId, payload=query.toString();
+        final boolean readOnlyProjectTools=projectMode.isSelected();
         Thread t=new Thread(()->{
             try{
-                ClaudePrintService.Reply reply=service.ask(targetProfile,payload,priorSession,false);
+                ClaudePrintService.Reply reply=service.ask(targetProfile,payload,priorSession,readOnlyProjectTools);
                 Platform.runLater(()->{sessionId=reply.sessionId();bubble("Claude",reply.content(),false);status.setText("Completed (exit "+reply.exitCode()+")");});
             }catch(Exception ex){Platform.runLater(()->{bubble("Error / خطا",ex.getMessage(),false);status.setText("Request failed");});}
             finally{Platform.runLater(()->{busy=false;send.setDisable(false);cancel.setDisable(true);});}

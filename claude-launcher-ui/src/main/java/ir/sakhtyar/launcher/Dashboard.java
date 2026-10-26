@@ -71,7 +71,7 @@ public final class Dashboard extends Application {
     }
     private VBox skillsTab(){
         VBox body=new VBox(12);body.setPadding(new Insets(20));
-        Label info=new Label(tr("تیک سبز به معنی نصب واقعی در .claude/skills است. فقط Skills بازبینی‌شده قابل نصب‌اند. حذف جداگانه انجام می‌شود.","Checkboxes reflect actual .claude/skills installations. Catalog drafts cannot be installed until reviewed."));
+        Label info=new Label(tr("تیک یعنی نصب واقعی. مهارت‌های catalog پیش‌نویس‌اند؛ نصب آن‌ها فقط با تأیید جداگانه و به‌صورت دستی (غیرخودکار) انجام می‌شود.","Checkboxes reflect actual .claude/skills installations. Catalog drafts can be installed for manual use only with an extra confirmation."));
         info.setWrapText(true);body.getChildren().add(info);
         SkillCatalog manager=new SkillCatalog(core.root());
         try {
@@ -80,8 +80,8 @@ public final class Dashboard extends Application {
                 for(var item:manager.list())if(item.group().equals(group.getKey())) {
                     CheckBox cb=new CheckBox(item.name()+"   ["+item.maturity()+"]"+(item.installed()?"  ✓ Installed":""));
                     cb.setSelected(item.installed());cb.setUserData(item);
-                    cb.setDisable(!item.present()||(!"adapted".equals(item.maturity())&&!item.installed()));
-                    cb.setTooltip(new Tooltip(!item.present()?"Missing SKILL.md":!"adapted".equals(item.maturity())?"Catalog draft requires review":"Installed state is verified on refresh"));
+                    cb.setDisable(!item.present());
+                    cb.setTooltip(new Tooltip(!item.present()?"Missing SKILL.md":!"adapted".equals(item.maturity())?"Catalog draft: explicit approval, manual invocation only":"Installed state is verified on refresh"));
                     checks.add(cb);entries.getChildren().add(cb);
                 }
                 Button apply=new Button(tr("نصب موارد تیک‌خورده","Install checked skills"));
@@ -94,8 +94,16 @@ public final class Dashboard extends Application {
                     if(chosen.isEmpty()){info.setText(tr("همه موارد انتخاب‌شده قبلاً نصب شده‌اند.","All checked items already installed."));return;}
                     Alert confirmation=new Alert(Alert.AlertType.CONFIRMATION,tr("نصب "+chosen.size()+" Skill از سورس محلی پروژه؟","Install "+chosen.size()+" locally reviewed skills?"),ButtonType.YES,ButtonType.NO);
                     if(confirmation.showAndWait().orElse(ButtonType.NO)!=ButtonType.YES)return;
+                    long drafts=chosen.stream().filter(sk->"catalog".equals(sk.maturity())).count();
+                    if (drafts>0) {
+                        Alert draftWarning=new Alert(Alert.AlertType.CONFIRMATION,
+                            tr("از موارد انتخابی "+drafts+" Skill فقط پیش‌نویس catalog هستند. این موارد بدون اجرای خودکار مدل و صرفاً به‌صورت دستی نصب شوند؟",
+                               drafts+" catalog-only drafts have incomplete instructions. Install for manual invocation only?"),
+                            ButtonType.YES,ButtonType.NO);
+                        if(draftWarning.showAndWait().orElse(ButtonType.NO)!=ButtonType.YES)return;
+                    }
                     StringBuilder result=new StringBuilder();int success=0;
-                    for(var sk:chosen){try{result.append(manager.install(sk.name(),false)).append("\n");success++;}
+                    for(var sk:chosen){try{result.append(manager.install(sk.name(),"catalog".equals(sk.maturity()))).append("\n");success++;}
                     catch(Exception ex){result.append("FAILED ").append(sk.name()).append(": ").append(ex.getMessage()).append("\n");}}
                     activity.appendText(result.toString());info.setText(tr("نصب موفق: ","Installed: ")+success+" / "+chosen.size());
                     refreshSkillsPage();
