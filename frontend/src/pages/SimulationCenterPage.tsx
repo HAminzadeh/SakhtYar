@@ -41,9 +41,12 @@ type ScenarioCheck = {
 type RunComparison = { left: Run; right: Run; note: string }
 type BusinessE2EResult = { scenario_id: string; state: string; summary: string; evidence?: unknown }
 type BusinessE2EStep = { scenario_id: string; step_no: number; title: string; state: string; detail?: string }
-type BusinessE2ERun = { id: string; state: string; scenario_count: number; completedScenarios: number; progressPercent: number;
+type DetailedE2EPlan = { id: string; phase: string; title: string; description: string;
+  dependencies: string[]; requiredTables: string[]; requiredRoutes: string[];
+  preflightSteps: string[]; businessSteps: string; businessStatus: string }
+type BusinessE2ERun = { id: string; state: string; scenario_count: number; completedScenarios: number; progressPercent: number; totalSteps?: number; completedSteps?: number;
   requested_at: string; results: BusinessE2EResult[]; steps: BusinessE2EStep[] }
-type BusinessE2ECoverage = { implementedBusinessE2e: string[]; completeBusinessE2eCount: number; totalBusinessE2eCount: number; note: string }
+type BusinessE2ECoverage = { implementedBusinessE2e: string[]; completeBusinessE2eCount: number; limitedBusinessE2eCount?: number; totalBusinessE2eCount: number; note: string }
 
 type CoreFixtureReadiness = {
   coreFixturePermitted: boolean; runtimeDbRoleNonBypass: boolean;
@@ -111,6 +114,8 @@ export function SimulationCenterPage() {
   const [downloading, setDownloading] = useState(false)
   const [resultModalOpen, setResultModalOpen] = useState(false)
   const [e2eRunId, setE2eRunId] = useState<string>()
+  const [e2eModalOpen, setE2eModalOpen] = useState(false)
+  const [e2eSelectedCode, setE2eSelectedCode] = useState<string>()
 
   const capabilities = useQuery({ queryKey: ['sim-capabilities'], queryFn: () => api<Capability>(`${endpoint}/capabilities`) })
   const readiness = useQuery({ queryKey: ['sim-readiness'], queryFn: () => api<Readiness>(`${endpoint}/readiness`) })
@@ -155,6 +160,10 @@ export function SimulationCenterPage() {
     onError: e => message.error(safeMessage(e)),
   })
   // Business-E2E results are independent of the previous read-only preflight runs.
+  const detailedPlans = useQuery({
+    queryKey: ['sim-business-e2e-plans'],
+    queryFn: () => api<DetailedE2EPlan[]>(`${endpoint}/e2e/plans`),
+  })
   const businessE2ECoverage = useQuery({
     queryKey: ['sim-business-e2e-coverage'],
     queryFn: () => api<BusinessE2ECoverage>(`${endpoint}/e2e/coverage`),
@@ -179,9 +188,11 @@ export function SimulationCenterPage() {
     }),
     onSuccess: value => {
       setE2eRunId(value.id)
+      setE2eSelectedCode(undefined)
+      setE2eModalOpen(true)
       void q.invalidateQueries({ queryKey: ['sim-business-e2e-runs'] })
       void q.invalidateQueries({ queryKey: ['sim-evidence'] })
-      message.info('آزمون‌های E2E در صف قرار گرفتند. فقط E2E-14 دارای اجرای محدود کسب‌وکاری است.')
+      message.info('زنجیره پیش‌نیازهای سناریوها آغاز شد؛ اجرای تجاری فقط پس از عبور از گیت ایمنی انجام می‌شود.')
     },
     onError: e => message.error(safeMessage(e)),
   })
@@ -194,6 +205,13 @@ export function SimulationCenterPage() {
   const comparison = useQuery({ queryKey: ['sim-compare', runId, compareId], enabled: !!runId && !!compareId && runId !== compareId,
     queryFn: () => api<RunComparison>(`${endpoint}/runs/${runId}/compare?other=${compareId}`) })
 
+  const selectedE2ePlan = detailedPlans.data?.find(x => x.id === e2eSelectedCode)
+  const focusedE2eResults = e2eSelectedCode
+    ? (activeBusinessE2E.data?.results ?? []).filter(x => x.scenario_id === e2eSelectedCode)
+    : activeBusinessE2E.data?.results ?? []
+  const focusedE2eSteps = e2eSelectedCode
+    ? (activeBusinessE2E.data?.steps ?? []).filter(x => x.scenario_id === e2eSelectedCode)
+    : activeBusinessE2E.data?.steps ?? []
   const all = catalog.data ?? []
   const effectiveIds = selectedIds ?? all.map(s => s.id)
   const filtered = useMemo(() => all.filter(s => {
@@ -368,10 +386,10 @@ export function SimulationCenterPage() {
           { key: 'business-e2e', label: <Space><ExperimentOutlined /> اجرای واقعی E2E</Space>, children: <>
             <Alert showIcon type="warning" style={{ marginBottom: 12 }}
               message="E2E واقعی با بررسی مقدماتی تفاوت دارد"
-              description="در این نسخه فقط E2E-14 (ثبت محدود پرونده، ملک و دو مالک) کد اجرایی دارد. ۲۳ سناریوی دیگر با علت مشخص BLOCKED می‌مانند. اجرای ۱۰۰٪ به معنی قبولی ۲۴ سناریو نیست." />
+              description="برای هر ۲۴ سناریو، وابستگی‌ها مرتب شده و بررسی‌های واقعی PostgreSQL/Schema/API پیش از گیت اجرا می‌شوند. فقط E2E-14 اجازه درج محدود داده TEST دارد؛ ۲۳ گردش‌کار تجاری دیگر تا ایزوله‌سازی کامل مسدود می‌مانند. درصد پیشرفت، درصد پایان گام‌هاست نه درصد موفقیت آزمون تجاری." />
             <Row gutter={[12, 12]} style={{ marginBottom: 14 }}>
-              <Col xs={24} sm={12}><Card size="small"><Statistic title="سناریوهای دارای اجرای محدود واقعی" value={businessE2ECoverage.data?.completeBusinessE2eCount ?? 0} suffix="از ۲۴" /></Card></Col>
-              <Col xs={24} sm={12}><Card size="small"><Statistic title="سناریوهای بدون موتور E2E تجاری" value={24-(businessE2ECoverage.data?.completeBusinessE2eCount ?? 0)} /></Card></Col>
+              <Col xs={24} sm={12}><Card size="small"><Statistic title="سناریوهای دارای اجرای محدود واقعی" value={businessE2ECoverage.data?.limitedBusinessE2eCount ?? 0} suffix="از ۲۴" /></Card></Col>
+              <Col xs={24} sm={12}><Card size="small"><Statistic title="سناریوهای بدون موتور E2E تجاری" value={24-(businessE2ECoverage.data?.limitedBusinessE2eCount ?? 0)} /></Card></Col>
             </Row>
             <Space wrap style={{ marginBottom: 14 }}>
               <Button type="primary" icon={<ExperimentOutlined />} loading={startBusinessE2E.isPending}
@@ -381,30 +399,40 @@ export function SimulationCenterPage() {
               </Button>
               <Button loading={startBusinessE2E.isPending} disabled={!workspaceId}
                 onClick={() => startBusinessE2E.mutate(Array.from({length:24}, (_,i) => `E2E-${String(i+1).padStart(2,'0')}`))}>
-                ثبت وضعیت اجرای ۲۴ سناریو
+                اجرای زنجیره پیش‌نیازهای ۲۴ سناریو
               </Button>
             </Space>
             {!coreReadiness.data?.coreFixturePermitted && <Alert style={{ marginBottom: 12 }} showIcon type="info"
               message="E2E-14 تا تأیید گیت PostgreSQL قابل اجرا نیست"
               description={(coreReadiness.data?.blockers ?? ['نقش محدود دیتابیس و FORCE RLS چهار جدول لازم است.']).join(' | ')} />}
             {!workspaceId && <Alert showIcon type="info" message="ابتدا یک فضای آزمایشی فعال انتخاب کن" />}
+            <Card size="small" style={{ marginBottom: 12, borderRadius: 12 }} title="برنامه اجرایی و وابستگی‌های ۲۴ سناریو">
+              <Typography.Paragraph type="secondary">روی نام هر سناریو کلیک کن تا هدف، پیش‌نیازها، مراحل قابل اجرا و قسمت‌های هنوز مسدود را دقیق ببینی.</Typography.Paragraph>
+              <Space wrap>
+                {(detailedPlans.data ?? []).map(plan =>
+                  <Button key={plan.id} size="small" onClick={() => { setE2eSelectedCode(plan.id);setE2eModalOpen(true) }}>
+                    {plan.id} · {plan.title}
+                  </Button>)}
+              </Space>
+            </Card>
             <Table size="small" rowKey="id" style={{ marginBottom: 14 }} pagination={{ pageSize: 5 }}
               dataSource={businessE2ERuns.data ?? []} loading={businessE2ERuns.isLoading} columns={[
                 { title: 'زمان', dataIndex: 'requested_at', render: (v:string) => dateFa(v) },
                 { title: 'وضعیت', dataIndex: 'state', render: (v:string) => status(v) },
                 { title: 'تعداد سناریو', dataIndex: 'scenario_count' },
-                { title: 'نتیجه', render: (_:unknown, r:{id:string}) => <Button size="small" onClick={() => setE2eRunId(r.id)}>مشاهده</Button> },
+                { title: 'نتیجه', render: (_:unknown, r:{id:string}) => <Button size="small" onClick={() => { setE2eRunId(r.id); setE2eSelectedCode(undefined); setE2eModalOpen(true) }}>مشاهده نتیجه</Button> },
               ]} />
             {activeBusinessE2E.data && <Card size="small" title={`نتایج واقعی E2E · ${activeBusinessE2E.data.id.slice(0,8)}`}>
               <Progress percent={activeBusinessE2E.data.progressPercent} status="active" />
-              <Typography.Text type="secondary">{activeBusinessE2E.data.completedScenarios} از {activeBusinessE2E.data.scenario_count} سناریو تعیین تکلیف شده‌اند. وضعیت PASS فقط برای اجرای اثبات‌شده ثبت می‌شود.</Typography.Text>
+              <Typography.Text type="secondary">{activeBusinessE2E.data.completedScenarios} از {activeBusinessE2E.data.scenario_count} سناریو تعیین تکلیف شده‌اند. {activeBusinessE2E.data.completedSteps ?? 0} از {activeBusinessE2E.data.totalSteps ?? 0} زیرفرایند ثبت شده؛ PASS فقط به عملیات اثبات‌شده اختصاص دارد.</Typography.Text>
               <Table<BusinessE2EResult> rowKey="scenario_id" size="small" pagination={{pageSize:10}}
                 style={{ marginTop: 12 }} dataSource={activeBusinessE2E.data.results} columns={[
                   { title:'سناریو',dataIndex:'scenario_id' },
                   { title:'وضعیت اجرایی',dataIndex:'state',render:(v:string)=>status(v) },
                   { title:'شواهد / علت',dataIndex:'summary' },
+                  { title:'جزئیات',render:(_:unknown,row:BusinessE2EResult)=><Button size="small" onClick={()=>{ setE2eSelectedCode(row.scenario_id);setE2eModalOpen(true) }}>مشاهده مراحل</Button> },
                 ]} />
-              <Typography.Text strong>زیرفرایندهای E2E-14</Typography.Text>
+              <Typography.Text strong>زیرفرایندهای ثبت‌شده همه سناریوها</Typography.Text>
               <Table<BusinessE2EStep> rowKey={r => `${r.scenario_id}-${r.step_no}`} size="small" pagination={false}
                 dataSource={activeBusinessE2E.data.steps} columns={[
                   { title:'مرحله',dataIndex:'step_no' }, { title:'عملیات',dataIndex:'title' },
@@ -629,10 +657,71 @@ export function SimulationCenterPage() {
       </Card>
     </Space>
 
+    <Modal open={e2eModalOpen} onCancel={() => setE2eModalOpen(false)} footer={null}
+      title={e2eSelectedCode ? `جزئیات سناریو ${e2eSelectedCode}` : 'نتیجه اجرای E2E و زیرفرایندها'}
+      width={1060} destroyOnHidden>
+      <Space direction="vertical" style={{ width: '100%' }} size="middle">
+        {detailedPlans.isError && <Alert type="error" message="بارگذاری برنامه سناریوها ناموفق بود" description={safeMessage(detailedPlans.error)} />}
+        {selectedE2ePlan && <Card size="small" title={`${selectedE2ePlan.id} · ${selectedE2ePlan.title}`}>
+          <Typography.Paragraph>{selectedE2ePlan.description}</Typography.Paragraph>
+          <Typography.Text strong>وابستگی‌هایی که ابتدا بررسی می‌شوند:</Typography.Text>
+          <Space wrap style={{ display: 'flex', marginTop: 6, marginBottom: 10 }}>
+            {selectedE2ePlan.dependencies.length === 0 ? <Tag>وابستگی قبلی ندارد</Tag> : selectedE2ePlan.dependencies.map(x => <Tag key={x} color="blue">{x}</Tag>)}
+          </Space>
+          <Typography.Text strong>زیرفرایندهای بررسی پیش‌نیاز:</Typography.Text>
+          <ol>{selectedE2ePlan.preflightSteps.map((x,i) => <li key={i}>{x}</li>)}</ol>
+          <Typography.Paragraph><Typography.Text strong>گردش‌کار نهایی مورد انتظار:</Typography.Text> {selectedE2ePlan.businessSteps}</Typography.Paragraph>
+          <Space wrap>{selectedE2ePlan.requiredTables.map(x => <Tag key={x}>{x}</Tag>)}</Space>
+          <Space wrap>{selectedE2ePlan.requiredRoutes.map(x => <Tag key={x} color="geekblue">{x}</Tag>)}</Space>
+          <Alert style={{ marginTop: 12 }} type={selectedE2ePlan.businessStatus === 'LIMITED_CORE_FIXTURE' ? 'info' : 'warning'} showIcon
+            message={selectedE2ePlan.businessStatus === 'LIMITED_CORE_FIXTURE' ? 'فقط Fixture چهارجدولی دارای پیاده‌سازی محدود است' : 'گردش‌کار کامل تجاری هنوز ایزوله و پیاده‌سازی نشده است'}
+            description="موفقیت بررسی جدول و Route به معنی ارسال واقعی درخواست API یا اجرای گردش‌کار کسب‌وکار نیست." />
+        </Card>}
+        <Row gutter={[12,12]}>
+          <Col xs={24} md={12}><Statistic title="پیشرفت زیرفرایندها" value={activeBusinessE2E.data?.progressPercent ?? 0} suffix="٪" /></Col>
+          <Col xs={24} md={12}><Statistic title="گام‌های پایان‌یافته / کل" value={`${activeBusinessE2E.data?.completedSteps ?? 0} / ${activeBusinessE2E.data?.totalSteps ?? 0}`} /></Col>
+        </Row>
+        {activeBusinessE2E.data && <Progress percent={activeBusinessE2E.data.progressPercent} />}
+        <Table<BusinessE2EResult> size="small" rowKey="scenario_id" pagination={{ pageSize: 8 }} scroll={{ x: 680 }}
+          dataSource={focusedE2eResults} columns={[
+            { title:'شناسه',dataIndex:'scenario_id' },
+            { title:'نتیجه واقعی',dataIndex:'state',render:(v:string)=>status(v) },
+            { title:'شرح',dataIndex:'summary' },
+            { title:'بررسی',render:(_:unknown,x:BusinessE2EResult)=><Button size="small" onClick={()=>setE2eSelectedCode(x.scenario_id)}>جزئیات</Button> },
+          ]} />
+        <Typography.Text strong>ریز مراحل اجرا و علت هر وضعیت</Typography.Text>
+        <Table<BusinessE2EStep> size="small" rowKey={x=>`${x.scenario_id}-${x.step_no}`} pagination={{pageSize:12}} scroll={{x:750}}
+          dataSource={focusedE2eSteps} columns={[
+            {title:'سناریو',dataIndex:'scenario_id'},
+            {title:'مرحله',dataIndex:'step_no'},
+            {title:'عملیات',dataIndex:'title'},
+            {title:'وضعیت',dataIndex:'state',render:(v:string)=>status(v)},
+            {title:'شواهد و خطا',dataIndex:'detail'},
+          ]} />
+        <Space wrap>
+          {e2eSelectedCode && <Button onClick={()=>setE2eSelectedCode(undefined)}>نمایش نتیجه همه سناریوها</Button>}
+          {activeBusinessE2E.data && <Button icon={<CloudDownloadOutlined />} onClick={()=>downloadJson(activeBusinessE2E.data,`business-e2e-${activeBusinessE2E.data!.id}.json`)}>دریافت JSON</Button>}
+        </Space>
+      </Space>
+    </Modal>
+
     <Drawer title={drawer ? `${drawer.id} · ${drawer.title}` : 'جزئیات سناریو'} placement="left" width={500} open={!!drawer} onClose={() => setDrawer(null)}>
       {drawer && <Space direction="vertical" size="large" style={{ width: '100%' }}>
         <Space wrap><Tag color="blue">{drawer.phase} · {stageNames[drawer.phase] ?? drawer.phase}</Tag><Tag color="warning">BLOCKED</Tag></Space>
         <Typography.Paragraph><Typography.Text strong>هدف سناریو:</Typography.Text> {drawer.objective}</Typography.Paragraph>
+        {(() => {
+          const plan = detailedPlans.data?.find(p => p.id === drawer.id)
+          if (!plan) return <Alert type="info" showIcon message="جزئیات اجرایی سناریو از موتور جدید دریافت نشده است" />
+          return <Card size="small" title="مراحل کامل سناریو و وابستگی‌ها">
+            <Typography.Paragraph>{plan.description}</Typography.Paragraph>
+            <Typography.Text strong>ابتدا وابستگی‌ها:</Typography.Text>
+            <Space wrap>{plan.dependencies.length ? plan.dependencies.map(d => <Tag color="geekblue" key={d}>{d}</Tag>) : <Tag>مستقل</Tag>}</Space>
+            <Typography.Text strong>چهار بررسی اجرایی پیش‌نیاز:</Typography.Text>
+            <ol>{plan.preflightSteps.map((v,i) => <li key={i}>{v}</li>)}</ol>
+            <Typography.Paragraph><Typography.Text strong>عملیات تجاری هدف:</Typography.Text> {plan.businessSteps}</Typography.Paragraph>
+            <Alert type="warning" showIcon message={plan.businessStatus==='LIMITED_CORE_FIXTURE' ? 'تنها ایجاد Fixture چهارجدولی قابل انجام است' : 'گردش‌کار تجاری کامل هنوز قابل اجرا نیست'} />
+          </Card>
+        })()}
         {(() => {
           const check = checkMap.get(drawer.id)
           if (!check) return <Alert type="info" message="نتایج پیش‌نیازها هنوز دریافت نشده است." />
