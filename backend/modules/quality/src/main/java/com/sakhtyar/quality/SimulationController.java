@@ -11,6 +11,8 @@ import org.springframework.http.HttpStatus;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.security.core.Authentication;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.transaction.support.TransactionSynchronization;
+import org.springframework.transaction.support.TransactionSynchronizationManager;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.server.ResponseStatusException;
 import org.springframework.web.servlet.mvc.method.annotation.RequestMappingHandlerMapping;
@@ -97,10 +99,13 @@ public class SimulationController {
     private final JdbcTemplate jdbc;
     private final Map<String,Scenario> catalog;
     private final String gitCommit;
+    private final SimulationPreflightRunner preflightRunner;
 
     public SimulationController(JdbcTemplate jdbc, ObjectMapper mapper,
                    @Qualifier("requestMappingHandlerMapping") RequestMappingHandlerMapping routes,
+                   SimulationPreflightRunner preflightRunner,
                    @Value("${app.quality.git-commit:unknown}") String gitCommit) throws Exception {
+        this.preflightRunner = preflightRunner;
         this.jdbc = jdbc;
         this.routes = routes;
         this.gitCommit = gitCommit;
@@ -246,27 +251,47 @@ public class SimulationController {
         var w = workspace(req.workspaceId());
         if(!"ACTIVE".equals(w.get("state")))
             throw new ResponseStatusException(HttpStatus.CONFLICT,"Workspace is archived");
-        LinkedHashSet<String> ids=new LinkedHashSet<>(req.scenarioIds()==null||req.scenarioIds().isEmpty()?catalog.keySet():req.scenarioIds());
-        if(ids.size()>24 || ids.isEmpty() || ids.stream().anyMatch(x -> !catalog.containsKey(x)))
+        LinkedHashSet<String> ids=new LinkedHashSet<>(req.scenarioIds()==null || req.scenarioIds().isEmpty()
+            ?catalog.keySet():req.scenarioIds());
+        if(ids.size()>24 || ids.isEmpty() || ids.stream().anyMatch(x->!catalog.containsKey(x)))
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST,"Invalid scenario selection");
         UUID id=UUID.randomUUID();
         int created=jdbc.update("""
             insert into simulation_run(id,workspace_id,request_key,requested_by,state,scenario_count,git_commit,simulated_clock_at,gate_reason)
-            values(?,?,?,?,'BLOCKED',?,?,?,?) on conflict(workspace_id,request_key) do nothing
+            values(?,?,?,?,'QUEUED',?,?,?,?) on conflict(workspace_id,request_key) do nothing
             """,id,req.workspaceId(),req.requestKey(),a.getName(),ids.size(),gitCommit,req.simulatedClockAt(),SAFETY_GATE);
         if(created == 0) {
-            UUID existing=jdbc.queryForObject("select id from simulation_run where workspace_id=? and request_key=?",UUID.class,req.workspaceId(),req.requestKey());
+            UUID existing=jdbc.queryForObject("select id from simulation_run where workspace_id=? and request_key=?",
+                UUID.class,req.workspaceId(),req.requestKey());
             return getRun(existing,a);
         }
+        List<SimulationPreflightRunner.WorkItem> items=new ArrayList<>();
+        String[] stepCodes={"DB_CONNECTIVITY","SCHEMA_TABLES","REGISTERED_API_ROUTES","BUSINESS_WRITE_GATE"};
+        String[] stepTitles={"ارتباط با PostgreSQL","بررسی جداول موردنیاز","بررسی مسیرهای API","گیت امنیتی اجرای E2E واقعی"};
         for(String scenarioId:ids) {
-            Scenario s=catalog.get(scenarioId);
+            Scenario scenario=catalog.get(scenarioId);
             jdbc.update("""
                 insert into simulation_result(run_id,scenario_id,title,phase,state,summary)
-                values(?,?,?,?,'BLOCKED',?)
-                """,id,s.id(),s.title(),s.phase(),SAFETY_GATE);
+                values(?,?,?,?,'QUEUED','Awaiting real read-only database and route probes')
+                """,id,scenario.id(),scenario.title(),scenario.phase());
+            for(int n=0;n<stepCodes.length;n++) {
+                jdbc.update("""
+                    insert into simulation_run_step(run_id,scenario_id,step_no,step_code,title,state)
+                    values(?,?,?,?,?,'QUEUED')
+                    """,id,scenarioId,n+1,stepCodes[n],stepTitles[n]);
+            }
+            items.add(new SimulationPreflightRunner.WorkItem(scenarioId,
+                REQUIRED_TABLES.getOrDefault(scenarioId,List.of()),
+                REQUIRED_ROUTES.getOrDefault(scenarioId,List.of())));
         }
-        jdbc.update("update simulation_run set finished_at=now() where id=?",id);
-        jdbc.update("insert into simulation_audit(workspace_id,run_id,actor,action) values(?,?,?,'SAFE_PREFLIGHT_RECORDED')",req.workspaceId(),id,a.getName());
+        jdbc.update("insert into simulation_audit(workspace_id,run_id,actor,action) values(?,?,?,'SAFE_PREFLIGHT_QUEUED')",
+            req.workspaceId(),id,a.getName());
+        // Enqueue AFTER transaction commit so the worker never races uncommitted rows.
+        if(!TransactionSynchronizationManager.isSynchronizationActive())
+            throw new IllegalStateException("Simulation run must execute within an active transaction");
+        TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization(){
+            @Override public void afterCommit() { preflightRunner.enqueue(id,List.copyOf(items)); }
+        });
         return getRun(id,a);
     }
     @GetMapping("/runs")
@@ -279,16 +304,31 @@ public class SimulationController {
         manager(a);
         Map<String,Object> result=new LinkedHashMap<>(one("select * from simulation_run where id=?",id));
         result.put("results",jdbc.queryForList("select * from simulation_result where run_id=? order by scenario_id",id));
+        var steps=jdbc.queryForList("""
+            select run_id,scenario_id,step_no,step_code,title,state,detail,started_at,finished_at
+            from simulation_run_step where run_id=? order by scenario_id,step_no
+            """,id);
+        result.put("steps",steps);
+        int finished=(int)steps.stream().filter(x->Set.of("PASSED","FAILED","BLOCKED").contains(x.get("state"))).count();
+        int total=steps.size();
+        var progress=new LinkedHashMap<String,Object>();
+        progress.put("totalSteps",total);
+        progress.put("completedSteps",finished);
+        progress.put("percent",total==0?0:(int)Math.round(finished*100.0/total));
+        progress.put("kind","READ_ONLY_PREFLIGHT");
+        progress.put("businessWorkflowsExecuted",false);
+        progress.put("currentStep",steps.stream().filter(x->"RUNNING".equals(x.get("state"))).findFirst().orElse(null));
+        result.put("progress",progress);
         return result;
     }
     @GetMapping("/runs/{id}/report")
     public Map<String,Object> report(@PathVariable UUID id,Authentication a) {
         manager(a);
         Map<String,Object> result=new LinkedHashMap<>();
-        result.put("formatVersion","1.0");
+        result.put("formatVersion","2.0");
         result.put("run",getRun(id,a));
         result.put("readiness",readiness(a));
-        result.put("disclaimer","BLOCKED results do not demonstrate E2E execution, business row persistence, or REAL/TEST isolation.");
+        result.put("disclaimer","Read-only PostgreSQL/schema/API probes actually run and are persisted. BLOCKED E2E results do not demonstrate business-record writes or REAL/TEST isolation.");
         return result;
     }
     @GetMapping("/runs/{id}/compare")

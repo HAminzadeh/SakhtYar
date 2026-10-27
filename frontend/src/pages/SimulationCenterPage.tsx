@@ -17,7 +17,9 @@ type Workspace = { id: string; code: string; title: string; state: string; owner
 type Scenario = { id: string; title: string; phase: string; objective: string }
 type RunRow = { id: string; workspace_id: string; state: string; requested_at: string; scenario_count: number; git_commit?: string }
 type ResultRow = { scenario_id: string; phase: string; title: string; state: string; summary: string }
-type Run = { id: string; state: string; workspace_id: string; gate_reason: string; requested_at?: string; git_commit?: string; results: ResultRow[] }
+type StepRow = { scenario_id: string; step_no: number; step_code: string; title: string; state: string; detail?: string; started_at?: string; finished_at?: string }
+type RunProgress = { percent: number; totalSteps: number; completedSteps: number; kind: string; businessWorkflowsExecuted: boolean; currentStep?: StepRow | null }
+type Run = { id: string; state: string; workspace_id: string; gate_reason: string; requested_at?: string; git_commit?: string; results: ResultRow[]; steps?: StepRow[]; progress?: RunProgress }
 type Readiness = {
   migration58Installed: boolean; taggedBusinessTables: number; taggedBusinessTablesExpected?: number;
   rlsAndCrossScopeFkEnforcementVerified: boolean; outboundGuardVerified: boolean;
@@ -87,6 +89,7 @@ export function SimulationCenterPage() {
   const [newCode, setNewCode] = useState('')
   const [newTitle, setNewTitle] = useState('')
   const [compareId, setCompareId] = useState<string>()
+  const [stepScenarioId, setStepScenarioId] = useState<string>()
   const [downloading, setDownloading] = useState(false)
 
   const capabilities = useQuery({ queryKey: ['sim-capabilities'], queryFn: () => api<Capability>(`${endpoint}/capabilities`) })
@@ -94,9 +97,16 @@ export function SimulationCenterPage() {
   const workspaces = useQuery({ queryKey: ['sim-workspaces'], queryFn: () => api<Workspace[]>(`${endpoint}/workspaces`) })
   const catalog = useQuery({ queryKey: ['sim-catalog'], queryFn: () => api<Scenario[]>(`${endpoint}/catalog`) })
   const checks = useQuery({ queryKey: ['sim-checks'], queryFn: () => api<ScenarioCheck[]>(`${endpoint}/scenario-checks`) })
-  const runs = useQuery({ queryKey: ['sim-runs'], queryFn: () => api<RunRow[]>(`${endpoint}/runs?limit=100`) })
+  const runs = useQuery({ queryKey: ['sim-runs'], queryFn: () => api<RunRow[]>(`${endpoint}/runs?limit=100`), refetchInterval: 3500 })
   const evidence = useQuery({ queryKey: ['sim-evidence', workspaceId], enabled: !!workspaceId, queryFn: () => api<Evidence>(`${endpoint}/workspaces/${workspaceId}/evidence`) })
-  const current = useQuery({ queryKey: ['sim-run', runId], enabled: !!runId, queryFn: () => api<Run>(`${endpoint}/runs/${runId}`) })
+  const current = useQuery({
+    queryKey: ['sim-run', runId], enabled: !!runId,
+    queryFn: () => api<Run>(`${endpoint}/runs/${runId}`),
+    refetchInterval: query => {
+      const item = query.state.data as Run | undefined
+      return !item || ['QUEUED', 'RUNNING'].includes(item.state) ? 650 : false
+    },
+  })
   const comparison = useQuery({ queryKey: ['sim-compare', runId, compareId], enabled: !!runId && !!compareId && runId !== compareId,
     queryFn: () => api<RunComparison>(`${endpoint}/runs/${runId}/compare?other=${compareId}`) })
 
@@ -111,6 +121,15 @@ export function SimulationCenterPage() {
   const selectedWorkspace = workspaces.data?.find(w => w.id === workspaceId)
   const visibleSelected = filtered.filter(s => effectiveIds.includes(s.id)).length
   const totalTestRecords = Object.values(evidence.data?.rowsByTable ?? {}).reduce((a, b) => a + Number(b), 0)
+  const progress = current.data?.progress
+  const stepRows = current.data?.steps ?? []
+  const progressIsActive = current.data?.state === 'QUEUED' || current.data?.state === 'RUNNING'
+  const chosenStepScenario = stepScenarioId ?? current.data?.results?.find(r => stepRows.some(x => x.scenario_id === r.scenario_id))?.scenario_id
+  const shownStepRows = stepRows.filter(x => x.scenario_id === chosenStepScenario)
+  const finishedSteps = stepRows.filter(x => ['PASSED', 'FAILED', 'BLOCKED'].includes(x.state))
+  const passedChecks = finishedSteps.filter(x => x.state === 'PASSED').length
+  const failedChecks = finishedSteps.filter(x => x.state === 'FAILED').length
+  const blockedChecks = finishedSteps.filter(x => x.state === 'BLOCKED').length
 
   const createWorkspace = useMutation({
     mutationFn: (value: { code: string; title: string }) => api<Workspace>(`${endpoint}/workspaces`, {
@@ -133,11 +152,12 @@ export function SimulationCenterPage() {
     }),
     onSuccess: result => {
       setRunId(result.id)
+      setStepScenarioId(undefined)
       setCompareId(undefined)
       setTab('runs')
       void q.invalidateQueries({ queryKey: ['sim-runs'] })
       void q.invalidateQueries({ queryKey: ['sim-evidence'] })
-      message.info('بررسی ایمن ثبت شد. وضعیت BLOCKED به معنی اجرای E2E نیست.')
+      message.info('اجرای بررسی واقعیِ فقط‌خواندنی شروع شد؛ وضعیت زیرفرایندها را در همین صفحه ببین.')
     },
     onError: e => message.error(safeMessage(e)),
   })
@@ -209,14 +229,30 @@ export function SimulationCenterPage() {
               <Button icon={<ReloadOutlined />} onClick={refresh}>به‌روزرسانی</Button>
               <Button type="primary" icon={<ThunderboltOutlined />} loading={preflight.isPending} disabled={busy || !effectiveIds.length || !all.length}
                 onClick={() => void quickStart()}>
-                {workspaceId ? `ثبت بررسی ایمن (${effectiveIds.length})` : 'ایجاد سریع فضا و ثبت بررسی'}
+                {workspaceId ? `شروع بررسی فقط‌خواندنی (${effectiveIds.length})` : 'ایجاد فضا و شروع بررسی'}
               </Button>
             </Space>
           </Col>
         </Row>
         <Alert style={{ marginTop: 16 }} showIcon type="warning"
           message="بررسی ایمن قابل اجراست؛ اما ۲۴ سناریوی واقعی هنوز به محافظت کامل REAL/TEST نیاز دارند."
-          description="دکمه ثبت بررسی فقط اطلاعات وضعیت را در جدول‌های simulation_run و simulation_result ذخیره می‌کند؛ نه اینکه پرونده و قرارداد آزمایشی بسازد. برای اجرای واقعی باید جداسازی دیتابیس، مجوزها و عملیات خارجی تکمیل شوند." />
+          description="اکنون بررسی ارتباط واقعی PostgreSQL، وجود جدول‌های موردنیاز و ثبت مسیرهای Spring MVC اجرا می‌شود و هر زیرفرایند در دیتابیس ثبت می‌شود. اما آزمونِ دارای نوشتن روی پرونده، قرارداد و داده تجاری تا تکمیل جداسازی REAL/TEST مسدود است." />
+         {runId && <Card size="small" style={{ marginTop: 16, borderRadius: 12, background: '#f7faff', borderColor: '#d8e6ff' }}
+           title={<Space><ClockCircleOutlined /> پیشرفت اجرای بررسی‌های واقعی و ایمن {status(current.data?.state)}</Space>}
+           extra={<Button size="small" onClick={() => setTab('runs')}>زیرفرایندها و نتایج</Button>}>
+           <Progress percent={progress?.percent ?? 0} status={progressIsActive ? 'active' : 'normal'} />
+           <Row gutter={[12, 8]}>
+             <Col xs={12} sm={6}><Statistic title="گام‌های پایان‌یافته" value={progress?.completedSteps ?? 0} suffix={`/ ${progress?.totalSteps ?? 0}`} /></Col>
+             <Col xs={12} sm={6}><Statistic title="بررسی‌های موفق" value={passedChecks} /></Col>
+             <Col xs={12} sm={6}><Statistic title="بررسی‌های ناموفق" value={failedChecks} /></Col>
+             <Col xs={12} sm={6}><Statistic title="گیت‌های مسدود" value={blockedChecks} /></Col>
+           </Row>
+           <Typography.Text type="secondary" style={{ display: 'block', marginTop: 8 }}>
+             {progress?.currentStep ? `در حال بررسی: ${progress.currentStep.scenario_id} · ${progress.currentStep.title}` :
+               progressIsActive ? 'در حال صف‌بندی یا پردازش زیرفرایندها...' :
+               (progress?.totalSteps ? 'بررسی‌های فقط‌خواندنی پایان یافتند؛ E2E تجاری اجرا نشده است.' : 'این اجرای قدیمی، زیرفرایند ثبت‌شده ندارد.')}
+           </Typography.Text>
+         </Card>}
       </Card>
 
       {readinessError && <Alert type="error" showIcon message="بارگذاری بعضی اطلاعات ناموفق بود" description={safeMessage(readinessError)} />}
@@ -297,12 +333,12 @@ export function SimulationCenterPage() {
               <Typography.Text type="secondary" style={{ fontSize: 12 }}>خالی‌کردن انتخاب به معنی اجرای همه نیست؛ باید حداقل یک سناریو را انتخاب کنی.</Typography.Text>
               <Button type="primary" size="large" icon={<SafetyCertificateOutlined />} loading={preflight.isPending}
                 disabled={busy || !effectiveIds.length || !all.length} onClick={() => void quickStart()}>
-                {workspaceId ? `ثبت بررسی ایمن ${effectiveIds.length} سناریو` : 'ایجاد سریع فضا و ثبت بررسی'}
+                {workspaceId ? `شروع بررسی واقعیِ فقط‌خواندنی ${effectiveIds.length} سناریو` : 'ایجاد فضا و شروع بررسی'}
               </Button>
             </Space>
           </> },
           { key: 'runs', label: <Space><ClockCircleOutlined /> تاریخچه و نتایج</Space>, children: <>
-            <Typography.Paragraph type="secondary">هر ردیف، یک بررسی ثبت‌شده است؛ `BLOCKED` به معنی عدم اجرای گردش‌کار واقعی است.</Typography.Paragraph>
+            <Typography.Paragraph type="secondary">اجراهای جدید دارای زیرفرایندهای قابل پایش هستند. درصد پیشرفت فقط مربوط به بررسی‌های اتصال، Schema و API است؛ نه تکمیل E2E تجاری.</Typography.Paragraph>
             <Table<RunRow> rowKey="id" size="small" scroll={{ x: 760 }} dataSource={runs.data ?? []} loading={runs.isLoading}
               pagination={{ pageSize: 7, showSizeChanger: true }}
               columns={[
@@ -314,7 +350,21 @@ export function SimulationCenterPage() {
               ]} />
             {runId ? <Card size="small" style={{ background: '#fafcff', borderRadius: 12 }} title="جزئیات اجرای انتخاب‌شده"
               extra={<Button type="primary" size="small" icon={<CloudDownloadOutlined />} loading={downloading} onClick={() => void exportReport(runId)}>دانلود JSON</Button>}>
-              <Descriptions size="small" bordered column={{ xs: 1, sm: 2 }} items={[
+              <Card size="small" style={{ marginBottom: 14, background: '#ffffff' }}>
+                 <Space direction="vertical" style={{ width: '100%' }}>
+                   <Typography.Text strong>پیشرفت زیرفرایندهای قابل اندازه‌گیری</Typography.Text>
+                   <Progress percent={progress?.percent ?? 0} status={progressIsActive ? 'active' : 'normal'} />
+                   <Space wrap>
+                     <Tag color="blue">پایان‌یافته: {progress?.completedSteps ?? 0} / {progress?.totalSteps ?? 0}</Tag>
+                     <Tag color="green">موفق: {passedChecks}</Tag>
+                     <Tag color="red">ناموفق: {failedChecks}</Tag>
+                     <Tag color="warning">گیت E2E مسدود: {blockedChecks}</Tag>
+                   </Space>
+                   <Typography.Text type="secondary">{progress?.currentStep ? `گام جاری: ${progress.currentStep.scenario_id} · ${progress.currentStep.title}` :
+                     stepRows.length ? 'تمام زیرفرایندهای بررسی ایمن تعیین‌تکلیف شدند.' : 'این اجرا متعلق به نسخه قبلی است و زیرفرایند ندارد.'}</Typography.Text>
+                 </Space>
+               </Card>
+               <Descriptions size="small" bordered column={{ xs: 1, sm: 2 }} items={[
                 { key: 'id', label: 'شناسه', children: <Typography.Text copyable={{ text: runId }}>{runId.slice(0, 18)}…</Typography.Text> },
                 { key: 'state', label: 'نتیجه', children: status(current.data?.state) },
                 { key: 'date', label: 'زمان', children: dateFa(current.data?.requested_at) },
@@ -322,7 +372,30 @@ export function SimulationCenterPage() {
                 { key: 'reason', label: 'علت مسدودشدن', span: 2, children: current.data?.gate_reason ?? '—' },
               ]} />
               <Table<ResultRow> style={{ marginTop: 14 }} size="small" rowKey="scenario_id" pagination={{ pageSize: 8 }} dataSource={current.data?.results ?? []}
-                columns={[{ title: 'شناسه', dataIndex: 'scenario_id' }, { title: 'موضوع', dataIndex: 'title' }, { title: 'وضعیت', dataIndex: 'state', render: (v: string) => status(v) }]} />
+                columns={[
+                   { title: 'شناسه', dataIndex: 'scenario_id' },
+                   { title: 'موضوع', dataIndex: 'title' },
+                   { title: 'وضعیت E2E', dataIndex: 'state', render: (v: string) => status(v) },
+                   { title: 'زیرفرایندها', render: (_: unknown, row: ResultRow) => {
+                     const parts = stepRows.filter(x => x.scenario_id === row.scenario_id)
+                     const completed = parts.filter(x => ['PASSED','FAILED','BLOCKED'].includes(x.state)).length
+                     return <Button size="small" onClick={() => setStepScenarioId(row.scenario_id)}>
+                       {parts.length ? `${completed}/${parts.length} · جزئیات` : 'بدون داده'}
+                     </Button>
+                   } },
+                 ]} />
+               {stepRows.length > 0 && <Card size="small" style={{ marginTop: 12, background: '#fff' }}
+                 title={<Space><FileSearchOutlined /> زیرفرایندهای {chosenStepScenario ?? 'سناریو'}</Space>}
+                 extra={<Select showSearch style={{ width: 270 }} value={chosenStepScenario} onChange={setStepScenarioId}
+                   options={(current.data?.results ?? []).map(r => ({ label: `${r.scenario_id} · ${r.title}`, value: r.scenario_id }))} />}>
+                 <Table<StepRow> size="small" pagination={false} rowKey={r => `${r.scenario_id}:${r.step_no}`}
+                   dataSource={shownStepRows} scroll={{ x: 660 }} columns={[
+                     { title: 'مرحله', dataIndex: 'step_no', width: 76 },
+                     { title: 'زیرپردازش', dataIndex: 'title', width: 250 },
+                     { title: 'وضعیت', dataIndex: 'state', width: 150, render: (v: string) => status(v) },
+                     { title: 'شاهد', dataIndex: 'detail' },
+                   ]} />
+               </Card>}
               <Space wrap>
                 <Typography.Text strong>مقایسه با اجرای دیگر:</Typography.Text>
                 <Select style={{ minWidth: 265 }} allowClear placeholder="یک اجرای قبلی انتخاب کن" value={compareId} onChange={setCompareId}
