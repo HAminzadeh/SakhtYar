@@ -39,6 +39,12 @@ type ScenarioCheck = {
   schemaRoutesReady: boolean; businessE2EEnabled: boolean
 }
 type RunComparison = { left: Run; right: Run; note: string }
+type BusinessE2EResult = { scenario_id: string; state: string; summary: string; evidence?: unknown }
+type BusinessE2EStep = { scenario_id: string; step_no: number; title: string; state: string; detail?: string }
+type BusinessE2ERun = { id: string; state: string; scenario_count: number; completedScenarios: number; progressPercent: number;
+  requested_at: string; results: BusinessE2EResult[]; steps: BusinessE2EStep[] }
+type BusinessE2ECoverage = { implementedBusinessE2e: string[]; completeBusinessE2eCount: number; totalBusinessE2eCount: number; note: string }
+
 type CoreFixtureReadiness = {
   coreFixturePermitted: boolean; runtimeDbRoleNonBypass: boolean;
   corePolicyCoverage: boolean; migration60StructureAvailable: boolean;
@@ -104,6 +110,7 @@ export function SimulationCenterPage() {
   const [stepScenarioId, setStepScenarioId] = useState<string>()
   const [downloading, setDownloading] = useState(false)
   const [resultModalOpen, setResultModalOpen] = useState(false)
+  const [e2eRunId, setE2eRunId] = useState<string>()
 
   const capabilities = useQuery({ queryKey: ['sim-capabilities'], queryFn: () => api<Capability>(`${endpoint}/capabilities`) })
   const readiness = useQuery({ queryKey: ['sim-readiness'], queryFn: () => api<Readiness>(`${endpoint}/readiness`) })
@@ -147,6 +154,43 @@ export function SimulationCenterPage() {
     },
     onError: e => message.error(safeMessage(e)),
   })
+  // Business-E2E results are independent of the previous read-only preflight runs.
+  const businessE2ECoverage = useQuery({
+    queryKey: ['sim-business-e2e-coverage'],
+    queryFn: () => api<BusinessE2ECoverage>(`${endpoint}/e2e/coverage`),
+  })
+  const businessE2ERuns = useQuery({
+    queryKey: ['sim-business-e2e-runs', workspaceId], enabled: Boolean(workspaceId),
+    queryFn: () => api<Array<{id:string; state:string; requested_at:string; scenario_count:number}>>(`${endpoint}/e2e/runs?workspaceId=${workspaceId}`),
+    refetchInterval: 2500,
+  })
+  const activeE2ERunId = e2eRunId ?? businessE2ERuns.data?.[0]?.id
+  const activeBusinessE2E = useQuery({
+    queryKey: ['sim-business-e2e-detail', activeE2ERunId], enabled: Boolean(activeE2ERunId),
+    queryFn: () => api<BusinessE2ERun>(`${endpoint}/e2e/runs/${activeE2ERunId}`),
+    refetchInterval: query => {
+      const value = query.state.data as BusinessE2ERun | undefined
+      return !value || ['QUEUED','RUNNING'].includes(value.state) ? 750 : false
+    },
+  })
+  const startBusinessE2E = useMutation({
+    mutationFn: (scenarioIds: string[]) => api<BusinessE2ERun>(`${endpoint}/e2e/runs`, {
+      method: 'POST', body: JSON.stringify({ workspaceId, requestKey: crypto.randomUUID().replaceAll('-', ''), scenarioIds }),
+    }),
+    onSuccess: value => {
+      setE2eRunId(value.id)
+      void q.invalidateQueries({ queryKey: ['sim-business-e2e-runs'] })
+      void q.invalidateQueries({ queryKey: ['sim-evidence'] })
+      message.info('آزمون‌های E2E در صف قرار گرفتند. فقط E2E-14 دارای اجرای محدود کسب‌وکاری است.')
+    },
+    onError: e => message.error(safeMessage(e)),
+  })
+  useEffect(() => {
+    if (activeBusinessE2E.data?.state === 'COMPLETED') {
+      void q.invalidateQueries({ queryKey: ['sim-evidence'] })
+      void q.invalidateQueries({ queryKey: ['sim-core-fixtures'] })
+    }
+  }, [activeBusinessE2E.data?.id, activeBusinessE2E.data?.state, q])
   const comparison = useQuery({ queryKey: ['sim-compare', runId, compareId], enabled: !!runId && !!compareId && runId !== compareId,
     queryFn: () => api<RunComparison>(`${endpoint}/runs/${runId}/compare?other=${compareId}`) })
 
@@ -321,6 +365,54 @@ export function SimulationCenterPage() {
 
       <Card style={{ borderRadius: 16 }}>
         <Tabs activeKey={tab} onChange={setTab} items={[
+          { key: 'business-e2e', label: <Space><ExperimentOutlined /> اجرای واقعی E2E</Space>, children: <>
+            <Alert showIcon type="warning" style={{ marginBottom: 12 }}
+              message="E2E واقعی با بررسی مقدماتی تفاوت دارد"
+              description="در این نسخه فقط E2E-14 (ثبت محدود پرونده، ملک و دو مالک) کد اجرایی دارد. ۲۳ سناریوی دیگر با علت مشخص BLOCKED می‌مانند. اجرای ۱۰۰٪ به معنی قبولی ۲۴ سناریو نیست." />
+            <Row gutter={[12, 12]} style={{ marginBottom: 14 }}>
+              <Col xs={24} sm={12}><Card size="small"><Statistic title="سناریوهای دارای اجرای محدود واقعی" value={businessE2ECoverage.data?.completeBusinessE2eCount ?? 0} suffix="از ۲۴" /></Card></Col>
+              <Col xs={24} sm={12}><Card size="small"><Statistic title="سناریوهای بدون موتور E2E تجاری" value={24-(businessE2ECoverage.data?.completeBusinessE2eCount ?? 0)} /></Card></Col>
+            </Row>
+            <Space wrap style={{ marginBottom: 14 }}>
+              <Button type="primary" icon={<ExperimentOutlined />} loading={startBusinessE2E.isPending}
+                disabled={!workspaceId || !coreReadiness.data?.coreFixturePermitted}
+                onClick={() => startBusinessE2E.mutate(['E2E-14'])}>
+                اجرای واقعی E2E-14
+              </Button>
+              <Button loading={startBusinessE2E.isPending} disabled={!workspaceId}
+                onClick={() => startBusinessE2E.mutate(Array.from({length:24}, (_,i) => `E2E-${String(i+1).padStart(2,'0')}`))}>
+                ثبت وضعیت اجرای ۲۴ سناریو
+              </Button>
+            </Space>
+            {!coreReadiness.data?.coreFixturePermitted && <Alert style={{ marginBottom: 12 }} showIcon type="info"
+              message="E2E-14 تا تأیید گیت PostgreSQL قابل اجرا نیست"
+              description={(coreReadiness.data?.blockers ?? ['نقش محدود دیتابیس و FORCE RLS چهار جدول لازم است.']).join(' | ')} />}
+            {!workspaceId && <Alert showIcon type="info" message="ابتدا یک فضای آزمایشی فعال انتخاب کن" />}
+            <Table size="small" rowKey="id" style={{ marginBottom: 14 }} pagination={{ pageSize: 5 }}
+              dataSource={businessE2ERuns.data ?? []} loading={businessE2ERuns.isLoading} columns={[
+                { title: 'زمان', dataIndex: 'requested_at', render: (v:string) => dateFa(v) },
+                { title: 'وضعیت', dataIndex: 'state', render: (v:string) => status(v) },
+                { title: 'تعداد سناریو', dataIndex: 'scenario_count' },
+                { title: 'نتیجه', render: (_:unknown, r:{id:string}) => <Button size="small" onClick={() => setE2eRunId(r.id)}>مشاهده</Button> },
+              ]} />
+            {activeBusinessE2E.data && <Card size="small" title={`نتایج واقعی E2E · ${activeBusinessE2E.data.id.slice(0,8)}`}>
+              <Progress percent={activeBusinessE2E.data.progressPercent} status="active" />
+              <Typography.Text type="secondary">{activeBusinessE2E.data.completedScenarios} از {activeBusinessE2E.data.scenario_count} سناریو تعیین تکلیف شده‌اند. وضعیت PASS فقط برای اجرای اثبات‌شده ثبت می‌شود.</Typography.Text>
+              <Table<BusinessE2EResult> rowKey="scenario_id" size="small" pagination={{pageSize:10}}
+                style={{ marginTop: 12 }} dataSource={activeBusinessE2E.data.results} columns={[
+                  { title:'سناریو',dataIndex:'scenario_id' },
+                  { title:'وضعیت اجرایی',dataIndex:'state',render:(v:string)=>status(v) },
+                  { title:'شواهد / علت',dataIndex:'summary' },
+                ]} />
+              <Typography.Text strong>زیرفرایندهای E2E-14</Typography.Text>
+              <Table<BusinessE2EStep> rowKey={r => `${r.scenario_id}-${r.step_no}`} size="small" pagination={false}
+                dataSource={activeBusinessE2E.data.steps} columns={[
+                  { title:'مرحله',dataIndex:'step_no' }, { title:'عملیات',dataIndex:'title' },
+                  { title:'وضعیت',dataIndex:'state',render:(v:string)=>status(v) }, { title:'جزئیات',dataIndex:'detail' },
+                ]} />
+                <Button size="small" icon={<CloudDownloadOutlined />} onClick={() => downloadJson(activeBusinessE2E.data, `business-e2e-${activeBusinessE2E.data.id}.json`)}>دانلود شواهد JSON</Button>
+            </Card>}
+          </> },
           { key: 'scenarios', label: <Space><FileSearchOutlined /> سناریوها</Space>, children: <>
             <Card size="small" style={{ marginBottom: 14, background: '#f8fafd', borderRadius: 12 }}>
               <Row gutter={[12, 12]} align="bottom">
