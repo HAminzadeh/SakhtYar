@@ -49,7 +49,7 @@ type BusinessE2ERun = { id: string; state: string; scenario_count: number; compl
 type BusinessE2ECoverage = { implementedBusinessE2e: string[]; completeBusinessE2eCount: number; limitedBusinessE2eCount?: number; totalBusinessE2eCount: number; note: string }
 
 type CoreFixtureReadiness = {
-  coreFixturePermitted: boolean; runtimeDbRoleNonBypass: boolean;
+  coreFixturePermitted: boolean; runtimeDbRoleNonBypass: boolean; automaticTestRoleProvisioning?: boolean;
   corePolicyCoverage: boolean; migration60StructureAvailable: boolean;
   fullApplicationIsolationVerified: boolean; note: string;
   blockers?: string[]; runtimeDbUser?: string
@@ -591,11 +591,14 @@ export function SimulationCenterPage() {
                 <Tag color={coreReadiness.data?.coreFixturePermitted ? 'green' : 'orange'}>
                   {coreReadiness.data?.coreFixturePermitted ? 'جداسازی چهار جدول آماده' : 'مجوز ایجاد داده آزمایشی برقرار نیست'}
                 </Tag>
-                <Tag color={coreReadiness.data?.runtimeDbRoleNonBypass ? 'green' : 'red'}>
-                  نقش PostgreSQL: {coreReadiness.data?.runtimeDbRoleNonBypass ? 'محدود' : 'نیازمند بررسی'}</Tag>
+                <Tag color={coreReadiness.data?.automaticTestRoleProvisioning ? 'green' : 'red'}>
+                  نقش مستقل TEST: {coreReadiness.data?.automaticTestRoleProvisioning ? 'ایجاد خودکار هنگام اجرا' : 'آماده نیست'}</Tag>
                 <Tag color={coreReadiness.data?.migration60StructureAvailable ? 'green' : 'orange'}>
                   Migration V60: {coreReadiness.data?.migration60StructureAvailable ? 'ثبت شده' : 'نامشخص'}</Tag>
               </Space>
+              {coreReadiness.data?.automaticTestRoleProvisioning && <Alert showIcon type="info" style={{ marginBottom: 12 }}
+                message="نقش محدود دیتابیس به‌صورت خودکار ساخته یا بازیابی می‌شود"
+                description="پس از انتخاب فضای TEST، با کلیک روی ایجاد پرونده یا اجرای E2E-14، سرور نقش مخصوص همان Workspace را می‌سازد و درج پرونده را با اتصال مستقل فاقد SUPERUSER و BYPASSRLS انجام می‌دهد. نیاز به اجرای دستور در pgAdmin نیست." />}
               {!coreReadiness.data?.coreFixturePermitted && !coreReadiness.isLoading &&
                 <Alert style={{ marginBottom: 12 }} showIcon type="warning" message="چرا ساخت پرونده TEST هنوز مجاز نیست؟"
                   description={<Space direction="vertical" size={3}>
