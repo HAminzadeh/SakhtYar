@@ -1,0 +1,102 @@
+[
+  {
+    "id": "T01-01",
+    "capability": "Row-level Security policies",
+    "status": "PLANNED"
+  },
+  {
+    "id": "T01-02",
+    "capability": "Multiple test workspaces",
+    "status": "FOUNDATION"
+  },
+  {
+    "id": "T01-03",
+    "capability": "Cross-scope FK checks",
+    "status": "PLANNED"
+  },
+  {
+    "id": "T01-04",
+    "capability": "Per-session data scope",
+    "status": "PLANNED"
+  },
+  {
+    "id": "T01-05",
+    "capability": "Outbound side-effect guard",
+    "status": "PLANNED"
+  },
+  {
+    "id": "T01-06",
+    "capability": "Data provenance columns",
+    "status": "FOUNDATION"
+  },
+  {
+    "id": "T02-07",
+    "capability": "Deterministic fixture factory",
+    "status": "PLANNED"
+  },
+  {
+    "id": "T02-08",
+    "capability": "Scenario dependency graph",
+    "status": "CATALOG_ONLY"
+  },
+  {
+    "id": "T02-09",
+    "capability": "Durable resumable jobs",
+    "status": "PLANNED"
+  },
+  {
+    "id": "T03-10",
+    "capability": "Replay and version comparison",
+    "status": "FOUNDATION"
+  },
+  {
+    "id": "T03-11",
+    "capability": "Playwright trace capture",
+    "status": "PLANNED"
+  },
+  {
+    "id": "T03-12",
+    "capability": "Database evidence counts",
+    "status": "FOUNDATION"
+  },
+  {
+    "id": "T03-13",
+    "capability": "Retention and cleanup",
+    "status": "PLANNED"
+  },
+  {
+    "id": "T03-14",
+    "capability": "Isolation health dashboard",
+    "status": "FOUNDATION"
+  },
+  {
+    "id": "T03-15",
+    "capability": "API contract tests",
+    "status": "PLANNED"
+  },
+  {
+    "id": "T04-16",
+    "capability": "AI model evaluation",
+    "status": "PLANNED"
+  },
+  {
+    "id": "T04-17",
+    "capability": "Failure injection sandbox",
+    "status": "PLANNED"
+  },
+  {
+    "id": "T04-18",
+    "capability": "Virtual business clock",
+    "status": "METADATA_ONLY"
+  },
+  {
+    "id": "T04-19",
+    "capability": "Scoped feature flags",
+    "status": "PLANNED"
+  },
+  {
+    "id": "T04-20",
+    "capability": "Release readiness scorecard",
+    "status": "PLANNED"
+  }
+]

@@ -456,6 +456,18 @@ export function PreferencesPage() {
         </Space>
       </Card>
 
+      <Card className="sakhtyar-settings-card" title="حالت داده‌ها: واقعی / آزمایشی">
+        <Space direction="vertical" size={10}>
+          <Tag color="green">حالت فعال سایر صفحات: واقعی</Tag>
+          <Alert showIcon type="warning"
+            message="تغییر سراسری به حالت آزمایشی هنوز غیرفعال است"
+            description="برای جلوگیری از نشت داده، ابتدا باید کنترل‌های تمام Queryها، محدودیت‌های دیتابیس و محافظ ارسال خارجی تکمیل و تأیید شوند. ایجاد فضای آزمایشی و مشاهده گزارش‌های امن از مرکز شبیه‌سازی ممکن است." />
+          {canAdmin && <Button type="primary" onClick={() => navigate('/admin/simulations')}>
+            ورود به مرکز شبیه‌سازی و داده‌های آزمایشی
+          </Button>}
+        </Space>
+      </Card>
+
       {canAdmin ? <Tabs defaultActiveKey="configuration" items={[
         {key:'configuration', label: language === 'fa' ? 'پیکربندی سیستم' : 'System configuration', children: <Card className="sakhtyar-config-center-entry">
           <Space direction="vertical" size={8}>

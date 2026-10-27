@@ -1,0 +1,50 @@
+[
+  {
+    "code": "FIX-CASE-01",
+    "title": "خانه کلنگی",
+    "inputTemplate": {
+      "landAreaM2": 300
+    },
+    "status": "DECLARED_NOT_EXECUTABLE"
+  },
+  {
+    "code": "FIX-MULTI-02",
+    "title": "مالکیت چند نفره",
+    "inputTemplate": {
+      "ownersCount": 2
+    },
+    "status": "DECLARED_NOT_EXECUTABLE"
+  },
+  {
+    "code": "FIX-PRICE-03",
+    "title": "نوسان هزینه مصالح",
+    "inputTemplate": {
+      "observations": 3
+    },
+    "status": "DECLARED_NOT_EXECUTABLE"
+  },
+  {
+    "code": "FIX-REG-04",
+    "title": "ضابطه نامشخص",
+    "inputTemplate": {
+      "noVerifiedRegulation": true
+    },
+    "status": "DECLARED_NOT_EXECUTABLE"
+  },
+  {
+    "code": "FIX-BUILDER-05",
+    "title": "مقایسه سازندگان",
+    "inputTemplate": {
+      "builderCount": 2
+    },
+    "status": "DECLARED_NOT_EXECUTABLE"
+  },
+  {
+    "code": "FIX-INVALID-06",
+    "title": "ورودی‌های نامعتبر",
+    "inputTemplate": {
+      "expectedRejections": 5
+    },
+    "status": "DECLARED_NOT_EXECUTABLE"
+  }
+]

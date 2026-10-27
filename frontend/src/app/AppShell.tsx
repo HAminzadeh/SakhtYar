@@ -138,9 +138,10 @@ export function AppShell() {
           {(hasPermission('USER_MANAGE') || hasPermission('QUALITY_VIEW')) && (
             <Dropdown trigger={['click']} placement="bottomRight" menu={{items: [
               ...(hasPermission('QUALITY_VIEW') ? [{ key:'quality',label:'مرکز آزمون و تضمین کیفیت',icon:<AuditOutlined />,onClick:()=>navigate('/admin/quality') }] : []),
+              ...(hasPermission('USER_MANAGE') ? [{ key:'simulations',label:'شبیه‌سازی و داده‌های آزمایشی',icon:<AuditOutlined />,onClick:()=>navigate('/admin/simulations') }] : []),
               ...(hasPermission('USER_MANAGE') ? [{ key:'engineering',label:'مرکز راهبری هوش مصنوعی',icon:<ToolOutlined />,onClick:()=>navigate('/admin/engineering') }] : []),
             ]}}>
-              <Button type={active('/admin/quality') || active('/admin/engineering') ? 'primary' : 'default'} icon={<ToolOutlined />}>مراکز تخصصی</Button>
+              <Button type={active('/admin/quality') || active('/admin/engineering') || active('/admin/simulations') ? 'primary' : 'default'} icon={<ToolOutlined />}>مراکز تخصصی</Button>
             </Dropdown>
           )}
           <Button type={active('/help') ? 'primary' : 'default'} icon={<QuestionCircleOutlined />} onClick={() => navigate('/help')}>

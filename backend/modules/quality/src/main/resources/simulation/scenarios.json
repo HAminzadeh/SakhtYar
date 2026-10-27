@@ -1,0 +1,194 @@
+[
+  {
+    "id": "E2E-01",
+    "phase": "S02",
+    "title": "مدیریت هویت و نشست",
+    "objective": "Identity, login, lockout, session revocation",
+    "execution": "BLOCKED_UNTIL_VERIFIED_ISOLATION",
+    "writesBusinessData": false
+  },
+  {
+    "id": "E2E-02",
+    "phase": "S02",
+    "title": "مالکیت پرونده و عضویت",
+    "objective": "Per-case access and membership isolation",
+    "execution": "BLOCKED_UNTIL_VERIFIED_ISOLATION",
+    "writesBusinessData": false
+  },
+  {
+    "id": "E2E-03",
+    "phase": "S02",
+    "title": "مجوزهای مدیریت دانش",
+    "objective": "Knowledge administration permissions",
+    "execution": "BLOCKED_UNTIL_VERIFIED_ISOLATION",
+    "writesBusinessData": false
+  },
+  {
+    "id": "E2E-04",
+    "phase": "S02",
+    "title": "ویرایش ضوابط شهری",
+    "objective": "Regulation authoring permissions and provenance",
+    "execution": "BLOCKED_UNTIL_VERIFIED_ISOLATION",
+    "writesBusinessData": false
+  },
+  {
+    "id": "E2E-05",
+    "phase": "S02",
+    "title": "مهاجرت دیتابیس و بازیابی",
+    "objective": "Flyway migration and recovery",
+    "execution": "BLOCKED_UNTIL_VERIFIED_ISOLATION",
+    "writesBusinessData": false
+  },
+  {
+    "id": "E2E-06",
+    "phase": "S02",
+    "title": "امنیت API و CSRF",
+    "objective": "CSRF, repeated mutations and access denials",
+    "execution": "BLOCKED_UNTIL_VERIFIED_ISOLATION",
+    "writesBusinessData": false
+  },
+  {
+    "id": "E2E-07",
+    "phase": "S03",
+    "title": "ورود بسته دانش",
+    "objective": "Archive validation, intake and rejection",
+    "execution": "BLOCKED_UNTIL_VERIFIED_ISOLATION",
+    "writesBusinessData": false
+  },
+  {
+    "id": "E2E-08",
+    "phase": "S03",
+    "title": "موتور استخراج دانش",
+    "objective": "Pipeline checkpoints, stop and resume",
+    "execution": "BLOCKED_UNTIL_VERIFIED_ISOLATION",
+    "writesBusinessData": false
+  },
+  {
+    "id": "E2E-09",
+    "phase": "S03",
+    "title": "اسناد حقوقی و OCR",
+    "objective": "Document extraction with page provenance",
+    "execution": "BLOCKED_UNTIL_VERIFIED_ISOLATION",
+    "writesBusinessData": false
+  },
+  {
+    "id": "E2E-10",
+    "phase": "S03",
+    "title": "بازبینی انسانی",
+    "objective": "Human approval, reject and text revisions",
+    "execution": "BLOCKED_UNTIL_VERIFIED_ISOLATION",
+    "writesBusinessData": false
+  },
+  {
+    "id": "E2E-11",
+    "phase": "S03",
+    "title": "حاکمیت و انتشار",
+    "objective": "Governed release and version constraints",
+    "execution": "BLOCKED_UNTIL_VERIFIED_ISOLATION",
+    "writesBusinessData": false
+  },
+  {
+    "id": "E2E-12",
+    "phase": "S03",
+    "title": "کاتالوگ و بازیابی",
+    "objective": "Evidence-aware catalogue retrieval",
+    "execution": "BLOCKED_UNTIL_VERIFIED_ISOLATION",
+    "writesBusinessData": false
+  },
+  {
+    "id": "E2E-13",
+    "phase": "S03",
+    "title": "خزشگر منابع",
+    "objective": "Sandboxed ingestion, deduplication and provenance",
+    "execution": "BLOCKED_UNTIL_VERIFIED_ISOLATION",
+    "writesBusinessData": false
+  },
+  {
+    "id": "E2E-14",
+    "phase": "S04",
+    "title": "پرونده و ملک و مالک",
+    "objective": "Case, property, two owners and documents",
+    "execution": "BLOCKED_UNTIL_VERIFIED_ISOLATION",
+    "writesBusinessData": false
+  },
+  {
+    "id": "E2E-15",
+    "phase": "S04",
+    "title": "سازندگان و پیشنهادها",
+    "objective": "Builders, matching, proposals, negotiations",
+    "execution": "BLOCKED_UNTIL_VERIFIED_ISOLATION",
+    "writesBusinessData": false
+  },
+  {
+    "id": "E2E-16",
+    "phase": "S04",
+    "title": "مصالح و برآورد هزینه",
+    "objective": "Material prices, aggregation and assembly",
+    "execution": "BLOCKED_UNTIL_VERIFIED_ISOLATION",
+    "writesBusinessData": false
+  },
+  {
+    "id": "E2E-17",
+    "phase": "S04",
+    "title": "سناریوهای ساخت",
+    "objective": "Scenarios, quality package, snapshots",
+    "execution": "BLOCKED_UNTIL_VERIFIED_ISOLATION",
+    "writesBusinessData": false
+  },
+  {
+    "id": "E2E-18",
+    "phase": "S04",
+    "title": "ضوابط و امکان‌سنجی",
+    "objective": "Urban rules and feasibility evidence",
+    "execution": "BLOCKED_UNTIL_VERIFIED_ISOLATION",
+    "writesBusinessData": false
+  },
+  {
+    "id": "E2E-19",
+    "phase": "S04",
+    "title": "مالی مشارکت",
+    "objective": "Participation shares, revenue and ROI",
+    "execution": "BLOCKED_UNTIL_VERIFIED_ISOLATION",
+    "writesBusinessData": false
+  },
+  {
+    "id": "E2E-20",
+    "phase": "S04",
+    "title": "حساسیت و ردیابی نتایج",
+    "objective": "Sensitivity, snapshot and source lineage",
+    "execution": "BLOCKED_UNTIL_VERIFIED_ISOLATION",
+    "writesBusinessData": false
+  },
+  {
+    "id": "E2E-21",
+    "phase": "S05",
+    "title": "عامل‌های هوشمند",
+    "objective": "AI agent execution, citations and failure handling",
+    "execution": "BLOCKED_UNTIL_VERIFIED_ISOLATION",
+    "writesBusinessData": false
+  },
+  {
+    "id": "E2E-22",
+    "phase": "S05",
+    "title": "رابط کاربری و BFF",
+    "objective": "Browser-to-API-to-DB persistence",
+    "execution": "BLOCKED_UNTIL_VERIFIED_ISOLATION",
+    "writesBusinessData": false
+  },
+  {
+    "id": "E2E-23",
+    "phase": "S05",
+    "title": "مانیتورینگ و اعلان",
+    "objective": "Monitoring rule, event and sandbox outbox",
+    "execution": "BLOCKED_UNTIL_VERIFIED_ISOLATION",
+    "writesBusinessData": false
+  },
+  {
+    "id": "E2E-24",
+    "phase": "S05",
+    "title": "تنظیمات و بازیابی",
+    "objective": "Configuration versioning and rollback",
+    "execution": "BLOCKED_UNTIL_VERIFIED_ISOLATION",
+    "writesBusinessData": false
+  }
+]
