@@ -52,6 +52,12 @@ public class SimulationCoreFixtureService {
         boolean fixturesTable=Boolean.TRUE.equals(db.queryForObject(
             "select to_regclass('public.simulation_core_fixture') is not null",Boolean.class));
         Map<String,Object> result=new LinkedHashMap<>();
+        List<String> blockers=new ArrayList<>();
+        if (!roleSafe) blockers.add("Runtime PostgreSQL role is SUPERUSER or BYPASSRLS; switch to a restricted application DB role.");
+        if (!policiesOk) blockers.add("FORCE RLS, scope policy or guard trigger is missing on at least one of the four core tables.");
+        if (!fixturesTable) blockers.add("Migration V60 / simulation_core_fixture table is unavailable.");
+        result.put("blockers",blockers);
+        result.put("runtimeDbUser",db.queryForObject("select current_user",String.class));
         result.put("coreFixturePermitted",roleSafe && policiesOk && fixturesTable);
         result.put("runtimeDbRoleNonBypass",roleSafe);
         result.put("corePolicyTables",policies);

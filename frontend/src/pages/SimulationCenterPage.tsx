@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import {
   Alert, App as AntdApp, Button, Card, Col, Descriptions, Drawer, Empty,
@@ -42,7 +42,8 @@ type RunComparison = { left: Run; right: Run; note: string }
 type CoreFixtureReadiness = {
   coreFixturePermitted: boolean; runtimeDbRoleNonBypass: boolean;
   corePolicyCoverage: boolean; migration60StructureAvailable: boolean;
-  fullApplicationIsolationVerified: boolean; note: string
+  fullApplicationIsolationVerified: boolean; note: string;
+  blockers?: string[]; runtimeDbUser?: string
 }
 type CoreFixture = {
   id: string; case_id: string; project_code: string; title: string;
@@ -102,6 +103,7 @@ export function SimulationCenterPage() {
   const [compareId, setCompareId] = useState<string>()
   const [stepScenarioId, setStepScenarioId] = useState<string>()
   const [downloading, setDownloading] = useState(false)
+  const [resultModalOpen, setResultModalOpen] = useState(false)
 
   const capabilities = useQuery({ queryKey: ['sim-capabilities'], queryFn: () => api<Capability>(`${endpoint}/capabilities`) })
   const readiness = useQuery({ queryKey: ['sim-readiness'], queryFn: () => api<Readiness>(`${endpoint}/readiness`) })
@@ -122,6 +124,13 @@ export function SimulationCenterPage() {
     queryKey: ['sim-core-readiness'],
     queryFn: () => api<CoreFixtureReadiness>(`${endpoint}/core-fixture-readiness`),
   })
+  // Restore a useful workspace after reload; changing it always re-keys evidence queries.
+  useEffect(() => {
+    if (!workspaceId && workspaces.data?.length) {
+      const latestActive = workspaces.data.find(w => w.state === 'ACTIVE')
+      if (latestActive) setWorkspaceId(latestActive.id)
+    }
+  }, [workspaceId, workspaces.data])
   const coreFixtures = useQuery({
     queryKey: ['sim-core-fixtures', workspaceId],
     enabled: Boolean(workspaceId) && Boolean(coreReadiness.data?.coreFixturePermitted),
@@ -183,6 +192,7 @@ export function SimulationCenterPage() {
     }),
     onSuccess: result => {
       setRunId(result.id)
+      setResultModalOpen(true)
       setStepScenarioId(undefined)
       setCompareId(undefined)
       setTab('runs')
@@ -357,7 +367,12 @@ export function SimulationCenterPage() {
                   if (!check) return <Tag>در حال بررسی</Tag>
                   return <Tag color={check.schemaRoutesReady ? 'blue' : 'orange'}>{check.schemaRoutesReady ? 'ساختار موجود' : `${check.missingTables.length + check.missingRoutes.length} مورد ناقص`}</Tag>
                 } },
-                { title: 'اجرای تجاری', width: 180, render: () => <Tag color="warning">BLOCKED · ایمن</Tag> },
+                { title: 'اجرای تجاری', width: 240, render: (_: unknown, scenario: Scenario) =>
+                   scenario.id === 'E2E-14' && (coreFixtures.data?.length ?? 0) > 0
+                     ? <Tooltip title="فقط درج پرونده، ملک و دو مالک در PostgreSQL تأیید شده؛ گردش‌کار کامل E2E-14 هنوز اجرا نشده است.">
+                         <Tag color="green">Fixture واقعی محدود · E2E ناتمام</Tag>
+                       </Tooltip>
+                     : <Tag color="warning">BLOCKED · اجرای تجاری انجام نشده</Tag> },
                 { title: 'جزئیات', width: 90, render: (_: unknown, s: Scenario) => <Button size="small" icon={<InfoCircleOutlined />} onClick={() => setDrawer(s)}>مشاهده</Button> },
               ]} />
             <Space wrap style={{ marginTop: 12, width: '100%', justifyContent: 'space-between' }}>
@@ -377,9 +392,12 @@ export function SimulationCenterPage() {
                 { title: 'شناسه اجرا', dataIndex: 'id', render: (v: string) => <Typography.Text code copyable={{ text: v }}>{v.slice(0, 12)}…</Typography.Text> },
                 { title: 'تعداد', dataIndex: 'scenario_count', width: 75 },
                 { title: 'نتیجه', dataIndex: 'state', width: 180, render: (v: string) => status(v) },
-                { title: 'اقدام', width: 115, render: (_: unknown, r: RunRow) => <Button type={runId === r.id ? 'primary' : 'default'} size="small" onClick={() => { setRunId(r.id); setCompareId(undefined) }}>مشاهده نتیجه</Button> },
+                { title: 'اقدام', width: 115, render: (_: unknown, r: RunRow) => <Button type={runId === r.id ? 'primary' : 'default'} size="small" onClick={() => { setRunId(r.id); setCompareId(undefined); setResultModalOpen(true) }}>مشاهده نتیجه</Button> },
               ]} />
-            {runId ? <Card size="small" style={{ background: '#fafcff', borderRadius: 12 }} title="جزئیات اجرای انتخاب‌شده"
+            {runId ? <Modal open={resultModalOpen} onCancel={() => setResultModalOpen(false)} footer={null}
+              width={1100} title="نتایج و زیرفرایندهای اجرای انتخاب‌شده" destroyOnHidden>
+              <div dir="rtl" style={{ maxHeight: '72vh', overflowY: 'auto', padding: '4px 6px' }}>
+              <Card size="small" style={{ background: '#fafcff', borderRadius: 12 }} title="جزئیات اجرای انتخاب‌شده"
               extra={<Button type="primary" size="small" icon={<CloudDownloadOutlined />} loading={downloading} onClick={() => void exportReport(runId)}>دانلود JSON</Button>}>
               <Card size="small" style={{ marginBottom: 14, background: '#ffffff' }}>
                  <Space direction="vertical" style={{ width: '100%' }}>
@@ -434,13 +452,21 @@ export function SimulationCenterPage() {
               </Space>
               {comparison.data && <Alert style={{ marginTop: 12 }} type="info" showIcon message={`اجرای فعلی: ${comparison.data.left.results.length} نتیجه · اجرای مقایسه: ${comparison.data.right.results.length} نتیجه`} description="مقایسه فعلی فقط وضعیت و شواهد پایه را نمایش می‌دهد؛ هنوز مقایسه خروجی مالی یا پرونده‌های واقعی نیست." />}
               {comparison.isError && <Alert style={{ marginTop: 12 }} type="error" message={safeMessage(comparison.error)} />}
-            </Card> : <Empty description="از جدول بالا یک اجرا را انتخاب کن یا یک بررسی جدید ثبت کن." />}
+              </Card></div></Modal> : <Empty description="از جدول بالا یک اجرا را انتخاب کن یا یک بررسی جدید ثبت کن." />}
           </> },
           { key: 'data', label: <Space><DatabaseOutlined /> داده‌ها و شواهد</Space>, children: <>
             <Card size="small" style={{ marginBottom: 16, background: '#f6f8fc' }} title="T05 · اثبات واقعی ثبت پرونده آزمایشی">
               <Alert type="info" showIcon style={{ marginBottom: 12 }}
                 message="آزمون محدود دیتابیس: یک پرونده، یک ملک و دو مالک مصنوعی"
                 description="این آزمون چهار جدول اصلی را واقعاً در PostgreSQL تغییر می‌دهد، اما هنوز اجرای ۲۴ گردش‌کار E2E و پروفایل سراسری TEST نیست. هیچ سند یا پیام خارجی ساخته یا ارسال نمی‌شود." />
+              <Space direction="vertical" style={{ width: '100%', marginBottom: 12 }}>
+                <Typography.Text strong>فضای آزمایشی برای ثبت و نمایش پرونده‌ها</Typography.Text>
+                <Select style={{ width: '100%', maxWidth: 540 }} value={workspaceId} showSearch optionFilterProp="label"
+                  placeholder="یک فضای TEST فعال انتخاب کن" onChange={setWorkspaceId}
+                  options={(workspaces.data ?? []).map(w => ({ value: w.id, label: `${w.title} · ${w.code}`, disabled: w.state !== 'ACTIVE' }))} />
+                {!workspaceId && <Alert showIcon type="warning" message="فضای آزمایشی انتخاب نشده است"
+                  description="از فهرست بالا یک فضای موجود انتخاب کن یا در زبانه سناریوها فضای جدید بساز." />}
+              </Space>
               <Space wrap style={{ marginBottom: 12 }}>
                 <Tag color={coreReadiness.data?.coreFixturePermitted ? 'green' : 'orange'}>
                   {coreReadiness.data?.coreFixturePermitted ? 'جداسازی چهار جدول آماده' : 'مجوز ایجاد داده آزمایشی برقرار نیست'}
@@ -450,6 +476,13 @@ export function SimulationCenterPage() {
                 <Tag color={coreReadiness.data?.migration60StructureAvailable ? 'green' : 'orange'}>
                   Migration V60: {coreReadiness.data?.migration60StructureAvailable ? 'ثبت شده' : 'نامشخص'}</Tag>
               </Space>
+              {!coreReadiness.data?.coreFixturePermitted && !coreReadiness.isLoading &&
+                <Alert style={{ marginBottom: 12 }} showIcon type="warning" message="چرا ساخت پرونده TEST هنوز مجاز نیست؟"
+                  description={<Space direction="vertical" size={3}>
+                    {(coreReadiness.data?.blockers?.length ? coreReadiness.data.blockers : ['ابتدا ارتباط بک‌اند، V60 و نقش اتصال دیتابیس را بررسی کن.']).map((reason, i) =>
+                      <Typography.Text key={i} style={{ direction: 'ltr', display: 'block' }}>{reason}</Typography.Text>)}
+                    <Typography.Text type="secondary">نقش فعلی DB: {coreReadiness.data?.runtimeDbUser ?? 'نامشخص'}</Typography.Text>
+                  </Space>} />}
               <div><Button type="primary" icon={<ExperimentOutlined />} loading={createCoreFixture.isPending}
                   disabled={!workspaceId || !coreReadiness.data?.coreFixturePermitted}
                   onClick={() => createCoreFixture.mutate()}>
@@ -472,7 +505,12 @@ export function SimulationCenterPage() {
                 <Col xs={24} sm={12}><Card size="small"><Statistic title="تعداد رکوردهای TEST در جداول پایش‌شده" value={totalTestRecords} /></Card></Col>
                 <Col xs={24} sm={12}><Card size="small"><Statistic title="جداول تحت بررسی" value={Object.keys(evidence.data?.rowsByTable ?? {}).length} /></Card></Col>
               </Row>
-              <Alert type="info" showIcon style={{ marginBottom: 12 }} message="این بخش فقط شمارش رکوردهای دارای برچسب TEST را نشان می‌دهد." description={evidence.data?.warning ?? 'بررسی شواهد از دیتابیس در حال دریافت است.'} />
+              <Alert type={totalTestRecords > 0 ? 'success' : 'info'} showIcon style={{ marginBottom: 12 }}
+                message={totalTestRecords > 0 ? `${totalTestRecords} رکورد TEST در فضای انتخاب‌شده مشاهده شد` : 'در این فضای آزمایشی هنوز رکورد TEST وجود ندارد'}
+                description={totalTestRecords > 0 ? (evidence.data?.warning ?? 'رکوردها از همان فضای TEST شمارش شده‌اند.') :
+                  '۹۶ بررسی مقدماتی فقط‌خواندنی هیچ رکورد کسب‌وکاری ایجاد نمی‌کنند. برای ساخت پرونده TEST، گیت چهار جدول و نقش محدود PostgreSQL باید آماده باشد؛ سپس دکمه «ایجاد و اعتبارسنجی پرونده TEST» را بزن.'} />
+              {evidence.isError && <Alert showIcon type="error" style={{ marginBottom: 12 }} message="شمارش شواهد ناموفق بود" description={safeMessage(evidence.error)} />}
+              <Button size="small" icon={<ReloadOutlined />} onClick={() => { void q.invalidateQueries({ queryKey: ['sim-evidence', workspaceId] }); void q.invalidateQueries({ queryKey: ['sim-core-fixtures', workspaceId] }) }} style={{ marginBottom: 10 }}>بازخوانی شواهد از PostgreSQL</Button>
               <Table size="small" rowKey="table" loading={evidence.isLoading} pagination={{ pageSize: 10 }}
                 dataSource={Object.entries(evidence.data?.rowsByTable ?? {}).map(([table, count]) => ({ table, count }))}
                 columns={[{ title: 'نام جدول PostgreSQL', dataIndex: 'table' }, { title: 'رکوردهای TEST', dataIndex: 'count', sorter: (a, b) => a.count - b.count, render: (v: number) => <Tag color={v ? 'blue' : 'default'}>{v}</Tag> }]} />
@@ -483,6 +521,8 @@ export function SimulationCenterPage() {
               message={readiness.data?.automatedTestBusinessWritesPermitted ? 'مجوز اجرای تجاری فعال شده است' : 'اجرای دارای نوشتن فعال نیست'}
               description={readiness.data?.gateReason || 'جداسازی واقعی داده‌ها باید تأیید شود.'} />
             <Space direction="vertical" size="large" style={{ width: '100%', marginTop: 18 }}>
+              <Alert type="info" showIcon message="گیت‌های شش‌گانه مربوط به کل سامانه‌اند، نه فقط چهار جدول T05"
+                description="حتی اگر آزمون پرونده مصنوعی موفق شود، جداسازی تمام Queryها و عملیات خارجی سایر ماژول‌ها تأیید نشده است. بنابراین سناریوهای کسب‌وکار به‌صورت خودکار PASSED نمی‌شوند." />
               <div><Typography.Text strong>پیشرفت گیت‌های زیرساختی</Typography.Text><Progress percent={Math.round(passedGates / gateItems.length * 100)} status="active" style={{ marginTop: 8 }} /></div>
               <Row gutter={[12, 12]}>{gateItems.map(item => <Col xs={24} md={12} key={item.title}>
                 <Card size="small" style={{ background: item.passed ? '#f6fbf8' : '#fffaf4', height: '100%' }}>

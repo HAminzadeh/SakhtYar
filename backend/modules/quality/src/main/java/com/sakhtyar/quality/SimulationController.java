@@ -275,8 +275,17 @@ public class SimulationController {
         return workspace(id);
     }
     @GetMapping("/workspaces/{workspaceId}/evidence")
+    @Transactional(readOnly = true)
     public Map<String,Object> evidence(@PathVariable UUID workspaceId, Authentication a) {
         manager(a); workspace(workspaceId);
+        // T05 FIX: RLS-enabled core tables return zero in the default REAL context,
+        // even when genuine TEST fixtures exist. Scope this one read-only transaction
+        // to the explicitly authorized workspace, using SET LOCAL (not session-wide SET).
+        // Spring transaction-bound JDBC calls share the same connection and the scope
+        // is automatically reset at transaction end; no pooled-connection leakage.
+        jdbc.queryForObject("select set_config('app.sakhtyar_scope','TEST',true)", String.class);
+        jdbc.queryForObject("select set_config('app.sakhtyar_workspace',?,true)", String.class,
+            workspaceId.toString());
         Map<String,Long> counts=new LinkedHashMap<>();
         // This fixed allowlist is code-owned; no client-controlled SQL identifiers.
         for(String table:EVIDENCE_TABLES) {
@@ -286,7 +295,7 @@ public class SimulationController {
             }
         }
         return Map.of("workspaceId",workspaceId,"scope","TEST","rowsByTable",counts,
-            "warning","Counts are observational. Isolation of general business APIs is not enabled.");
+            "warning","These counts use a transaction-local TEST workspace context; general business APIs still lack full isolation.");
     }
     @PostMapping("/runs")
     @Transactional
