@@ -103,6 +103,10 @@ public class SimulationBusinessE2EController implements ApplicationListener<Appl
                     insert into simulation_e2e_step(run_id,scenario_id,step_no,title)
                     values(?,?,?,?)
                     """,id,code,i+1,plan.preflightSteps().get(i));
+            if(!"E2E-14".equals(code)) jdbc.update("""
+                insert into simulation_e2e_step(run_id,scenario_id,step_no,title)
+                values(?,?,5,'ممیزی واقعی سلامت دامنه، روابط و ایزوله‌سازی')
+                """,id,code);
             if("E2E-14".equals(code)) for(int i=0;i<STEPS.size();i++)
                 jdbc.update("""
                     insert into simulation_e2e_step(run_id,scenario_id,step_no,title)
@@ -205,6 +209,15 @@ public class SimulationBusinessE2EController implements ApplicationListener<Appl
                     preflightStep(id,code,index,outcome.status(),outcome.detail());
                     verified.add(Map.of("step",index,"status",outcome.status(),"detail",outcome.detail(),"evidence",outcome.evidence()));
                     if(!"PASSED".equals(outcome.status())) {
+                        // A failed safety gate must not hide independent, read-only domain
+                        // assertions. Run them before marking remaining business work BLOCKED.
+                        if(index==4 && !"E2E-14".equals(code)) {
+                            preflightStep(id,code,5,"RUNNING","Running live domain/schema isolation audit");
+                            SimulationScenarioChecks.Outcome audit=scenarioChecks.domainIntegrity(plan);
+                            preflightStep(id,code,5,audit.status(),audit.detail());
+                            verified.add(Map.of("step",5,"status",audit.status(),"detail",audit.detail(),
+                                "evidence",audit.evidence()));
+                        }
                         prerequisitesPassed=false;
                         blockUnfinished(id,code,"Stopped after failed or blocked prerequisite "+index);
                         String finalState="FAILED".equals(outcome.status())?"FAILED":"BLOCKED";
