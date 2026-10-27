@@ -5,6 +5,7 @@ import java.time.Instant;
 import java.util.*;
 import java.util.stream.Collectors;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.core.io.ClassPathResource;
 import org.springframework.http.HttpStatus;
 import org.springframework.jdbc.core.JdbcTemplate;
@@ -12,6 +13,7 @@ import org.springframework.security.core.Authentication;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.server.ResponseStatusException;
+import org.springframework.web.servlet.mvc.method.annotation.RequestMappingHandlerMapping;
 import tools.jackson.databind.JsonNode;
 import tools.jackson.databind.ObjectMapper;
 
@@ -38,13 +40,69 @@ public class SimulationController {
         "sensitivity_analysis", "analysis_snapshot", "knowledge_document",
         "knowledge_ai_import_item", "crawl_job", "market_observation", "notification_outbox"
     );
+    // These are explicit read-only preflight contracts, NOT business E2E assertions.
+    private static final Map<String,List<String>> REQUIRED_TABLES = Map.ofEntries(
+      Map.entry("E2E-01",List.of("app_user","auth_session")),
+      Map.entry("E2E-02",List.of("construction_case","construction_case_access")),
+      Map.entry("E2E-03",List.of("knowledge_dataset_package")),
+      Map.entry("E2E-04",List.of("urban_rule")),
+      Map.entry("E2E-05",List.of("flyway_schema_history")),
+      Map.entry("E2E-06",List.of("auth_session")),
+      Map.entry("E2E-07",List.of("knowledge_dataset_package","knowledge_document")),
+      Map.entry("E2E-08",List.of("knowledge_pipeline_run","knowledge_pipeline_checkpoint")),
+      Map.entry("E2E-09",List.of("knowledge_legal_segment","knowledge_ocr_page_review")),
+      Map.entry("E2E-10",List.of("knowledge_ai_import_item","knowledge_ai_import_review_event")),
+      Map.entry("E2E-11",List.of("knowledge_rule_review","knowledge_rule_review_event")),
+      Map.entry("E2E-12",List.of("knowledge_term","knowledge_relation")),
+      Map.entry("E2E-13",List.of("crawl_source","crawl_job","crawled_document")),
+      Map.entry("E2E-14",List.of("construction_case","property","property_owner","case_document")),
+      Map.entry("E2E-15",List.of("builder_profile","project_builder")),
+      Map.entry("E2E-16",List.of("material_price_observation","cost_estimate")),
+      Map.entry("E2E-17",List.of("construction_scenario","scenario_cost_snapshot")),
+      Map.entry("E2E-18",List.of("urban_evaluation","feasibility_assessment")),
+      Map.entry("E2E-19",List.of("financial_analysis","financial_participation_allocation")),
+      Map.entry("E2E-20",List.of("sensitivity_analysis","analysis_snapshot")),
+      Map.entry("E2E-21",List.of("intelligence_workflow_execution")),
+      Map.entry("E2E-22",List.of("construction_case")),
+      Map.entry("E2E-23",List.of("monitoring_event","notification_outbox")),
+      Map.entry("E2E-24",List.of("platform_config_version","platform_config_audit"))
+    );
+    private static final Map<String,List<String>> REQUIRED_ROUTES = Map.ofEntries(
+      Map.entry("E2E-01",List.of("POST /api/v1/auth/login")),
+      Map.entry("E2E-02",List.of("GET /api/v1/cases/{id}")),
+      Map.entry("E2E-03",List.of("GET /api/v1/knowledge/admin/dataset-packages")),
+      Map.entry("E2E-04",List.of("POST /api/v1/regulations/rules")),
+      Map.entry("E2E-05",List.of("GET /api/v1/admin/quality/overview")),
+      Map.entry("E2E-06",List.of("GET /api/v1/auth/csrf")),
+      Map.entry("E2E-07",List.of("POST /api/v1/knowledge/admin/dataset-packages")),
+      Map.entry("E2E-08",List.of("POST /api/v1/knowledge/admin/pipeline/start")),
+      Map.entry("E2E-09",List.of("GET /api/v1/knowledge/admin/ai-lifecycle/documents")),
+      Map.entry("E2E-10",List.of("POST /api/v1/knowledge/admin/ai-import/packages/{id}/items/{itemId}/review")),
+      Map.entry("E2E-11",List.of("GET /api/v1/knowledge/admin/governance/pending")),
+      Map.entry("E2E-12",List.of("GET /api/v1/knowledge/admin/ai-lifecycle/overview")),
+      Map.entry("E2E-13",List.of("POST /api/v1/crawler/sources/{id}/run")),
+      Map.entry("E2E-14",List.of("POST /api/v1/cases")),
+      Map.entry("E2E-15",List.of("POST /api/v1/builders/cases/{caseId}/matches")),
+      Map.entry("E2E-16",List.of("POST /api/v1/assemblies/{id}/calculate")),
+      Map.entry("E2E-17",List.of("POST /api/v1/scenarios/{id}/calculate")),
+      Map.entry("E2E-18",List.of("POST /api/v1/feasibility/assessments")),
+      Map.entry("E2E-19",List.of("POST /api/v1/finance/analyses")),
+      Map.entry("E2E-20",List.of("POST /api/v1/sensitivity/analyses")),
+      Map.entry("E2E-21",List.of("POST /api/v1/intelligence/workflows/execute")),
+      Map.entry("E2E-22",List.of("GET /api/v1/cases")),
+      Map.entry("E2E-23",List.of("POST /api/v1/monitoring/evaluate")),
+      Map.entry("E2E-24",List.of("GET /api/v1/admin/config"))
+    );
+    private final RequestMappingHandlerMapping routes;
     private final JdbcTemplate jdbc;
     private final Map<String,Scenario> catalog;
     private final String gitCommit;
 
     public SimulationController(JdbcTemplate jdbc, ObjectMapper mapper,
+                   @Qualifier("requestMappingHandlerMapping") RequestMappingHandlerMapping routes,
                    @Value("${app.quality.git-commit:unknown}") String gitCommit) throws Exception {
         this.jdbc = jdbc;
+        this.routes = routes;
         this.gitCommit = gitCommit;
         byte[] bytes = new ClassPathResource("simulation/scenarios.json").getInputStream().readAllBytes();
         JsonNode tree = mapper.readTree(new String(bytes, StandardCharsets.UTF_8));
@@ -79,6 +137,41 @@ public class SimulationController {
     @GetMapping("/catalog")
     public Collection<Scenario> catalog(Authentication a) { manager(a); return catalog.values(); }
 
+    private boolean columnExists(String table,String column) {
+        return Boolean.TRUE.equals(jdbc.queryForObject("""
+            select exists(select 1 from information_schema.columns
+            where table_schema='public' and table_name=? and column_name=?)
+            """,Boolean.class,table,column));
+    }
+    private boolean routeExists(String declared) {
+        String[] parts=declared.split(" ",2);
+        if(parts.length!=2) return false;
+        return routes.getHandlerMethods().keySet().stream().anyMatch(info ->
+            info.getPatternValues().contains(parts[1]) &&
+            (info.getMethodsCondition().getMethods().isEmpty() ||
+             info.getMethodsCondition().getMethods().stream().anyMatch(m->m.name().equals(parts[0]))));
+    }
+    /** Pure read-only schema and route probes. No business controller is invoked. */
+    @GetMapping("/scenario-checks")
+    public List<Map<String,Object>> scenarioChecks(Authentication a) {
+        manager(a);
+        List<Map<String,Object>> checks=new ArrayList<>();
+        for(Scenario scenario:catalog.values()) {
+            List<String> tables=REQUIRED_TABLES.getOrDefault(scenario.id(),List.of());
+            List<String> declaredRoutes=REQUIRED_ROUTES.getOrDefault(scenario.id(),List.of());
+            List<String> missingTables=tables.stream().filter(t->!tableExists(t)).toList();
+            List<String> missingRoutes=declaredRoutes.stream().filter(t->!routeExists(t)).toList();
+            Map<String,Object> result=new LinkedHashMap<>();
+            result.put("id",scenario.id());result.put("title",scenario.title());result.put("phase",scenario.phase());
+            result.put("requiredTables",tables);result.put("missingTables",missingTables);
+            result.put("requiredRoutes",declaredRoutes);result.put("missingRoutes",missingRoutes);
+            result.put("schemaRoutesReady",missingTables.isEmpty()&&missingRoutes.isEmpty());
+            result.put("businessE2EEnabled",false);
+            checks.add(result);
+        }
+        return checks;
+    }
+
     @GetMapping("/capabilities")
     public Map<String,Object> capabilities(Authentication a) {
         manager(a);
@@ -96,8 +189,13 @@ public class SimulationController {
     public Map<String,Object> readiness(Authentication a) {
         manager(a);
         Map<String,Object> r = new LinkedHashMap<>();
-        r.put("migration58Installed",tableExists("simulation_workspace") && tableExists("simulation_run"));
-        r.put("taggedBusinessTables",EVIDENCE_TABLES.stream().filter(this::tableExists).count());
+        boolean tablesReady=tableExists("simulation_workspace") && tableExists("simulation_run");
+        boolean migrationRecorded=tableExists("flyway_schema_history") && Boolean.TRUE.equals(
+            jdbc.queryForObject("select exists(select 1 from flyway_schema_history where version='58' and success=true)",Boolean.class));
+        r.put("migration58Installed",tablesReady && migrationRecorded);
+        r.put("taggedBusinessTables",EVIDENCE_TABLES.stream().filter(t->tableExists(t) &&
+            columnExists(t,"data_scope") && columnExists(t,"test_workspace_id") && columnExists(t,"test_run_id")).count());
+        r.put("taggedBusinessTablesExpected",EVIDENCE_TABLES.size());
         r.put("rlsAndCrossScopeFkEnforcementVerified",false);
         r.put("outboundGuardVerified",false);
         r.put("allBusinessQueriesScopeGuarded",false);
