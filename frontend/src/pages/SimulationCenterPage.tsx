@@ -39,6 +39,17 @@ type ScenarioCheck = {
   schemaRoutesReady: boolean; businessE2EEnabled: boolean
 }
 type RunComparison = { left: Run; right: Run; note: string }
+type CoreFixtureReadiness = {
+  coreFixturePermitted: boolean; runtimeDbRoleNonBypass: boolean;
+  corePolicyCoverage: boolean; migration60StructureAvailable: boolean;
+  fullApplicationIsolationVerified: boolean; note: string
+}
+type CoreFixture = {
+  id: string; case_id: string; project_code: string; title: string;
+  property_id: string; owner_a_id: string; owner_b_id: string;
+  owner_count: number; created_at: string; status: string
+}
+
 
 const endpoint = '/api/v1/admin/simulations'
 const stageNames: Record<string, string> = {
@@ -106,6 +117,26 @@ export function SimulationCenterPage() {
       const item = query.state.data as Run | undefined
       return !item || ['QUEUED', 'RUNNING'].includes(item.state) ? 650 : false
     },
+  })
+  const coreReadiness = useQuery({
+    queryKey: ['sim-core-readiness'],
+    queryFn: () => api<CoreFixtureReadiness>(`${endpoint}/core-fixture-readiness`),
+  })
+  const coreFixtures = useQuery({
+    queryKey: ['sim-core-fixtures', workspaceId],
+    enabled: Boolean(workspaceId) && Boolean(coreReadiness.data?.coreFixturePermitted),
+    queryFn: () => api<CoreFixture[]>(`${endpoint}/workspaces/${workspaceId}/core-fixtures`),
+  })
+  const createCoreFixture = useMutation({
+    mutationFn: () => api<CoreFixture>(`${endpoint}/workspaces/${workspaceId}/core-fixtures`, {
+      method: 'POST', body: JSON.stringify({ requestKey: crypto.randomUUID().replaceAll('-', '') }),
+    }),
+    onSuccess: () => {
+      void q.invalidateQueries({ queryKey: ['sim-core-fixtures'] })
+      void q.invalidateQueries({ queryKey: ['sim-evidence'] })
+      message.success('پرونده، ملک و دو مالک مصنوعی ثبت شدند و جداسازی REAL/TEST بررسی شد.')
+    },
+    onError: e => message.error(safeMessage(e)),
   })
   const comparison = useQuery({ queryKey: ['sim-compare', runId, compareId], enabled: !!runId && !!compareId && runId !== compareId,
     queryFn: () => api<RunComparison>(`${endpoint}/runs/${runId}/compare?other=${compareId}`) })
@@ -406,6 +437,36 @@ export function SimulationCenterPage() {
             </Card> : <Empty description="از جدول بالا یک اجرا را انتخاب کن یا یک بررسی جدید ثبت کن." />}
           </> },
           { key: 'data', label: <Space><DatabaseOutlined /> داده‌ها و شواهد</Space>, children: <>
+            <Card size="small" style={{ marginBottom: 16, background: '#f6f8fc' }} title="T05 · اثبات واقعی ثبت پرونده آزمایشی">
+              <Alert type="info" showIcon style={{ marginBottom: 12 }}
+                message="آزمون محدود دیتابیس: یک پرونده، یک ملک و دو مالک مصنوعی"
+                description="این آزمون چهار جدول اصلی را واقعاً در PostgreSQL تغییر می‌دهد، اما هنوز اجرای ۲۴ گردش‌کار E2E و پروفایل سراسری TEST نیست. هیچ سند یا پیام خارجی ساخته یا ارسال نمی‌شود." />
+              <Space wrap style={{ marginBottom: 12 }}>
+                <Tag color={coreReadiness.data?.coreFixturePermitted ? 'green' : 'orange'}>
+                  {coreReadiness.data?.coreFixturePermitted ? 'جداسازی چهار جدول آماده' : 'مجوز ایجاد داده آزمایشی برقرار نیست'}
+                </Tag>
+                <Tag color={coreReadiness.data?.runtimeDbRoleNonBypass ? 'green' : 'red'}>
+                  نقش PostgreSQL: {coreReadiness.data?.runtimeDbRoleNonBypass ? 'محدود' : 'نیازمند بررسی'}</Tag>
+                <Tag color={coreReadiness.data?.migration60StructureAvailable ? 'green' : 'orange'}>
+                  Migration V60: {coreReadiness.data?.migration60StructureAvailable ? 'ثبت شده' : 'نامشخص'}</Tag>
+              </Space>
+              <div><Button type="primary" icon={<ExperimentOutlined />} loading={createCoreFixture.isPending}
+                  disabled={!workspaceId || !coreReadiness.data?.coreFixturePermitted}
+                  onClick={() => createCoreFixture.mutate()}>
+                    ایجاد و اعتبارسنجی پرونده TEST
+                  </Button></div>
+              {coreReadiness.isError && <Alert style={{ marginTop: 10 }} type="warning" message={safeMessage(coreReadiness.error)} />}
+              <Table<CoreFixture> style={{ marginTop: 12 }} size="small" rowKey="id"
+                dataSource={coreFixtures.data ?? []} loading={coreFixtures.isLoading}
+                pagination={{ pageSize: 5 }} scroll={{ x: 730 }}
+                columns={[
+                  { title: 'پرونده TEST', dataIndex: 'project_code', render: (v:string) => <Typography.Text code>{v}</Typography.Text> },
+                  { title: 'تاریخ', dataIndex: 'created_at', render: (v:string) => dateFa(v) },
+                  { title: 'ملک', dataIndex: 'property_id', render: (v:string) => <Typography.Text copyable={{ text:v }}>{v.slice(0,8)}…</Typography.Text> },
+                  { title: 'مالکان', dataIndex: 'owner_count', render: (v:number) => <Tag>{v}</Tag> },
+                ]} />
+            </Card>
+
             {!workspaceId ? <Empty description="برای مشاهده شواهد، ابتدا فضای آزمایشی را از زبانه سناریوها انتخاب کن." /> : <>
               <Row gutter={[12, 12]} style={{ marginBottom: 14 }}>
                 <Col xs={24} sm={12}><Card size="small"><Statistic title="تعداد رکوردهای TEST در جداول پایش‌شده" value={totalTestRecords} /></Card></Col>

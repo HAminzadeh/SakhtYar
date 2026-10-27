@@ -20,9 +20,10 @@ import tools.jackson.databind.JsonNode;
 import tools.jackson.databind.ObjectMapper;
 
 /**
- * Safe simulation control plane. This controller intentionally NEVER writes
- * business tables until an audited, end-to-end database isolation mechanism
- * exists. Its blocked results are NOT successful E2E tests.
+ * Safe simulation control plane. General 24-scenario business E2E remains BLOCKED.
+ * A separate explicit admin-only CORE fixture endpoint may write synthetic TEST
+ * rows into four RLS-guarded tables only when the runtime DB role passes its gate.
+ * Such a fixture is NOT a completed business E2E scenario.
  */
 @RestController
 @RequestMapping("/api/v1/admin/simulations")
@@ -100,12 +101,15 @@ public class SimulationController {
     private final Map<String,Scenario> catalog;
     private final String gitCommit;
     private final SimulationPreflightRunner preflightRunner;
+    private final SimulationCoreFixtureService coreFixtureService;
 
     public SimulationController(JdbcTemplate jdbc, ObjectMapper mapper,
                    @Qualifier("requestMappingHandlerMapping") RequestMappingHandlerMapping routes,
                    SimulationPreflightRunner preflightRunner,
+                   SimulationCoreFixtureService coreFixtureService,
                    @Value("${app.quality.git-commit:unknown}") String gitCommit) throws Exception {
         this.preflightRunner = preflightRunner;
+        this.coreFixtureService = coreFixtureService;
         this.jdbc = jdbc;
         this.routes = routes;
         this.gitCommit = gitCommit;
@@ -139,6 +143,49 @@ public class SimulationController {
         return Boolean.TRUE.equals(jdbc.queryForObject(
             "select to_regclass(?) is not null",Boolean.class,"public."+table));
     }
+    @GetMapping("/t05-coverage")
+    public List<Map<String,Object>> t05Coverage(Authentication a) {
+        manager(a);
+        List<Map<String,Object>> status = new ArrayList<>();
+        for (Scenario scenario : catalog.values()) {
+            Map<String,Object> item = new LinkedHashMap<>();
+            item.put("scenarioId", scenario.id());
+            item.put("phase", scenario.phase());
+            item.put("title", scenario.title());
+            item.put("businessE2eExecuted", false);
+            item.put("status", "BLOCKED");
+            item.put("coreFixtureAvailable", "E2E-14".equals(scenario.id()));
+            item.put("note", "E2E-14".equals(scenario.id())
+              ? "Separate RLS-guarded DB fixture for case/property/two owners; incomplete E2E-14"
+              : "No automated business workflow or external side effects enabled");
+            status.add(item);
+        }
+        return status;
+    }
+
+    @GetMapping("/core-fixture-readiness")
+    public Map<String,Object> coreFixtureReadiness(Authentication a) {
+        manager(a);
+        return coreFixtureService.readiness();
+    }
+
+    public record CoreFixtureRequest(String requestKey) {}
+
+    @PostMapping("/workspaces/{workspaceId}/core-fixtures")
+    public Map<String,Object> createCoreFixture(@PathVariable UUID workspaceId,
+          @RequestBody CoreFixtureRequest request, Authentication a) {
+        manager(a);
+        if (request == null) throw new ResponseStatusException(HttpStatus.BAD_REQUEST,"Request required");
+        return coreFixtureService.create(workspaceId,request.requestKey(),a.getName());
+    }
+
+    @GetMapping("/workspaces/{workspaceId}/core-fixtures")
+    public List<Map<String,Object>> coreFixtures(@PathVariable UUID workspaceId, Authentication a) {
+        manager(a);
+        workspace(workspaceId);
+        return coreFixtureService.list(workspaceId);
+    }
+
     @GetMapping("/catalog")
     public Collection<Scenario> catalog(Authentication a) { manager(a); return catalog.values(); }
 
