@@ -102,14 +102,17 @@ public class SimulationController {
     private final String gitCommit;
     private final SimulationPreflightRunner preflightRunner;
     private final SimulationCoreFixtureService coreFixtureService;
+    private final SimulationWorkspaceAuthorizationService workspaceAuthorization;
 
     public SimulationController(JdbcTemplate jdbc, ObjectMapper mapper,
                    @Qualifier("requestMappingHandlerMapping") RequestMappingHandlerMapping routes,
                    SimulationPreflightRunner preflightRunner,
                    SimulationCoreFixtureService coreFixtureService,
+                   SimulationWorkspaceAuthorizationService workspaceAuthorization,
                    @Value("${app.quality.git-commit:unknown}") String gitCommit) throws Exception {
         this.preflightRunner = preflightRunner;
         this.coreFixtureService = coreFixtureService;
+        this.workspaceAuthorization = workspaceAuthorization;
         this.jdbc = jdbc;
         this.routes = routes;
         this.gitCommit = gitCommit;
@@ -175,6 +178,7 @@ public class SimulationController {
     public Map<String,Object> createCoreFixture(@PathVariable UUID workspaceId,
           @RequestBody CoreFixtureRequest request, Authentication a) {
         manager(a);
+        workspaceAuthorization.requireActiveOwner(workspaceId, a);
         if (request == null) throw new ResponseStatusException(HttpStatus.BAD_REQUEST,"Request required");
         return coreFixtureService.create(workspaceId,request.requestKey(),a.getName());
     }
@@ -182,7 +186,7 @@ public class SimulationController {
     @GetMapping("/workspaces/{workspaceId}/core-fixtures")
     public List<Map<String,Object>> coreFixtures(@PathVariable UUID workspaceId, Authentication a) {
         manager(a);
-        workspace(workspaceId);
+        workspaceAuthorization.requireActiveOwner(workspaceId, a);
         return coreFixtureService.list(workspaceId);
     }
 
@@ -258,7 +262,7 @@ public class SimulationController {
     @GetMapping("/workspaces")
     public List<Map<String,Object>> workspaces(Authentication a) {
         manager(a);
-        return jdbc.queryForList("select id,code,title,owner_username,state,created_at from simulation_workspace order by created_at desc limit 100");
+        return jdbc.queryForList("select id,code,title,owner_username,state,created_at from simulation_workspace where lower(owner_username)=lower(?) order by created_at desc limit 100", a.getName());
     }
     @PostMapping("/workspaces")
     @Transactional
@@ -277,7 +281,7 @@ public class SimulationController {
     @GetMapping("/workspaces/{workspaceId}/evidence")
     @Transactional(readOnly = true)
     public Map<String,Object> evidence(@PathVariable UUID workspaceId, Authentication a) {
-        manager(a); workspace(workspaceId);
+        manager(a); workspaceAuthorization.requireActiveOwner(workspaceId, a);
         // T05 FIX: RLS-enabled core tables return zero in the default REAL context,
         // even when genuine TEST fixtures exist. Scope this one read-only transaction
         // to the explicitly authorized workspace, using SET LOCAL (not session-wide SET).
@@ -304,6 +308,7 @@ public class SimulationController {
         if(req == null || req.workspaceId() == null || req.requestKey() == null ||
             !req.requestKey().matches("[A-Za-z0-9_-]{8,100}"))
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST,"workspaceId and requestKey required");
+        workspaceAuthorization.requireActiveOwner(req.workspaceId(), a);
         var w = workspace(req.workspaceId());
         if(!"ACTIVE".equals(w.get("state")))
             throw new ResponseStatusException(HttpStatus.CONFLICT,"Workspace is archived");
@@ -353,12 +358,13 @@ public class SimulationController {
     @GetMapping("/runs")
     public List<Map<String,Object>> runs(Authentication a,@RequestParam(defaultValue="40") int limit) {
         manager(a);
-        return jdbc.queryForList("select id,workspace_id,request_key,requested_by,requested_at,finished_at,state,scenario_count,git_commit from simulation_run order by requested_at desc limit ?",Math.max(1,Math.min(limit,100)));
+        return jdbc.queryForList("select r.id,r.workspace_id,r.request_key,r.requested_by,r.requested_at,r.finished_at,r.state,r.scenario_count,r.git_commit from simulation_run r join simulation_workspace w on w.id=r.workspace_id where w.state='ACTIVE' and lower(w.owner_username)=lower(?) order by r.requested_at desc limit ?",a.getName(),Math.max(1,Math.min(limit,100)));
     }
     @GetMapping("/runs/{id}")
     public Map<String,Object> getRun(@PathVariable UUID id,Authentication a) {
         manager(a);
         Map<String,Object> result=new LinkedHashMap<>(one("select * from simulation_run where id=?",id));
+        workspaceAuthorization.requireActiveOwner((UUID) result.get("workspace_id"), a);
         result.put("results",jdbc.queryForList("select * from simulation_result where run_id=? order by scenario_id",id));
         var steps=jdbc.queryForList("""
             select run_id,scenario_id,step_no,step_code,title,state,detail,started_at,finished_at
@@ -395,7 +401,7 @@ public class SimulationController {
     }
     @GetMapping("/workspaces/{workspaceId}/audit")
     public List<Map<String,Object>> audit(@PathVariable UUID workspaceId,Authentication a) {
-        manager(a);workspace(workspaceId);
+        manager(a);workspaceAuthorization.requireActiveOwner(workspaceId, a);
         return jdbc.queryForList("select run_id,actor,action,created_at from simulation_audit where workspace_id=? order by created_at desc limit 100",workspaceId);
     }
 }
