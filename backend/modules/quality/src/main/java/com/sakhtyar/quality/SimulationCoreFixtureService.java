@@ -25,8 +25,8 @@ public final class SimulationCoreFixtureService {
     private static final long ADVISORY_LOCK_A = 81021930L;
     private final DataSource dataSource;
 
-    public SimulationCoreFixtureService(DataSource dataSource) {
-        this.dataSource = Objects.requireNonNull(dataSource);
+    public SimulationCoreFixtureService(T10FixtureAdminConnectionProvider adminConnections) {
+        this.dataSource = Objects.requireNonNull(adminConnections).dataSource();
     }
 
     static String role(UUID workspace) {

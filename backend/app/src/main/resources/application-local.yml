@@ -8,8 +8,8 @@ spring:
 
   datasource:
     url: jdbc:postgresql://localhost:5432/${POSTGRES_DB:sakhtyar}
-    username: ${POSTGRES_USER:sakhtyar}
-    password: ${POSTGRES_PASSWORD:change-me-postgres}
+    username: ${SAKHTYAR_RUNTIME_DB_USER:${POSTGRES_USER:sakhtyar}}
+    password: ${SAKHTYAR_RUNTIME_DB_PASSWORD:${POSTGRES_PASSWORD:change-me-postgres}}
 
   data:
     redis:
