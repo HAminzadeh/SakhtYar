@@ -8,6 +8,8 @@ export function roleLabel(role?: string | null) {
       return 'تحلیل‌گر'
     case 'LEGAL_EXPERT':
       return 'کارشناس حقوقی'
+    case 'TESTER':
+      return 'تستر'
     case 'READ_ONLY':
       return 'فقط مشاهده'
     default:

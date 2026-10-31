@@ -41,6 +41,7 @@ const roles: Array<{ value: UserRole; label: string }> = [
   { value: 'PROJECT_MANAGER', label: 'مدیر پروژه' },
   { value: 'ANALYST', label: 'تحلیل‌گر' },
   { value: 'LEGAL_EXPERT', label: 'کارشناس حقوقی' },
+  { value: 'TESTER', label: 'تستر' },
   { value: 'READ_ONLY', label: 'فقط مشاهده' },
 ]
 

@@ -27,6 +27,7 @@ public class SimulationBusinessE2EController implements ApplicationListener<Appl
     private final SimulationCoreFixtureService fixtures;
     private final ObjectMapper mapper;
     private final SimulationScenarioChecks scenarioChecks;
+    private final E2ETesterIdentityService testerIdentity;
     private final ExecutorService executor=Executors.newSingleThreadExecutor(r -> {
         Thread thread=new Thread(r,"sakhtyar-business-e2e");thread.setDaemon(true);return thread;
     });
@@ -37,8 +38,8 @@ public class SimulationBusinessE2EController implements ApplicationListener<Appl
         "بازیابی و کنترل مالکیت", "تأیید نامرئی‌بودن TEST در REAL");
 
     public SimulationBusinessE2EController(JdbcTemplate jdbc,SimulationCoreFixtureService fixtures,
-            ObjectMapper mapper,SimulationScenarioChecks scenarioChecks) {
-        this.jdbc=jdbc;this.fixtures=fixtures;this.mapper=mapper;this.scenarioChecks=scenarioChecks;
+            ObjectMapper mapper,SimulationScenarioChecks scenarioChecks,E2ETesterIdentityService testerIdentity) {
+        this.jdbc=jdbc;this.fixtures=fixtures;this.mapper=mapper;this.scenarioChecks=scenarioChecks;this.testerIdentity=testerIdentity;
     }
     private void admin(Authentication auth) {
         if(auth==null || !auth.isAuthenticated() || auth.getAuthorities()==null ||
@@ -95,6 +96,7 @@ public class SimulationBusinessE2EController implements ApplicationListener<Appl
                 UUID.class,req.workspaceId(),req.requestKey());
             return result(old,a);
         }
+        E2ETesterIdentityService.Identity testAccount = testerIdentity.ensure();
         for(String code:ordered) {
             jdbc.update("insert into simulation_e2e_result(run_id,scenario_id) values(?,?)",id,code);
             SimulationScenarioPlans.Plan plan=SimulationScenarioPlans.get(code);
@@ -115,7 +117,7 @@ public class SimulationBusinessE2EController implements ApplicationListener<Appl
         }
         TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
             @Override public void afterCommit() {
-                try { executor.execute(()->execute(id,req.workspaceId(),a.getName(),List.copyOf(ordered))); }
+                try { executor.execute(()->execute(id,req.workspaceId(),testAccount.username(),List.copyOf(ordered))); }
                 catch(RejectedExecutionException ex) { interrupt(id); }
             }
         });
@@ -191,6 +193,12 @@ public class SimulationBusinessE2EController implements ApplicationListener<Appl
     }
     private void execute(UUID id,UUID workspace,String actor,List<String> selected) {
         try {
+            org.springframework.security.core.userdetails.UserDetails tester = testerIdentity.loadAuthorities();
+            org.springframework.security.core.context.SecurityContext context =
+                org.springframework.security.core.context.SecurityContextHolder.createEmptyContext();
+            context.setAuthentication(new org.springframework.security.authentication.UsernamePasswordAuthenticationToken(
+                tester, null, tester.getAuthorities()));
+            org.springframework.security.core.context.SecurityContextHolder.setContext(context);
             jdbc.update("update simulation_e2e_run set state='RUNNING' where id=?",id);
             for(String code:selected) {
                 jdbc.update("update simulation_e2e_result set state='RUNNING',started_at=now() where run_id=? and scenario_id=?",id,code);
@@ -239,6 +247,7 @@ public class SimulationBusinessE2EController implements ApplicationListener<Appl
             }
             jdbc.update("update simulation_e2e_run set state='COMPLETED',finished_at=now() where id=?",id);
         } catch(Exception ex) { interrupt(id); }
+        finally { org.springframework.security.core.context.SecurityContextHolder.clearContext(); }
     }
     private void executeCase(UUID id,UUID workspace,String actor) {
         Map<String,Object> gate;

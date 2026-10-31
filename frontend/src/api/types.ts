@@ -21,6 +21,7 @@ export type UserRole =
   | 'PROJECT_MANAGER'
   | 'ANALYST'
   | 'LEGAL_EXPERT'
+  | 'TESTER'
   | 'READ_ONLY'
 
 export type UserStatus = 'PENDING' | 'ACTIVE' | 'SUSPENDED'

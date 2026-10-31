@@ -4,6 +4,7 @@
   <parent><groupId>com.sakhtyar</groupId><artifactId>sakhtyar-backend-parent</artifactId><version>0.2.0-SNAPSHOT</version><relativePath>../../pom.xml</relativePath></parent>
   <artifactId>sakhtyar-quality</artifactId>
   <dependencies>
+    <dependency><groupId>com.sakhtyar</groupId><artifactId>sakhtyar-identity</artifactId><version>${project.version}</version></dependency>
     <dependency><groupId>org.springframework.boot</groupId><artifactId>spring-boot-starter-web</artifactId></dependency>
     <dependency><groupId>org.springframework.boot</groupId><artifactId>spring-boot-starter-jdbc</artifactId></dependency>
     <dependency><groupId>org.springframework.boot</groupId><artifactId>spring-boot-starter-security</artifactId></dependency>
