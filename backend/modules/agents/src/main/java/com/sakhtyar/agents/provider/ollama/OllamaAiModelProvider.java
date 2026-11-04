@@ -57,6 +57,7 @@ public class OllamaAiModelProvider implements AiModelProvider {
 
     @Override
     public boolean available() {
+        if (isTesterRequest()) return false;
         try {
             String body = client.get()
                     .uri("/api/tags")
@@ -87,6 +88,9 @@ public class OllamaAiModelProvider implements AiModelProvider {
 
     @Override
     public AiModelResponse generate(AiModelRequest request) {
+        if (isTesterRequest()) {
+            throw new SecurityException("TESTER AI model calls require offline mock provider");
+        }
         Instant startedAt = Instant.now();
         try {
             LinkedHashMap<String, Object> body = new LinkedHashMap<>();
@@ -164,6 +168,12 @@ public class OllamaAiModelProvider implements AiModelProvider {
         } catch (JacksonException ex) {
             throw new IllegalStateException("OLLAMA_INVALID_JSON: " + safeMessage(ex), ex);
         }
+    }
+
+    private static boolean isTesterRequest() {
+        var auth = org.springframework.security.core.context.SecurityContextHolder.getContext().getAuthentication();
+        return auth != null && auth.getAuthorities() != null && auth.getAuthorities().stream()
+                .anyMatch(a -> "ROLE_TESTER".equals(a.getAuthority()));
     }
 
     private Map<String, Object> requestOptions() {

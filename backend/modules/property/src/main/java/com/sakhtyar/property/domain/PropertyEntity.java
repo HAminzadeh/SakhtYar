@@ -106,6 +106,9 @@ public class PropertyEntity {
     @Column(name = "updated_at", nullable = false)
     private Instant updatedAt;
 
+    @Column(name = "data_scope", nullable = false, length = 8, insertable = false, updatable = false)
+    private String dataScope;
+
     protected PropertyEntity() {
     }
 
@@ -256,4 +259,5 @@ public class PropertyEntity {
     }
     public Instant getCreatedAt() { return createdAt; }
     public Instant getUpdatedAt() { return updatedAt; }
+    public String getDataScope() { return dataScope; }
 }

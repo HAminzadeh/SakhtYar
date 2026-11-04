@@ -16,7 +16,7 @@ class Phase02FixtureCatalogTest {
         }
         assertEquals(Phase02FixtureContract.IsolationMode.LIMITED_CORE_RESTRICTED_LOGIN,
             Phase02FixtureCatalog.get("E2E-14").isolationMode());
-        assertEquals(Phase02FixtureContract.IsolationMode.CLONE_REQUIRED,
+        assertEquals(Phase02FixtureContract.IsolationMode.SHARED_DB_TEST_GATED,
             Phase02FixtureCatalog.get("E2E-01").isolationMode());
     }
     @Test void deterministicKeysAreIdempotentAndRunSpecific() {

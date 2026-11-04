@@ -16,11 +16,11 @@ public final class Phase02FixtureCatalog {
             Phase02FixtureContract contract = new Phase02FixtureContract(
                 plan.id(), plan.phase(), plan.requiredTables(),
                 core ? Phase02FixtureContract.IsolationMode.LIMITED_CORE_RESTRICTED_LOGIN
-                     : Phase02FixtureContract.IsolationMode.CLONE_REQUIRED,
+                     : Phase02FixtureContract.IsolationMode.SHARED_DB_TEST_GATED,
                 core ? "Existing four-table synthetic case/property/two-owner fixture (LIMITED)"
-                     : "Scenario-specific synthetic fixture, pending domain integration",
+                     : "Shared-db TEST fixture contract; BLOCKED until restricted role, RLS and domain assertions verified",
                 core ? "NO_AUTO_TEARDOWN; verify immutable workspace/run before manual cleanup"
-                     : "DISPOSABLE_CLONE_ONLY; no deletion from REAL or shared stores",
+                     : "SHARED_DB_TEST_ONLY; no automatic cleanup without run/workspace provenance and FK verification",
                 false);
             if (result.putIfAbsent(contract.scenarioId(),contract)!=null)
                 throw new IllegalStateException("Duplicate scenario fixture contract");

@@ -41,6 +41,7 @@ public class NeshanGeoProvider implements GeoProvider {
 
     @Override
     public List<GeoSearchResult> geocode(String address) {
+        denyTesterOutbound();
         requireApiKey();
 
         try {
@@ -77,6 +78,7 @@ public class NeshanGeoProvider implements GeoProvider {
             BigDecimal latitude,
             BigDecimal longitude
     ) {
+        denyTesterOutbound();
         requireApiKey();
 
         try {
@@ -254,6 +256,14 @@ public class NeshanGeoProvider implements GeoProvider {
         }
 
         return root;
+    }
+
+    private static void denyTesterOutbound() {
+        var auth = org.springframework.security.core.context.SecurityContextHolder.getContext().getAuthentication();
+        if (auth != null && auth.getAuthorities() != null && auth.getAuthorities().stream()
+                .anyMatch(a -> "ROLE_TESTER".equals(a.getAuthority()))) {
+            throw new SecurityException("TESTER map-provider egress blocked; use offline mock");
+        }
     }
 
     private void requireApiKey() {

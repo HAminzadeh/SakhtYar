@@ -54,6 +54,9 @@ public class CaseEntity {
     @Column(name = "updated_at", nullable = false)
     private Instant updatedAt;
 
+    @Column(name = "data_scope", nullable = false, insertable = false, updatable = false, length = 8)
+    private String dataScope;
+
     protected CaseEntity() {
     }
 
@@ -134,4 +137,5 @@ public class CaseEntity {
     public String getCreatedBy() { return createdBy; }
     public Instant getCreatedAt() { return createdAt; }
     public Instant getUpdatedAt() { return updatedAt; }
+    public String getDataScope() { return dataScope; }
 }

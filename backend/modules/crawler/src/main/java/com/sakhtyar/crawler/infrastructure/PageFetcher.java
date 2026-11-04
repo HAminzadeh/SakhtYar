@@ -16,6 +16,11 @@ public class PageFetcher {
             .build();
 
     public FetchedPage fetch(String url, int timeoutMs, String userAgent) {
+        var auth = org.springframework.security.core.context.SecurityContextHolder.getContext().getAuthentication();
+        if (auth != null && auth.getAuthorities() != null && auth.getAuthorities().stream()
+                .anyMatch(a -> "ROLE_TESTER".equals(a.getAuthority()))) {
+            throw new SecurityException("TESTER crawler egress blocked; use local FakeSink adapter");
+        }
         try {
             URI uri = URI.create(url);
             HttpRequest request = HttpRequest.newBuilder(uri)

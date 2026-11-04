@@ -29,8 +29,10 @@ public class CaseService {
 
     @Transactional(readOnly = true)
     public List<CaseResponse> list() {
+        assertRealBusinessRequest();
         return repository.findAllByOrderByUpdatedAtDesc()
                 .stream()
+                .filter(row -> "REAL".equals(row.getDataScope()))
                 .filter(access::canRead)
                 .map(CaseResponse::from)
                 .toList();
@@ -38,6 +40,7 @@ public class CaseService {
 
     @Transactional(readOnly = true)
     public CaseResponse get(UUID id) {
+        assertRealBusinessRequest();
         return CaseResponse.from(require(id));
     }
 
@@ -46,6 +49,7 @@ public class CaseService {
             UpsertCaseRequest request,
             Authentication authentication
     ) {
+        assertRealBusinessRequest();
         Instant now = Instant.now();
 
         UUID caseId = UUID.randomUUID();
@@ -92,6 +96,7 @@ public class CaseService {
 
     @Transactional
     public CaseResponse update(UUID id, UpsertCaseRequest request) {
+        assertRealBusinessRequest();
         CaseEntity entity = require(id);
 
         entity.update(
@@ -118,10 +123,25 @@ public class CaseService {
         return CaseResponse.from(entity);
     }
 
+    /** The ordinary case APIs are REAL-only until a restricted TEST service path is verified. */
+    private static void assertRealBusinessRequest() {
+        var auth = org.springframework.security.core.context.SecurityContextHolder.getContext().getAuthentication();
+        if (auth != null && auth.getAuthorities() != null && auth.getAuthorities().stream()
+                .anyMatch(a -> "ROLE_TESTER".equals(a.getAuthority()))) {
+            throw new org.springframework.web.server.ResponseStatusException(
+                org.springframework.http.HttpStatus.FORBIDDEN,
+                "TESTER must use an isolated TEST business executor, not REAL case APIs");
+        }
+    }
+
     private CaseEntity require(UUID id) {
         CaseEntity result = repository.findById(id)
                 .orElseThrow(() -> new org.springframework.web.server.ResponseStatusException(
                     org.springframework.http.HttpStatus.NOT_FOUND, "Case not found."));
+        if (!"REAL".equals(result.getDataScope())) {
+            throw new org.springframework.web.server.ResponseStatusException(
+                org.springframework.http.HttpStatus.NOT_FOUND, "Case not found.");
+        }
         access.requireRead(result);
         return result;
     }

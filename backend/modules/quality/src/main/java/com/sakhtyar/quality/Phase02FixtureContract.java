@@ -12,7 +12,7 @@ public record Phase02FixtureContract(
         String expectedFixture,
         String cleanupStrategy,
         boolean writesEnabled) {
-    public enum IsolationMode { CLONE_REQUIRED, LIMITED_CORE_RESTRICTED_LOGIN }
+    public enum IsolationMode { CLONE_REQUIRED, LIMITED_CORE_RESTRICTED_LOGIN, SHARED_DB_TEST_GATED }
 
     public Phase02FixtureContract {
         Objects.requireNonNull(scenarioId);

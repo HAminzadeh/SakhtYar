@@ -123,6 +123,7 @@ public class DocumentService {
         DocumentEntity entity = repository.findById(documentId)
                 .orElseThrow(() ->
                         new IllegalArgumentException("Document not found."));
+        requireCase(entity.getCaseId());
 
         try {
             InputStream stream = minio.getObject(
@@ -169,8 +170,21 @@ public class DocumentService {
     }
 
     private void requireCase(UUID caseId) {
-        if (!caseRepository.existsById(caseId)) {
-            throw new IllegalArgumentException("Case not found.");
+        var entity = caseRepository.findById(caseId)
+                .orElseThrow(() -> new IllegalArgumentException("Case not found."));
+        // The general MinIO adapter currently uses cases/<id> (REAL namespace).
+        // Do not allow a TEST case to reach this adapter until it is isolated.
+        if (!"REAL".equals(entity.getDataScope())) {
+            throw new org.springframework.web.server.ResponseStatusException(
+                    org.springframework.http.HttpStatus.FORBIDDEN,
+                    "TEST document storage is blocked until workspace/run namespace enforcement is integrated");
+        }
+        var auth = org.springframework.security.core.context.SecurityContextHolder.getContext().getAuthentication();
+        if (auth != null && auth.getAuthorities() != null && auth.getAuthorities().stream()
+                .anyMatch(a -> "ROLE_TESTER".equals(a.getAuthority()))) {
+            throw new org.springframework.web.server.ResponseStatusException(
+                    org.springframework.http.HttpStatus.FORBIDDEN,
+                    "TESTER cannot read or write the REAL MinIO namespace");
         }
     }
 

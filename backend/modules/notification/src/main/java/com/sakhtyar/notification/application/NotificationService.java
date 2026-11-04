@@ -20,10 +20,11 @@ public class NotificationService {
 
     @Transactional
     public NotificationResponse enqueue(EnqueueRequest request) {
+        assertRealNotificationBoundary();
         UUID id=UUID.randomUUID(); Instant now=Instant.now();
         jdbc.update("""
-          insert into notification_outbox(id,channel,target,subject,body,status,attempt_count,metadata,created_at)
-          values (?,?,?,?,?,'PENDING',0,?::jsonb,?)
+          insert into notification_outbox(id,channel,target,subject,body,status,attempt_count,metadata,created_at,data_scope,test_workspace_id,test_run_id)
+          values (?,?,?,?,?,'PENDING',0,?::jsonb,?,'REAL',NULL,NULL)
           """,id,request.channel().trim().toUpperCase(Locale.ROOT),request.target().trim(),
           request.subject().trim(),request.body().trim(),json(request.metadata()),java.sql.Timestamp.from(now));
         audit.record("NOTIFICATION",id,"NOTIFICATION_ENQUEUED",Map.of("channel",request.channel(),"target",request.target()));
@@ -32,10 +33,11 @@ public class NotificationService {
 
     @Transactional(readOnly=true)
     public List<NotificationResponse> pending(int limit) {
+        assertRealNotificationBoundary();
         int safe=Math.max(1,Math.min(limit,500));
         return jdbc.query("""
           select id,channel,target,subject,body,status,attempt_count,last_error,metadata,created_at,sent_at
-          from notification_outbox where status in ('PENDING','FAILED')
+          from notification_outbox where data_scope='REAL' and status in ('PENDING','FAILED')
           order by created_at asc
           limit ?
           """,(rs,row)->map(rs),safe);
@@ -43,17 +45,19 @@ public class NotificationService {
 
     @Transactional(readOnly=true)
     public NotificationResponse get(UUID id) {
+        assertRealNotificationBoundary();
         return jdbc.query("""
           select id,channel,target,subject,body,status,attempt_count,last_error,metadata,created_at,sent_at
-          from notification_outbox where id=?
+          from notification_outbox where id=? and data_scope='REAL'
           """,(rs,row)->map(rs),id).stream().findFirst()
           .orElseThrow(()->new IllegalArgumentException("Notification not found."));
     }
 
     @Transactional
     public NotificationResponse markSent(UUID id) {
+        assertRealNotificationBoundary();
         int changed=jdbc.update("""
-          update notification_outbox set status='SENT',attempt_count=attempt_count+1,sent_at=now(),last_error=null where id=?
+          update notification_outbox set status='SENT',attempt_count=attempt_count+1,sent_at=now(),last_error=null where id=? and data_scope='REAL'
           """,id);
         if(changed==0)throw new IllegalArgumentException("Notification not found.");
         return get(id);
@@ -61,11 +65,27 @@ public class NotificationService {
 
     @Transactional
     public NotificationResponse markFailed(UUID id,String error) {
+        assertRealNotificationBoundary();
         int changed=jdbc.update("""
-          update notification_outbox set status='FAILED',attempt_count=attempt_count+1,last_error=? where id=?
+          update notification_outbox set status='FAILED',attempt_count=attempt_count+1,last_error=? where id=? and data_scope='REAL'
           """,error==null?"Unknown delivery failure":error,id);
         if(changed==0)throw new IllegalArgumentException("Notification not found.");
         return get(id);
+    }
+
+    /** Defense in depth: the TESTER cannot dispatch even if the DB row defaults to REAL. */
+    private void assertRealNotificationBoundary() {
+        var auth = org.springframework.security.core.context.SecurityContextHolder.getContext().getAuthentication();
+        if (auth != null && auth.getAuthorities() != null && auth.getAuthorities().stream()
+                .anyMatch(a -> "ROLE_TESTER".equals(a.getAuthority()))) {
+            throw new SecurityException("TESTER cannot enqueue or dispatch real notifications");
+        }
+        String scope = jdbc.queryForObject("""
+                select coalesce(nullif(current_setting('app.sakhtyar_scope', true), ''), 'REAL')
+                """, String.class);
+        if (!"REAL".equals(scope)) {
+            throw new SecurityException("Non-REAL notification database session blocked");
+        }
     }
 
     private NotificationResponse map(ResultSet rs)throws SQLException{
