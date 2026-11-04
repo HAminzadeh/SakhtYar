@@ -2,6 +2,7 @@ package com.sakhtyar.document.application;
 
 import com.sakhtyar.audit.application.AuditService;
 import com.sakhtyar.casefile.domain.CaseRepository;
+import com.sakhtyar.casefile.application.CaseAccessService;
 import com.sakhtyar.document.api.DocumentDtos.DocumentResponse;
 import com.sakhtyar.document.domain.DocumentEntity;
 import com.sakhtyar.document.domain.DocumentRepository;
@@ -29,6 +30,7 @@ public class DocumentService {
 
     private final DocumentRepository repository;
     private final CaseRepository caseRepository;
+    private final CaseAccessService caseAccess;
     private final AuditService auditService;
     private final MinioClient minio;
     private final StorageProperties storage;
@@ -36,12 +38,14 @@ public class DocumentService {
     public DocumentService(
             DocumentRepository repository,
             CaseRepository caseRepository,
+            CaseAccessService caseAccess,
             AuditService auditService,
             MinioClient minio,
             StorageProperties storage
     ) {
         this.repository = repository;
         this.caseRepository = caseRepository;
+        this.caseAccess = caseAccess;
         this.auditService = auditService;
         this.minio = minio;
         this.storage = storage;
@@ -64,6 +68,7 @@ public class DocumentService {
             String uploadedBy
     ) {
         requireCase(caseId);
+        caseAccess.requireWrite(caseRepository.findById(caseId).orElseThrow());
 
         if (file.isEmpty()) {
             throw new IllegalArgumentException("File cannot be empty.");
@@ -186,6 +191,8 @@ public class DocumentService {
                     org.springframework.http.HttpStatus.FORBIDDEN,
                     "TESTER cannot read or write the REAL MinIO namespace");
         }
+        // Direct document-id downloads must enforce case ACL, not just DOCUMENT_READ.
+        caseAccess.requireRead(entity);
     }
 
     private String sha256(MultipartFile file) throws Exception {

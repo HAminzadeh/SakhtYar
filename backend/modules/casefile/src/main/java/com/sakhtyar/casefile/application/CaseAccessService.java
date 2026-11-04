@@ -26,8 +26,10 @@ public class CaseAccessService {
     }
 
     public boolean canRead(CaseEntity item) {
+        if (item == null || !"REAL".equals(item.getDataScope())) return false;
         Authentication auth = SecurityContextHolder.getContext().getAuthentication();
-        if (auth == null || !auth.isAuthenticated() || auth.getName() == null) return false;
+        if (auth == null || !auth.isAuthenticated() || auth.getName() == null || auth.getAuthorities() == null) return false;
+        if (auth.getAuthorities().stream().anyMatch(x -> "ROLE_TESTER".equals(x.getAuthority()))) return false;
         boolean isAdmin = auth.getAuthorities().stream().anyMatch(x -> "ROLE_ADMIN".equals(x.getAuthority()));
         if (isAdmin) return true;
         if (item.getCreatedBy().equalsIgnoreCase(auth.getName())) return true;
@@ -41,6 +43,25 @@ public class CaseAccessService {
 
     public void requireRead(CaseEntity item) {
         if (!canRead(item)) throw new ResponseStatusException(HttpStatus.NOT_FOUND, "Case not found.");
+    }
+
+    /** Membership currently grants read access only; grant/revoke/write require creator or admin. */
+    public void requireWrite(CaseEntity item) {
+        if (item == null || !"REAL".equals(item.getDataScope()))
+            throw new ResponseStatusException(HttpStatus.NOT_FOUND, "Case not found.");
+        Authentication auth = SecurityContextHolder.getContext().getAuthentication();
+        if (auth == null || !auth.isAuthenticated() || auth.getAuthorities() == null || auth.getName() == null ||
+            auth.getAuthorities().stream().anyMatch(x -> "ROLE_TESTER".equals(x.getAuthority())))
+            throw new ResponseStatusException(HttpStatus.NOT_FOUND, "Case not found.");
+        boolean admin = auth.getAuthorities().stream().anyMatch(x -> "ROLE_ADMIN".equals(x.getAuthority()));
+        if (!admin && !item.getCreatedBy().equalsIgnoreCase(auth.getName()))
+            throw new ResponseStatusException(HttpStatus.NOT_FOUND, "Case not found.");
+    }
+
+    public void requireWrite(UUID id) {
+        CaseEntity item = cases.findById(id).orElseThrow(() ->
+            new ResponseStatusException(HttpStatus.NOT_FOUND, "Case not found."));
+        requireWrite(item);
     }
 
     public void requireRead(UUID id) {

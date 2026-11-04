@@ -89,10 +89,15 @@ async function verifyAuthenticated() {
 async function refreshAccess() {
   if (!refreshPromise) {
     refreshPromise = (async () => {
+      // Web refresh is a cookie-authenticated mutation: enforce CSRF even
+      // when the access cookie has expired. Mobile bearer refresh is separate.
+      const csrf = await csrfToken()
+      if (!csrf) return false
       const response = await fetch('/api/v1/auth/refresh', {
         method: 'POST',
         credentials: 'include',
         cache: 'no-store',
+        headers: { [csrf.headerName]: csrf.token },
       })
       if (!response.ok) return false
       return verifyAuthenticated()
@@ -115,7 +120,6 @@ async function performFetch(path: string, init: RequestInit) {
   const csrfExempt =
     path.startsWith('/api/v1/auth/login') ||
     path.startsWith('/api/v1/auth/register') ||
-    path.startsWith('/api/v1/auth/refresh') ||
     path.startsWith('/api/v1/auth/mobile/')
 
   if (unsafe(method) && !csrfExempt) {

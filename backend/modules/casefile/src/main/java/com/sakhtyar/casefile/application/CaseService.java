@@ -98,6 +98,7 @@ public class CaseService {
     public CaseResponse update(UUID id, UpsertCaseRequest request) {
         assertRealBusinessRequest();
         CaseEntity entity = require(id);
+        access.requireWrite(entity);
 
         entity.update(
                 request.title().trim(),
