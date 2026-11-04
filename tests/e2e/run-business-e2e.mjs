@@ -59,4 +59,6 @@ fs.writeFileSync(path, JSON.stringify(result, null, 2))
 const counts = Object.fromEntries(['PASSED','FAILED','BLOCKED'].map(state => [state, result.results.filter(row => row.state === state).length]))
 for (const row of result.results) process.stdout.write(`${row.scenario_id}: ${row.state} — ${row.summary}\n`)
 process.stdout.write(`Report: ${path}\nPASSED=${counts.PASSED}; FAILED=${counts.FAILED}; BLOCKED=${counts.BLOCKED}\n`)
+process.stdout.write(`Tester=${result.tester_username ?? 'legacy'}; identity=${result.tester_identity_action ?? 'unknown'}; source=${result.source_commit ?? 'unknown'}\n`)
+process.stdout.write(`Completed preflight/terminal scenarios=${result.completedScenarios}; verified complete business passes=${result.businessScenarioPassedCount ?? 0}; progress is NOT business coverage\n`)
 if (counts.FAILED || (counts.BLOCKED && process.env.SAKHTYAR_ACCEPT_BLOCKED !== '1')) process.exitCode = 2

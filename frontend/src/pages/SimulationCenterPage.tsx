@@ -45,7 +45,9 @@ type DetailedE2EPlan = { id: string; phase: string; title: string; description: 
   dependencies: string[]; requiredTables: string[]; requiredRoutes: string[];
   preflightSteps: string[]; businessSteps: string; businessStatus: string }
 type BusinessE2ERun = { id: string; state: string; scenario_count: number; completedScenarios: number; progressPercent: number; totalSteps?: number; completedSteps?: number;
-  requested_at: string; results: BusinessE2EResult[]; steps: BusinessE2EStep[] }
+  requested_at: string; results: BusinessE2EResult[]; steps: BusinessE2EStep[];
+  tester_username?: string; tester_identity_action?: string; source_commit?: string; trace_id?: string;
+  businessScenarioPassedCount?: number; businessScenarioBlockedCount?: number; businessScenarioFailedCount?: number }
 type BusinessE2ECoverage = { implementedBusinessE2e: string[]; completeBusinessE2eCount: number; limitedBusinessE2eCount?: number; totalBusinessE2eCount: number; note: string }
 
 type CoreFixtureReadiness = {
@@ -680,6 +682,9 @@ export function SimulationCenterPage() {
             message={selectedE2ePlan.businessStatus === 'LIMITED_CORE_FIXTURE' ? 'فقط Fixture چهارجدولی دارای پیاده‌سازی محدود است' : 'گردش‌کار کامل تجاری هنوز ایزوله و پیاده‌سازی نشده است'}
             description="موفقیت بررسی جدول و Route به معنی ارسال واقعی درخواست API یا اجرای گردش‌کار کسب‌وکار نیست." />
         </Card>}
+        {activeBusinessE2E.data && <Alert type="info" showIcon
+          message={`هویت اجرا: ${activeBusinessE2E.data.tester_username ?? 'ثبت‌نشده'} · ${activeBusinessE2E.data.tester_identity_action ?? 'legacy'}`}
+          description={`پیشرفت بررسی مقدماتی با پوشش گردش‌کار تجاری متفاوت است. موفقیت تجاری کامل: ${activeBusinessE2E.data.businessScenarioPassedCount ?? 0} از ${activeBusinessE2E.data.scenario_count}. SHA: ${activeBusinessE2E.data.source_commit ?? 'unknown'} · Trace: ${activeBusinessE2E.data.trace_id ?? 'unknown'}`} />}
         <Row gutter={[12,12]}>
           <Col xs={24} md={12}><Statistic title="پیشرفت زیرفرایندها" value={activeBusinessE2E.data?.progressPercent ?? 0} suffix="٪" /></Col>
           <Col xs={24} md={12}><Statistic title="گام‌های پایان‌یافته / کل" value={`${activeBusinessE2E.data?.completedSteps ?? 0} / ${activeBusinessE2E.data?.totalSteps ?? 0}`} /></Col>

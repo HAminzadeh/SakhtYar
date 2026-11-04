@@ -28,6 +28,12 @@ public class SimulationBusinessE2EController implements ApplicationListener<Appl
     private final ObjectMapper mapper;
     private final SimulationScenarioChecks scenarioChecks;
     private final E2ETesterIdentityService testerIdentity;
+    private final ScenarioExecutorRegistry registry;
+    private final E2EEvidenceCollector evidenceCollector;
+    private final SimulationWorkspaceAuthorizationService workspaceAuthorization;
+    private static final ThreadLocal<E2EExecutionContext> ACTIVE_CTX = new ThreadLocal<>();
+    @org.springframework.beans.factory.annotation.Value("${sakhtyar.source-commit:unknown}")
+    private String gitCommit;
     private final ExecutorService executor=Executors.newSingleThreadExecutor(r -> {
         Thread thread=new Thread(r,"sakhtyar-business-e2e");thread.setDaemon(true);return thread;
     });
@@ -38,15 +44,19 @@ public class SimulationBusinessE2EController implements ApplicationListener<Appl
         "بازیابی و کنترل مالکیت", "تأیید نامرئی‌بودن TEST در REAL");
 
     public SimulationBusinessE2EController(JdbcTemplate jdbc,SimulationCoreFixtureService fixtures,
-            ObjectMapper mapper,SimulationScenarioChecks scenarioChecks,E2ETesterIdentityService testerIdentity) {
-        this.jdbc=jdbc;this.fixtures=fixtures;this.mapper=mapper;this.scenarioChecks=scenarioChecks;this.testerIdentity=testerIdentity;
+            ObjectMapper mapper,SimulationScenarioChecks scenarioChecks,E2ETesterIdentityService testerIdentity,
+            ScenarioExecutorRegistry registry,E2EEvidenceCollector evidenceCollector,
+            SimulationWorkspaceAuthorizationService workspaceAuthorization) {
+        this.jdbc=jdbc;this.fixtures=fixtures;this.mapper=mapper;this.scenarioChecks=scenarioChecks;
+        this.testerIdentity=testerIdentity;this.registry=registry;this.evidenceCollector=evidenceCollector;
+        this.workspaceAuthorization=workspaceAuthorization;
     }
     private void admin(Authentication auth) {
         if(auth==null || !auth.isAuthenticated() || auth.getAuthorities()==null ||
            auth.getAuthorities().stream().noneMatch(x->"USER_MANAGE".equals(x.getAuthority())))
             throw new ResponseStatusException(HttpStatus.FORBIDDEN,"Simulation administrator required");
     }
-    @Override public void onApplicationEvent(ApplicationReadyEvent e) {
+    @Override @Transactional public void onApplicationEvent(ApplicationReadyEvent e) {
         jdbc.update("""
             update simulation_e2e_result set state='BLOCKED',summary='Interrupted by backend restart',finished_at=now()
             where state in ('QUEUED','RUNNING') and run_id in
@@ -67,7 +77,7 @@ public class SimulationBusinessE2EController implements ApplicationListener<Appl
     }
     @GetMapping("/coverage") public Map<String,Object> coverage(Authentication a) {
         admin(a);
-        return Map.of("implementedBusinessE2e",List.of("E2E-14"),"registeredScenarios",SCENARIOS,
+        return Map.of("implementedBusinessE2e",List.copyOf(registry.registeredIds()),"registeredScenarios",SCENARIOS,
             "completeBusinessE2eCount",0,"limitedBusinessE2eCount",1,"totalBusinessE2eCount",24,
             "note","Zero complete business workflows. E2E-14 has a guarded four-table fixture, not document upload or public API lifecycle. Other 23 require dedicated isolated implementations.");
     }
@@ -83,6 +93,8 @@ public class SimulationBusinessE2EController implements ApplicationListener<Appl
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST,"Invalid scenario IDs");
         // Expand dependencies and order them BEFORE business operations; never skip prerequisite probes.
         List<String> ordered=SimulationScenarioPlans.orderedWithPrerequisites(unique);
+        // Even administrators may operate only their own ACTIVE TEST workspaces.
+        workspaceAuthorization.requireActiveOwner(req.workspaceId(), a);
         Boolean active=jdbc.queryForObject("select exists(select 1 from simulation_workspace where id=? and state='ACTIVE')",
             Boolean.class,req.workspaceId());
         if(!Boolean.TRUE.equals(active)) throw new ResponseStatusException(HttpStatus.CONFLICT,"Active TEST workspace required");
@@ -94,9 +106,19 @@ public class SimulationBusinessE2EController implements ApplicationListener<Appl
         if(created==0) {
             UUID old=jdbc.queryForObject("select id from simulation_e2e_run where workspace_id=? and request_key=?",
                 UUID.class,req.workspaceId(),req.requestKey());
+            java.util.Map<String,Object> previous=jdbc.queryForMap(
+                "select requested_by,scenario_count from simulation_e2e_run where id=?", old);
+            java.util.Set<String> previousIds=new java.util.HashSet<>(jdbc.queryForList(
+                "select scenario_id from simulation_e2e_result where run_id=?",String.class,old));
+            if (!String.valueOf(previous.get("requested_by")).equalsIgnoreCase(a.getName()) ||
+                !previousIds.equals(new java.util.HashSet<>(ordered)))
+                throw new ResponseStatusException(HttpStatus.CONFLICT,"Idempotency key reused for different request");
             return result(old,a);
         }
         E2ETesterIdentityService.Identity testAccount = testerIdentity.ensure();
+        String traceId=UUID.randomUUID().toString();
+        jdbc.update("update simulation_e2e_run set tester_user_id=?,tester_username=?,tester_identity_action=?,source_commit=?,trace_id=? where id=?",
+            testAccount.id(),testAccount.username(),testAccount.action(),gitCommit,traceId,id);
         for(String code:ordered) {
             jdbc.update("insert into simulation_e2e_result(run_id,scenario_id) values(?,?)",id,code);
             SimulationScenarioPlans.Plan plan=SimulationScenarioPlans.get(code);
@@ -117,7 +139,7 @@ public class SimulationBusinessE2EController implements ApplicationListener<Appl
         }
         TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
             @Override public void afterCommit() {
-                try { executor.execute(()->execute(id,req.workspaceId(),testAccount.username(),List.copyOf(ordered))); }
+                try { executor.execute(()->execute(id,req.workspaceId(),a.getName(),testAccount,traceId,List.copyOf(ordered))); }
                 catch(RejectedExecutionException ex) { interrupt(id); }
             }
         });
@@ -125,12 +147,14 @@ public class SimulationBusinessE2EController implements ApplicationListener<Appl
     }
     @GetMapping("/runs") public List<Map<String,Object>> runs(@RequestParam UUID workspaceId,Authentication a) {
         admin(a);
+        workspaceAuthorization.requireActiveOwner(workspaceId,a);
         return jdbc.queryForList("select * from simulation_e2e_run where workspace_id=? order by requested_at desc limit 40",workspaceId);
     }
     @GetMapping("/runs/{id}") public Map<String,Object> result(@PathVariable UUID id,Authentication a) {
         admin(a);
         List<Map<String,Object>> rows=jdbc.queryForList("select * from simulation_e2e_run where id=?",id);
         if(rows.isEmpty()) throw new ResponseStatusException(HttpStatus.NOT_FOUND,"E2E run not found");
+        workspaceAuthorization.requireActiveOwner((UUID)rows.get(0).get("workspace_id"),a);
         Map<String,Object> out=new LinkedHashMap<>(rows.get(0));
         List<Map<String,Object>> results=jdbc.queryForList("select * from simulation_e2e_result where run_id=? order by scenario_id",id);
         List<Map<String,Object>> steps=jdbc.queryForList("select * from simulation_e2e_step where run_id=? order by scenario_id,step_no",id);
@@ -143,7 +167,13 @@ public class SimulationBusinessE2EController implements ApplicationListener<Appl
         out.put("completedSteps",completedSteps);
         out.put("progressPercent",steps.isEmpty()?0L:Math.round(100.0*completedSteps/steps.size()));
         out.put("scenarioProgressPercent",Math.round(done*100.0/((Number)out.get("scenario_count")).doubleValue()));
-        out.put("businessScenarioPassedCount",results.stream().filter(x->"PASSED".equals(x.get("state"))).count());
+        // Legacy four-table fixture PASSED is NOT complete business coverage.
+        Long trueBusinessPasses=jdbc.queryForObject("""
+            select count(*) from simulation_e2e_result where run_id=? and state='PASSED'
+            and evidence->>'executionType'='FULL_BUSINESS_E2E'
+            and evidence->>'businessWorkflowExecuted'='true'
+            """,Long.class,id);
+        out.put("businessScenarioPassedCount",trueBusinessPasses==null?0L:trueBusinessPasses);
         out.put("businessScenarioBlockedCount",results.stream().filter(x->"BLOCKED".equals(x.get("state"))).count());
         out.put("businessScenarioFailedCount",results.stream().filter(x->"FAILED".equals(x.get("state"))).count());
         return out;
@@ -163,49 +193,56 @@ public class SimulationBusinessE2EController implements ApplicationListener<Appl
             """,reason,runId,scenario);
     }
     private boolean dependenciesReady(UUID runId,SimulationScenarioPlans.Plan plan) {
-        for(String required:plan.dependencies()) {
-            // A dependency's non-mutating integrity prerequisites must have passed;
-            // this does NOT imply its real-world business workflow passed.
-            Long succeeded=jdbc.queryForObject("""
-                select count(*) from simulation_e2e_step
-                where run_id=? and scenario_id=? and step_no in (1,2,3) and state='PASSED'
+        for (String required:plan.dependencies()) {
+            Long complete=jdbc.queryForObject("""
+                select count(*) from simulation_e2e_result
+                where run_id=? and scenario_id=? and state='PASSED'
+                  and evidence->>'executionType'='FULL_BUSINESS_E2E'
+                  and evidence->>'businessWorkflowExecuted'='true'
                 """,Long.class,runId,required);
-            if(succeeded==null || succeeded!=3L) return false;
+            if (complete==null || complete!=1L) return false;
         }
         return true;
     }
-    private void advance(UUID id,int index,String state,String detail) {
-        jdbc.update("""
-            update simulation_e2e_step set state=?,detail=?,
-              started_at=coalesce(started_at,now()),finished_at=case when ?='RUNNING' then null else now() end
-            where run_id=? and scenario_id='E2E-14' and step_no=?
-            """,state,detail,state,id,index+4);
-    }
     private void finish(UUID id,String code,String state,String summary,Map<String,Object> evidence) {
         try {
-            String json=mapper.writeValueAsString(evidence);
+            E2EExecutionContext active=ACTIVE_CTX.get();
+            String trace=active==null?"unknown":active.traceId();
+            String json=mapper.writeValueAsString(evidenceCollector.collect(
+                id.toString(),code,state,registry.executionType(code),gitCommit,trace,evidence));
             jdbc.update("""
                 update simulation_e2e_result
-                set state=?,summary=?,evidence=cast(? as jsonb),finished_at=now()
+                set state=?,summary=?,evidence=cast(? as jsonb),evidence_schema_version=1,finished_at=now()
                 where run_id=? and scenario_id=?
                 """,state,summary,json,id,code);
         } catch(Exception ex) { throw new IllegalStateException("Persisting E2E result failed",ex); }
     }
-    private void execute(UUID id,UUID workspace,String actor,List<String> selected) {
+    private void execute(UUID id,UUID workspace,String actor,
+                         E2ETesterIdentityService.Identity identity,String traceId,List<String> selected) {
         try {
             org.springframework.security.core.userdetails.UserDetails tester = testerIdentity.loadAuthorities();
+            java.util.Set<String> authorities=tester.getAuthorities().stream()
+                .map(x->x.getAuthority()).collect(java.util.stream.Collectors.toUnmodifiableSet());
+            E2EExecutionContext executionContext=new E2EExecutionContext(
+                id,workspace,actor,identity.id(),identity.username(),
+                com.sakhtyar.identity.domain.UserRole.TESTER,authorities,gitCommit,
+                new java.util.concurrent.atomic.AtomicBoolean(false),traceId);
+            ACTIVE_CTX.set(executionContext);
             org.springframework.security.core.context.SecurityContext context =
                 org.springframework.security.core.context.SecurityContextHolder.createEmptyContext();
             context.setAuthentication(new org.springframework.security.authentication.UsernamePasswordAuthenticationToken(
                 tester, null, tester.getAuthorities()));
             org.springframework.security.core.context.SecurityContextHolder.setContext(context);
             jdbc.update("update simulation_e2e_run set state='RUNNING' where id=?",id);
+            long workerDeadline=System.nanoTime()+java.util.concurrent.TimeUnit.MINUTES.toNanos(15);
             for(String code:selected) {
+                executionContext.requireNotCancelled();
+                if(System.nanoTime()>workerDeadline) throw new IllegalStateException("E2E worker deadline exceeded");
                 jdbc.update("update simulation_e2e_result set state='RUNNING',started_at=now() where run_id=? and scenario_id=?",id,code);
                 SimulationScenarioPlans.Plan plan=SimulationScenarioPlans.get(code);
                 if(!dependenciesReady(id,plan)) {
-                    blockUnfinished(id,code,"Earlier prerequisite integrity checks did not pass");
-                    finish(id,code,"BLOCKED","Dependent prerequisite verification failed",
+                    blockUnfinished(id,code,"Required real business scenario did not PASS");
+                    finish(id,code,"BLOCKED","Business dependency not verified",
                         Map.of("kind","PREREQUISITE_NOT_MET","dependsOn",plan.dependencies(),"businessWorkflowExecuted",false));
                     continue;
                 }
@@ -236,67 +273,14 @@ public class SimulationBusinessE2EController implements ApplicationListener<Appl
                     }
                 }
                 if(!prerequisitesPassed) continue;
-                if(!"E2E-14".equals(code)) {
-                    // Defensive fail-closed fallback: currently every other business executor
-                    // is deliberately blocked by SimulationScenarioChecks.gate().
-                    finish(id,code,"BLOCKED","No verified isolated business workflow implementation",
-                        Map.of("kind","UNIMPLEMENTED_BUSINESS_WORKFLOW","businessWorkflowExecuted",false));
-                    continue;
-                }
-                executeCase(id,workspace,actor);
+                // Dispatch by a unique registry contract; unsupported cases remain BLOCKED.
+                ScenarioExecutor.Outcome outcome=registry.execute(code,executionContext);
+                if (!"PASSED".equals(outcome.state())) blockUnfinished(id,code,outcome.summary());
+                finish(id,code,outcome.state(),outcome.summary(),outcome.evidence());
             }
             jdbc.update("update simulation_e2e_run set state='COMPLETED',finished_at=now() where id=?",id);
         } catch(Exception ex) { interrupt(id); }
-        finally { org.springframework.security.core.context.SecurityContextHolder.clearContext(); }
-    }
-    private void executeCase(UUID id,UUID workspace,String actor) {
-        Map<String,Object> gate;
-        try { advance(id,1,"RUNNING","Checking DB role and FORCE RLS");gate=fixtures.readiness(); }
-        catch(Exception ex) {
-            blockRemaining(id,1,"Readiness error: "+ex.getClass().getSimpleName());
-            finish(id,"E2E-14","FAILED","Readiness verification failed: "+ex.getClass().getSimpleName(),
-                Map.of("businessWorkflowExecuted",false));
-            return;
-        }
-        if(!Boolean.TRUE.equals(gate.get("coreFixturePermitted"))) {
-            String detail="Safety gate: "+gate.getOrDefault("blockers",List.of("Core TEST isolation not ready"));
-            blockRemaining(id,1,detail);
-            finish(id,"E2E-14","BLOCKED",detail,Map.of("businessWorkflowExecuted",false,"gate",gate));
-            return;
-        }
-        advance(id,1,"PASSED","Restricted DB role and FORCE RLS verified");
-        Map<String,Object> fixture;
-        try {
-            advance(id,2,"RUNNING","Inserting TEST-scoped case/property/owners");
-            String key="e2e14_"+id.toString().replace("-","");
-            fixture=fixtures.create(workspace,key,actor);
-            advance(id,2,"PASSED","Transactional fixture committed");
-            advance(id,3,"RUNNING","Reloading committed TEST fixture");
-            UUID caseId=(UUID)fixture.get("case_id");
-            List<Map<String,Object>> fresh=fixtures.list(workspace);
-            boolean found=fresh.stream().anyMatch(row->Objects.equals(caseId,row.get("case_id")) &&
-                row.get("owner_count") instanceof Number count && count.longValue()==2L);
-            if(!found) throw new IllegalStateException("TEST fixture not readable or owner count mismatch");
-            advance(id,3,"PASSED","Committed TEST case and two owners retrieved");
-            advance(id,4,"PASSED","REAL-mode invisibility checked transactionally by SimulationCoreFixtureService.create");
-            finish(id,"E2E-14","PASSED","Limited 4-table TEST fixture committed and REAL isolation asserted",
-                Map.of("businessWorkflowExecuted",true,"kind","CORE_FOUR_TABLE_FIXTURE",
-                    "caseId",caseId.toString(),"workspaceId",workspace.toString(),
-                    "scope","TEST","note","Not a complete API/document/business-lifecycle E2E"));
-        } catch(Exception ex) {
-            for(int n=2;n<=4;n++) jdbc.update("""
-                update simulation_e2e_step set state='BLOCKED',detail='Failed/aborted before completion',finished_at=now()
-                where run_id=? and scenario_id='E2E-14' and step_no=? and state in ('QUEUED','RUNNING')
-                """,id,n+4);
-            finish(id,"E2E-14","FAILED","Fixture execution failed: "+ex.getClass().getSimpleName(),
-                Map.of("businessWorkflowExecuted",false,"errorType",ex.getClass().getSimpleName()));
-        }
-    }
-    private void blockRemaining(UUID id,int from,String detail) {
-        jdbc.update("""
-            update simulation_e2e_step set state='BLOCKED',detail=?,finished_at=now()
-            where run_id=? and scenario_id='E2E-14' and step_no>=?
-            """,detail,id,from+4);
+        finally { ACTIVE_CTX.remove(); org.springframework.security.core.context.SecurityContextHolder.clearContext(); }
     }
     private void interrupt(UUID id) {
         try {
