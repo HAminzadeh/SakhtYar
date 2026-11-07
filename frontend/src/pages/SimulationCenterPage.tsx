@@ -425,7 +425,15 @@ export function SimulationCenterPage() {
                 { title: 'نتیجه', render: (_:unknown, r:{id:string}) => <Button size="small" onClick={() => { setE2eRunId(r.id); setE2eSelectedCode(undefined); setE2eModalOpen(true) }}>مشاهده نتیجه</Button> },
               ]} />
             {activeBusinessE2E.data && <Card size="small" title={`نتایج واقعی E2E · ${activeBusinessE2E.data.id.slice(0,8)}`}>
-              <Progress percent={activeBusinessE2E.data.progressPercent} status="active" />
+              <Row gutter={[12, 12]} style={{ marginBottom: 12 }}>
+                <Col xs={12} sm={6}><Statistic title="Business E2E موفق" value={activeBusinessE2E.data.businessScenarioPassedCount ?? 0} suffix={`/ ${activeBusinessE2E.data.scenario_count}`} /></Col>
+                <Col xs={12} sm={6}><Statistic title="Business E2E مسدود" value={activeBusinessE2E.data.businessScenarioBlockedCount ?? 0} /></Col>
+                <Col xs={12} sm={6}><Statistic title="Business E2E ناموفق" value={activeBusinessE2E.data.businessScenarioFailedCount ?? 0} /></Col>
+                <Col xs={12} sm={6}><Statistic title="پیشرفت بررسی مقدماتی" value={activeBusinessE2E.data.progressPercent} suffix="٪" /></Col>
+              </Row>
+              <Typography.Text type="secondary">پوشش واقعی گردش‌کار تجاری؛ درصد تکمیل پیش‌نیازها معیار پذیرش نیست.</Typography.Text>
+              <Progress percent={activeBusinessE2E.data.scenario_count > 0 ? Math.round(100 * (activeBusinessE2E.data.businessScenarioPassedCount ?? 0) / activeBusinessE2E.data.scenario_count) : 0} status="normal" />
+              <Typography.Paragraph type="secondary" style={{ marginBottom: 6 }}>Git SHA: {activeBusinessE2E.data.source_commit ?? 'unknown'} · TESTER: {activeBusinessE2E.data.tester_username ?? 'unknown'}</Typography.Paragraph>
               <Typography.Text type="secondary">{activeBusinessE2E.data.completedScenarios} از {activeBusinessE2E.data.scenario_count} سناریو تعیین تکلیف شده‌اند. {activeBusinessE2E.data.completedSteps ?? 0} از {activeBusinessE2E.data.totalSteps ?? 0} زیرفرایند ثبت شده؛ PASS فقط به عملیات اثبات‌شده اختصاص دارد.</Typography.Text>
               <Table<BusinessE2EResult> rowKey="scenario_id" size="small" pagination={{pageSize:10}}
                 style={{ marginTop: 12 }} dataSource={activeBusinessE2E.data.results} columns={[

@@ -1,0 +1,51 @@
+name: Phase 06 offline contracts and strict release evidence gate
+on:
+  push:
+    branches: [v2]
+  pull_request:
+    branches: [v2]
+  workflow_dispatch:
+    inputs:
+      evidence_report_path:
+        description: 'Relative path of an existing, independently produced TEST business-e2e JSON report (not production)'
+        required: false
+        type: string
+permissions:
+  contents: read
+jobs:
+  offline-contracts:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+      - name: Assert fail-closed release checks
+        run: node tests/phase06/release_gate.contract.test.mjs
+  release-acceptance:
+    if: github.event_name == 'workflow_dispatch'
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+      - name: Reject missing or non-TEST report
+        shell: bash
+        env:
+          REPORT_PATH: ${{ inputs.evidence_report_path }}
+        run: |
+          test -n "$REPORT_PATH" || { echo 'BLOCKED: no report supplied'; exit 2; }
+          case "$REPORT_PATH" in /*|*..*) echo 'BLOCKED: unsafe path'; exit 2;; esac
+          test -f "$REPORT_PATH" || { echo 'BLOCKED: report not available'; exit 2; }
+          SAKHTYAR_PHASE06_REPORT_DIR=phase06-report node tests/phase06/release_gate.mjs "$REPORT_PATH"
+      - name: Store sanitized summary (never credentials or browser traces)
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: phase06-sanitized-release-summary
+          path: phase06-report/
+          retention-days: 7
+          if-no-files-found: ignore

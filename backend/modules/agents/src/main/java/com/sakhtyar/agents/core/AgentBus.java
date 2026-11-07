@@ -56,7 +56,7 @@ public class AgentBus {
                 result = AgentResult.failed(type, "Agent نتیجه‌ای برنگرداند.");
             }
         } catch (Exception ex) {
-            log.warn("Agent {} failed for request {}", type, request.requestId(), ex);
+            log.warn("Agent {} failed for request {} (exception type only): {}", type, request.requestId(), ex.getClass().getSimpleName());
             result = AgentResult.failed(type, "اجرای Agent با خطا مواجه شد: " + safeMessage(ex));
         }
 
@@ -85,16 +85,15 @@ public class AgentBus {
                 Duration.between(startedAt, result.completedAt()).toMillis()
         );
         payload.put("callChain", context.callChain());
+        // Audit metadata only: never persist prompts, personal data, tokens, tool outputs,
+        // parameters or untrusted model text in a shared audit event.
         payload.put("input", java.util.Map.of(
-                "message", request.message(),
-                "parameters", request.parameters()
+                "messagePresent", request.message() != null && !request.message().isBlank(),
+                "parameterCount", request.parameters() == null ? 0 : request.parameters().size()
         ));
         payload.put("output", java.util.Map.of(
-                "message", result.message(),
-                "data", result.data(),
-                "warnings", result.warnings(),
-                "missingFields", result.missingFields(),
-                "confidence", result.confidence()
+                "warningCount", result.warnings() == null ? 0 : result.warnings().size(),
+                "missingFieldCount", result.missingFields() == null ? 0 : result.missingFields().size()
         ));
         payload.put("humanApprovalRequired", requiresHumanApproval(agent.type()));
         payload.put("humanApproved", false);
@@ -121,9 +120,7 @@ public class AgentBus {
     }
 
     private String safeMessage(Exception ex) {
-        String message = ex.getMessage();
-        return message == null || message.isBlank()
-                ? ex.getClass().getSimpleName()
-                : message;
+        // Exception messages can include provider payloads, credentials or personal text.
+        return ex.getClass().getSimpleName();
     }
 }

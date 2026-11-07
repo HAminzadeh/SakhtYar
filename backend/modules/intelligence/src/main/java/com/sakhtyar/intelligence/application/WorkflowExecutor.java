@@ -18,6 +18,12 @@ public class WorkflowExecutor {
   }
 
   public ExecutionResponse execute(ExecuteWorkflowRequest r){
+    // Phase 06: a TESTER must never execute registered REAL components or create workflow rows.
+    var authentication=org.springframework.security.core.context.SecurityContextHolder.getContext().getAuthentication();
+    if(authentication!=null && authentication.getAuthorities()!=null && authentication.getAuthorities().stream()
+        .anyMatch(a->"ROLE_TESTER".equals(a.getAuthority())))
+      throw new SecurityException("TESTER intelligence workflows require an isolated fake executor");
+    if(r==null || r.steps()==null)throw new IllegalArgumentException("Workflow steps are required.");
     WorkflowDefinition workflow=new WorkflowDefinition(
       r.workflowId(),r.version(),
       r.steps().stream()
@@ -26,6 +32,11 @@ public class WorkflowExecutor {
         )).toList()
     );
     validator.validate(workflow);
+    // Check every component against the installed allowlist BEFORE opening a persistent execution.
+    for(var step:workflow.steps()) {
+      if(registry.find(step.componentId()).isEmpty())
+        throw new IllegalArgumentException("Unknown intelligence component: "+step.componentId());
+    }
 
     UUID executionUuid=UUID.randomUUID();
     String executionId=executionUuid.toString();
