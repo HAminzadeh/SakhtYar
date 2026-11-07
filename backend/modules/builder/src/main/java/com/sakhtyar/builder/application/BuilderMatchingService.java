@@ -2,6 +2,7 @@ package com.sakhtyar.builder.application;
 
 import static com.sakhtyar.builder.api.BuilderDtos.*;
 import com.sakhtyar.builder.domain.*;
+import com.sakhtyar.casefile.application.CaseAccessService;
 import com.sakhtyar.property.domain.*;
 import java.math.BigDecimal;
 import java.util.*;
@@ -12,13 +13,18 @@ import org.springframework.transaction.annotation.Transactional;
 public class BuilderMatchingService {
   private final BuilderProfileRepository builders;
   private final PropertyRepository properties;
+  private final CaseAccessService caseAccess;
 
-  public BuilderMatchingService(BuilderProfileRepository builders,PropertyRepository properties){
-    this.builders=builders;this.properties=properties;
+  public BuilderMatchingService(BuilderProfileRepository builders,PropertyRepository properties,
+      CaseAccessService caseAccess){
+    this.builders=builders;this.properties=properties;this.caseAccess=caseAccess;
   }
 
   @Transactional(readOnly=true)
   public MatchResponse match(UUID caseId,BigDecimal requiredCapital,int limit){
+    caseAccess.requireRead(caseId);
+    if(requiredCapital!=null && requiredCapital.signum()<0)
+      throw new IllegalArgumentException("requiredCapital must be non-negative.");
     PropertyEntity p=properties.findByCaseId(caseId)
       .orElseThrow(()->new IllegalArgumentException("Property for case not found."));
     int safe=Math.max(1,Math.min(limit,100));

@@ -5,6 +5,7 @@ import static com.sakhtyar.finance.api.FinanceDtos.*;
 import com.sakhtyar.analysis.feasibility.domain.*;
 import com.sakhtyar.audit.application.AuditService;
 import com.sakhtyar.builder.domain.*;
+import com.sakhtyar.casefile.application.CaseAccessService;
 import com.sakhtyar.finance.domain.*;
 import com.sakhtyar.owner.domain.*;
 import java.math.BigDecimal;
@@ -24,21 +25,25 @@ public class FinancialAnalysisService {
     private final OwnerRepository ownerRepo;
     private final ProjectBuilderRepository projectBuilderRepo;
     private final AuditService auditService;
+    private final CaseAccessService caseAccess;
     private final FinancialCalculator calculator=new FinancialCalculator();
 
     public FinancialAnalysisService(FinancialAnalysisRepository analysisRepo,
             FinancialParticipationAllocationRepository allocationRepo,
             FeasibilityAssessmentRepository feasibilityRepo,OwnerRepository ownerRepo,
-            ProjectBuilderRepository projectBuilderRepo,AuditService auditService) {
+            ProjectBuilderRepository projectBuilderRepo,AuditService auditService,
+            CaseAccessService caseAccess) {
         this.analysisRepo=analysisRepo; this.allocationRepo=allocationRepo;
         this.feasibilityRepo=feasibilityRepo; this.ownerRepo=ownerRepo;
         this.projectBuilderRepo=projectBuilderRepo; this.auditService=auditService;
+        this.caseAccess=caseAccess;
     }
 
     @Transactional
     public FinancialAnalysisResponse create(CreateFinancialAnalysisRequest r,Authentication auth) {
         FeasibilityAssessmentEntity feasibility=feasibilityRepo.findById(r.feasibilityAssessmentId())
                 .orElseThrow(()->new IllegalArgumentException("Feasibility assessment not found."));
+        caseAccess.requireWrite(feasibility.getCaseId());
 
         if(feasibility.getStatus()==FeasibilityStatus.NOT_FEASIBLE)
             throw new IllegalStateException("Financial analysis cannot be created from a NOT_FEASIBLE assessment.");
@@ -119,11 +124,13 @@ public class FinancialAnalysisService {
     @Transactional(readOnly=true)
     public FinancialAnalysisResponse get(UUID id) {
         var e=analysisRepo.findById(id).orElseThrow(()->new IllegalArgumentException("Financial analysis not found."));
+        caseAccess.requireRead(e.getCaseId());
         return toResponse(e,allocationRepo.findByFinancialAnalysisIdOrderByIdAsc(id));
     }
 
     @Transactional(readOnly=true)
     public List<FinancialAnalysisResponse> byCase(UUID caseId) {
+        caseAccess.requireRead(caseId);
         return analysisRepo.findByCaseIdOrderByCalculatedAtDesc(caseId).stream()
                 .map(e->toResponse(e,allocationRepo.findByFinancialAnalysisIdOrderByIdAsc(e.getId()))).toList();
     }
@@ -131,6 +138,7 @@ public class FinancialAnalysisService {
     @Transactional(readOnly=true)
     public List<FinancialAnalysisResponse> byScenario(UUID scenarioId) {
         return analysisRepo.findByScenarioIdOrderByCalculatedAtDesc(scenarioId).stream()
+                .filter(e->caseAccess.canRead(e.getCaseId()))
                 .map(e->toResponse(e,allocationRepo.findByFinancialAnalysisIdOrderByIdAsc(e.getId()))).toList();
     }
 

@@ -15,6 +15,10 @@ public final class PriceStatistics {
             throw new IllegalArgumentException("At least one price value is required.");
         }
 
+        // Never calculate a market reference from invalid or negative observations.
+        if (values.stream().anyMatch(v -> v == null || v.signum() < 0)) {
+            throw new IllegalArgumentException("All price observations must be non-null and non-negative.");
+        }
         List<BigDecimal> sorted = new ArrayList<>(values);
         sorted.sort(Comparator.naturalOrder());
 

@@ -4,6 +4,7 @@ import static com.sakhtyar.builder.api.BuilderDtos.*;
 import com.sakhtyar.audit.application.AuditService;
 import com.sakhtyar.builder.domain.*;
 import com.sakhtyar.casefile.domain.CaseRepository;
+import com.sakhtyar.casefile.application.CaseAccessService;
 import java.time.Instant;
 import java.util.*;
 import org.springframework.stereotype.Service;
@@ -14,10 +15,12 @@ public class BuilderService {
   private final BuilderProfileRepository builders;
   private final ProjectBuilderRepository links;
   private final CaseRepository cases;
+  private final CaseAccessService caseAccess;
   private final AuditService audit;
 
-  public BuilderService(BuilderProfileRepository builders,ProjectBuilderRepository links,CaseRepository cases,AuditService audit){
-    this.builders=builders;this.links=links;this.cases=cases;this.audit=audit;
+  public BuilderService(BuilderProfileRepository builders,ProjectBuilderRepository links,
+      CaseRepository cases,CaseAccessService caseAccess,AuditService audit){
+    this.builders=builders;this.links=links;this.cases=cases;this.caseAccess=caseAccess;this.audit=audit;
   }
 
   @Transactional(readOnly=true)
@@ -50,12 +53,14 @@ public class BuilderService {
 
   @Transactional(readOnly=true)
   public List<ProjectBuilderResponse> byCase(UUID caseId){
+    caseAccess.requireRead(caseId);
     requireCase(caseId);
     return links.findByCaseIdOrderByCreatedAtAsc(caseId).stream().map(ProjectBuilderResponse::from).toList();
   }
 
   @Transactional
   public ProjectBuilderResponse link(UUID caseId,LinkBuilderRequest r){
+    caseAccess.requireWrite(caseId);
     requireCase(caseId);require(r.builderId());
     if(r.primary()){
       for(var existing:links.findByCaseIdOrderByCreatedAtAsc(caseId)){

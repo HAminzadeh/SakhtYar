@@ -41,6 +41,11 @@ public class CaseAccessService {
             """, Boolean.class, item.getId(), auth.getName()));
     }
 
+    /** Used by cross-case search endpoints to omit inaccessible REAL records. */
+    public boolean canRead(UUID caseId) {
+        return caseId != null && cases.findById(caseId).map(this::canRead).orElse(false);
+    }
+
     public void requireRead(CaseEntity item) {
         if (!canRead(item)) throw new ResponseStatusException(HttpStatus.NOT_FOUND, "Case not found.");
     }

@@ -4,6 +4,7 @@ import static com.sakhtyar.sensitivity.api.SensitivityDtos.*;
 
 import com.sakhtyar.audit.application.AuditService;
 import com.sakhtyar.finance.domain.*;
+import com.sakhtyar.casefile.application.CaseAccessService;
 import com.sakhtyar.sensitivity.domain.*;
 import java.math.BigDecimal;
 import java.time.Instant;
@@ -20,18 +21,22 @@ public class SensitivityService {
     private final SensitivityPointRepository pointRepo;
     private final FinancialAnalysisRepository financialRepo;
     private final AuditService auditService;
+    private final CaseAccessService caseAccess;
     private final SensitivityCalculator calculator=new SensitivityCalculator();
 
     public SensitivityService(SensitivityAnalysisRepository analysisRepo,SensitivityPointRepository pointRepo,
-            FinancialAnalysisRepository financialRepo,AuditService auditService) {
+            FinancialAnalysisRepository financialRepo,AuditService auditService,
+            CaseAccessService caseAccess) {
         this.analysisRepo=analysisRepo; this.pointRepo=pointRepo;
         this.financialRepo=financialRepo; this.auditService=auditService;
+        this.caseAccess=caseAccess;
     }
 
     @Transactional
     public SensitivityResponse create(CreateSensitivityRequest r,Authentication auth) {
         FinancialAnalysisEntity base=financialRepo.findById(r.financialAnalysisId())
                 .orElseThrow(()->new IllegalArgumentException("Financial analysis not found."));
+        caseAccess.requireWrite(base.getCaseId());
 
         if(r.points()==null || r.points().isEmpty()) throw new IllegalArgumentException("At least one sensitivity point is required.");
         if(r.points().size()>250) throw new IllegalArgumentException("Maximum 250 sensitivity points are allowed.");
@@ -95,17 +100,20 @@ public class SensitivityService {
     @Transactional(readOnly=true)
     public SensitivityResponse get(UUID id) {
         var e=analysisRepo.findById(id).orElseThrow(()->new IllegalArgumentException("Sensitivity analysis not found."));
+        caseAccess.requireRead(e.getCaseId());
         return toResponse(e,pointRepo.findBySensitivityAnalysisIdOrderBySequenceNoAsc(id));
     }
 
     @Transactional(readOnly=true)
     public List<SensitivityResponse> byFinancialAnalysis(UUID financialAnalysisId) {
         return analysisRepo.findByFinancialAnalysisIdOrderByCalculatedAtDesc(financialAnalysisId).stream()
+                .filter(e->caseAccess.canRead(e.getCaseId()))
                 .map(e->toResponse(e,pointRepo.findBySensitivityAnalysisIdOrderBySequenceNoAsc(e.getId()))).toList();
     }
 
     @Transactional(readOnly=true)
     public List<SensitivityResponse> byCase(UUID caseId) {
+        caseAccess.requireRead(caseId);
         return analysisRepo.findByCaseIdOrderByCalculatedAtDesc(caseId).stream()
                 .map(e->toResponse(e,pointRepo.findBySensitivityAnalysisIdOrderBySequenceNoAsc(e.getId()))).toList();
     }

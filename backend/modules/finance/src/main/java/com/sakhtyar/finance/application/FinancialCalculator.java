@@ -69,13 +69,28 @@ public final class FinancialCalculator {
         BigDecimal margin=grossRevenue.signum()==0?null:
                 profit.multiply(new BigDecimal("100")).divide(grossRevenue,6,RoundingMode.HALF_UP);
 
-        List<ParticipantResult> allocations=participants.stream().map(p -> {
-            BigDecimal revenue=grossRevenue.multiply(p.valueSharePercent())
-                    .divide(new BigDecimal("100"),2,RoundingMode.HALF_UP);
-            BigDecimal cost=totalCost.multiply(p.costSharePercent())
-                    .divide(new BigDecimal("100"),2,RoundingMode.HALF_UP);
-            return new ParticipantResult(p.key(),revenue,cost,revenue.subtract(cost).setScale(2,RoundingMode.HALF_UP));
-        }).toList();
+        // Preserve the financial conservation invariant after currency rounding.
+        // Earlier allocations are rounded HALF_UP; the final participant receives
+        // the deterministic remainder, so no currency minor units are lost/created.
+        List<ParticipantResult> allocations=new ArrayList<>();
+        BigDecimal allocatedRevenue=BigDecimal.ZERO;
+        BigDecimal allocatedCost=BigDecimal.ZERO;
+        for(int index=0;index<participants.size();index++) {
+            Participant p=participants.get(index);
+            boolean last=index==participants.size()-1;
+            BigDecimal revenue=last ? grossRevenue.subtract(allocatedRevenue)
+                    : grossRevenue.multiply(p.valueSharePercent())
+                        .divide(new BigDecimal("100"),2,RoundingMode.HALF_UP)
+                        .min(grossRevenue.subtract(allocatedRevenue));
+            BigDecimal cost=last ? totalCost.subtract(allocatedCost)
+                    : totalCost.multiply(p.costSharePercent())
+                        .divide(new BigDecimal("100"),2,RoundingMode.HALF_UP)
+                        .min(totalCost.subtract(allocatedCost));
+            allocatedRevenue=allocatedRevenue.add(revenue);
+            allocatedCost=allocatedCost.add(cost);
+            allocations.add(new ParticipantResult(p.key(),revenue,cost,
+                    revenue.subtract(cost).setScale(2,RoundingMode.HALF_UP)));
+        }
 
         return new Result(grossRevenue,totalCost,profit,roi,margin,allocations);
     }

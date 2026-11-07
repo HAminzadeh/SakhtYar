@@ -34,6 +34,14 @@ public final class SensitivityCalculator {
     ) {}
 
     public Point calculate(Baseline b,Shock s) {
+        if(b==null || s==null) throw new IllegalArgumentException("Baseline and shock are required.");
+        requirePositive(b.sellableAreaM2(),"sellableAreaM2");
+        requireNonNegative(b.salePricePerM2(),"salePricePerM2");
+        requireNonNegative(b.otherRevenue(),"otherRevenue");
+        requireNonNegative(b.baseConstructionCost(),"baseConstructionCost");
+        requireNonNegative(b.additionalCost(),"additionalCost");
+        requireNonNegative(b.financingCost(),"financingCost");
+        requireNonNegative(b.taxesAndFees(),"taxesAndFees");
         requireChange(s.salePriceChangePercent(),"salePriceChangePercent");
         requireChange(s.sellableAreaChangePercent(),"sellableAreaChangePercent");
         requireChange(s.constructionCostChangePercent(),"constructionCostChangePercent");
@@ -58,6 +66,16 @@ public final class SensitivityCalculator {
     private BigDecimal applyChange(BigDecimal base,BigDecimal percent,int scale) {
         return base.multiply(BigDecimal.ONE.add(percent.divide(ONE_HUNDRED,10,RoundingMode.HALF_UP)))
                 .setScale(scale,RoundingMode.HALF_UP);
+    }
+
+    private void requirePositive(BigDecimal value,String name) {
+        if(value==null || value.signum()<=0)
+            throw new IllegalArgumentException(name+" must be positive.");
+    }
+
+    private void requireNonNegative(BigDecimal value,String name) {
+        if(value==null || value.signum()<0)
+            throw new IllegalArgumentException(name+" must be non-negative.");
     }
 
     private void requireChange(BigDecimal value,String name) {
