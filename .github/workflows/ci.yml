@@ -20,7 +20,7 @@ jobs:
           cache-dependency-path: backend/pom.xml
       - name: Backend tests and compile
         working-directory: backend
-        run: mvn --batch-mode --no-transfer-progress clean verify
+        run: mvn --batch-mode --no-transfer-progress -Dsakhtyar.source-commit="${GITHUB_SHA}" clean verify
   frontend:
     runs-on: ubuntu-latest
     steps:

@@ -1,21 +1,32 @@
 package com.sakhtyar.quality;
 
-import java.util.Collection;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
 
 /** A unique executor per scenario. Missing/unsupported implementations fail closed. */
 @Component
 public final class ScenarioExecutorRegistry {
     private final Map<String, ScenarioExecutor> executors;
+    private final String evidenceRoot;
 
-    public ScenarioExecutorRegistry(List<ScenarioExecutor> provided) {
+    /** Convenience constructor for isolated contract tests. Does not allow a business PASS. */
+    public ScenarioExecutorRegistry(List<ScenarioExecutor> provided) { this(provided, ""); }
+
+    @Autowired
+    public ScenarioExecutorRegistry(List<ScenarioExecutor> provided,
+                                    @Value("${sakhtyar.e2e.evidence-root:}") String evidenceRoot) {
+        if (provided == null) throw new IllegalStateException("Executor registry must be initialized");
         Map<String, ScenarioExecutor> found = new LinkedHashMap<>();
         for (ScenarioExecutor executor : provided) {
-            if (executor == null || !executor.scenarioId().matches("E2E-(0[1-9]|1[0-9]|2[0-4])")) {
+            if (executor == null || executor.scenarioId() == null ||
+                !executor.scenarioId().matches("E2E-(0[1-9]|1[0-9]|2[0-4])") ||
+                executor.executionType() == null || executor.executionType().isBlank() ||
+                !executor.supports(executor.scenarioId())) {
                 throw new IllegalStateException("Invalid scenario executor registration");
             }
             if (found.putIfAbsent(executor.scenarioId(), executor) != null) {
@@ -23,6 +34,7 @@ public final class ScenarioExecutorRegistry {
             }
         }
         executors = Map.copyOf(found);
+        this.evidenceRoot = evidenceRoot == null ? "" : evidenceRoot;
     }
 
     public boolean supports(String id) {
@@ -42,6 +54,7 @@ public final class ScenarioExecutorRegistry {
         if (executor == null || !executor.supports(id)) {
             return ScenarioExecutor.Outcome.blocked("No verified isolated executor registered for " + id);
         }
+        if (context == null) return ScenarioExecutor.Outcome.blocked("Missing restricted execution context");
         context.requireNotCancelled();
         ScenarioExecutor.Outcome result;
         try {
@@ -50,21 +63,19 @@ public final class ScenarioExecutorRegistry {
             return new ScenarioExecutor.Outcome("FAILED", "Business executor failed: " + ex.getClass().getSimpleName(),
                 Map.of("errorType", ex.getClass().getSimpleName(), "businessWorkflowExecuted", false));
         }
-        if (result == null) {
-            return ScenarioExecutor.Outcome.blocked("Executor did not provide a result");
-        }
+        if (result == null) return ScenarioExecutor.Outcome.blocked("Executor did not provide a result");
         if ("PASSED".equals(result.state())) {
-            // A full pass must prove an actual positive and negative HTTP operation,
-            // isolated database side effects, and browser/user journey evidence.
             Map<String, Object> proof = result.evidence();
-            boolean complete = "FULL_BUSINESS_E2E".equals(executor.executionType()) &&
+            boolean assertions = "FULL_BUSINESS_E2E".equals(executor.executionType()) &&
                 Boolean.TRUE.equals(proof.get("businessWorkflowExecuted")) &&
                 Boolean.TRUE.equals(proof.get("positiveHttpAssertion")) &&
                 Boolean.TRUE.equals(proof.get("negativeHttpAssertion")) &&
                 Boolean.TRUE.equals(proof.get("dbAssertion")) &&
                 Boolean.TRUE.equals(proof.get("browserAssertion"));
-            if (!complete) {
-                return new ScenarioExecutor.Outcome("BLOCKED", "Missing full E2E proof; refusing PASSED",
+            boolean artifacts = assertions && E2EArtifactIntegrity.verified(evidenceRoot,
+                context.workspaceId(), context.runId(), id, proof);
+            if (!artifacts) {
+                return new ScenarioExecutor.Outcome("BLOCKED", "Missing verified on-disk E2E proof; refusing PASSED",
                     Map.of("businessWorkflowExecuted", false, "kind", "INCOMPLETE_E2E_EVIDENCE"));
             }
         }

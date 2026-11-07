@@ -32,11 +32,19 @@ public class SimulationBusinessE2EController implements ApplicationListener<Appl
     private final E2EEvidenceCollector evidenceCollector;
     private final SimulationWorkspaceAuthorizationService workspaceAuthorization;
     private static final ThreadLocal<E2EExecutionContext> ACTIVE_CTX = new ThreadLocal<>();
-    @org.springframework.beans.factory.annotation.Value("${sakhtyar.source-commit:unknown}")
-    private String gitCommit;
-    private final ExecutorService executor=Executors.newSingleThreadExecutor(r -> {
-        Thread thread=new Thread(r,"sakhtyar-business-e2e");thread.setDaemon(true);return thread;
-    });
+    // The provenance SHA comes from META-INF/build-info.properties embedded at build time.
+    // A runtime environment variable alone is not a trustworthy source of binary provenance.
+    @org.springframework.beans.factory.annotation.Autowired(required = false)
+    private org.springframework.boot.info.BuildProperties buildProperties;
+    private String sourceCommit() {
+        String embedded = buildProperties == null ? null : buildProperties.get("sourceCommit");
+        return embedded != null && embedded.matches("(?i)[0-9a-f]{40}") ? embedded : "UNVERIFIED";
+    }
+    // Bound the single-worker backlog instead of buffering an unbounded number of requests.
+    private final ThreadPoolExecutor executor = new ThreadPoolExecutor(1,1,0L,TimeUnit.MILLISECONDS,
+        new ArrayBlockingQueue<>(16), r -> {
+            Thread thread=new Thread(r,"sakhtyar-business-e2e");thread.setDaemon(true);return thread;
+        }, new ThreadPoolExecutor.AbortPolicy());
     private static final List<String> SCENARIOS=java.util.stream.IntStream.rangeClosed(1,24)
         .mapToObj(i -> "E2E-"+String.format(Locale.ROOT,"%02d",i)).toList();
     private static final List<String> STEPS=List.of(
@@ -118,7 +126,7 @@ public class SimulationBusinessE2EController implements ApplicationListener<Appl
         E2ETesterIdentityService.Identity testAccount = testerIdentity.ensure();
         String traceId=UUID.randomUUID().toString();
         jdbc.update("update simulation_e2e_run set tester_user_id=?,tester_username=?,tester_identity_action=?,source_commit=?,trace_id=? where id=?",
-            testAccount.id(),testAccount.username(),testAccount.action(),gitCommit,traceId,id);
+            testAccount.id(),testAccount.username(),testAccount.action(),sourceCommit(),traceId,id);
         for(String code:ordered) {
             jdbc.update("insert into simulation_e2e_result(run_id,scenario_id) values(?,?)",id,code);
             SimulationScenarioPlans.Plan plan=SimulationScenarioPlans.get(code);
@@ -209,7 +217,8 @@ public class SimulationBusinessE2EController implements ApplicationListener<Appl
             E2EExecutionContext active=ACTIVE_CTX.get();
             String trace=active==null?"unknown":active.traceId();
             String json=mapper.writeValueAsString(evidenceCollector.collect(
-                id.toString(),code,state,registry.executionType(code),gitCommit,trace,evidence));
+                id.toString(),code,state,registry.executionType(code),
+                active == null ? sourceCommit() : active.gitCommit(),trace,evidence));
             jdbc.update("""
                 update simulation_e2e_result
                 set state=?,summary=?,evidence=cast(? as jsonb),evidence_schema_version=1,finished_at=now()
@@ -225,7 +234,7 @@ public class SimulationBusinessE2EController implements ApplicationListener<Appl
                 .map(x->x.getAuthority()).collect(java.util.stream.Collectors.toUnmodifiableSet());
             E2EExecutionContext executionContext=new E2EExecutionContext(
                 id,workspace,actor,identity.id(),identity.username(),
-                com.sakhtyar.identity.domain.UserRole.TESTER,authorities,gitCommit,
+                com.sakhtyar.identity.domain.UserRole.TESTER,authorities,sourceCommit(),
                 new java.util.concurrent.atomic.AtomicBoolean(false),traceId);
             ACTIVE_CTX.set(executionContext);
             org.springframework.security.core.context.SecurityContext context =

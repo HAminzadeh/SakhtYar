@@ -13,6 +13,8 @@
 
   <artifactId>sakhtyar-app</artifactId>
   <name>SakhtYar Application</name>
+  <!-- Explicit CI/local-build provenance. Never derive from a random runtime Git checkout. -->
+  <properties><sakhtyar.source-commit>UNVERIFIED</sakhtyar.source-commit></properties>
 
   <dependencies>
     <dependency><groupId>com.sakhtyar</groupId><artifactId>sakhtyar-shared-kernel</artifactId></dependency>
@@ -80,6 +82,12 @@
       <plugin>
         <groupId>org.springframework.boot</groupId>
         <artifactId>spring-boot-maven-plugin</artifactId>
+        <executions>
+          <execution><goals><goal>build-info</goal></goals></execution>
+        </executions>
+        <configuration>
+          <additionalProperties><sourceCommit>${sakhtyar.source-commit}</sourceCommit></additionalProperties>
+        </configuration>
       </plugin>
       <plugin>
         <groupId>org.apache.maven.plugins</groupId>
