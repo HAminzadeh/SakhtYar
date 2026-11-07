@@ -56,6 +56,12 @@ public class IngestionPipeline {
     }
 
     public JobResponse run(UUID sourceId, Integer maxPagesOverride, Authentication authentication) {
+        // SecurityContext may not propagate into asynchronous crawler workers.
+        // Enforce the supplied API principal before the first database write or HTTP request.
+        if (authentication != null && authentication.getAuthorities() != null &&
+                authentication.getAuthorities().stream().anyMatch(a -> "ROLE_TESTER".equals(a.getAuthority()))) {
+            throw new SecurityException("TESTER cannot start REAL crawler ingestion");
+        }
         CrawlSourceEntity source = sourceService.requireSource(sourceId);
         if (!source.isEnabled()) {
             throw new IllegalStateException("Crawler source is disabled.");
@@ -82,6 +88,7 @@ public class IngestionPipeline {
             while (!queue.isEmpty() && job.getPagesFetched() + job.getPagesFailed() < maxPages) {
                 QueueItem item = queue.removeFirst();
                 String canonical = UrlCanonicalizer.canonicalize(item.url());
+                CrawlTargetPolicy.requireAllowedHost(URI.create(canonical), source.getAllowedHost());
                 String urlHash = Hashing.sha256(canonical);
 
                 if (urlRepository.existsByJobIdAndUrlHash(job.getId(), urlHash)) {
@@ -103,6 +110,7 @@ public class IngestionPipeline {
                     FetchedPage fetched = pageFetcher.fetch(
                             canonical, source.getTimeoutMs(), source.getUserAgent()
                     );
+                    CrawlTargetPolicy.requireAllowedHost(fetched.finalUri(), source.getAllowedHost());
                     crawlUrl.fetched(fetched.statusCode(), Instant.now());
                     urlRepository.save(crawlUrl);
                     job.fetched();

@@ -1,0 +1,24 @@
+{
+  "sourceKind": "SYNTHETIC_NOT_LEGAL_ADVICE",
+  "case": {
+    "landAreaM2": "300",
+    "footprintAreaM2": "150",
+    "totalBuiltAreaM2": "600"
+  },
+  "rules": [
+    {
+      "type": "MAX_COVERAGE",
+      "maximumPercent": "60",
+      "actualPercent": "50",
+      "expected": "PASS"
+    },
+    {
+      "type": "MAX_FAR",
+      "maximum": "2.4",
+      "actual": "2.0",
+      "expected": "PASS"
+    }
+  ],
+  "arithmeticOnly": true,
+  "publishableAsLaw": false
+}

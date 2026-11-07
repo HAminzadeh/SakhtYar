@@ -3,6 +3,7 @@ package com.sakhtyar.crawler.application;
 import com.sakhtyar.audit.application.AuditService;
 import com.sakhtyar.crawler.api.CrawlerDtos.*;
 import com.sakhtyar.crawler.domain.*;
+import com.sakhtyar.crawler.infrastructure.CrawlTargetPolicy;
 import com.sakhtyar.knowledge.domain.KnowledgeSourceRepository;
 import java.net.URI;
 import java.time.Instant;
@@ -106,12 +107,8 @@ public class CrawlSourceService {
             throw new IllegalArgumentException("Knowledge source not found.");
         }
         URI uri = URI.create(request.seedUrl().trim());
-        if (!"http".equalsIgnoreCase(uri.getScheme()) && !"https".equalsIgnoreCase(uri.getScheme())) {
-            throw new IllegalArgumentException("Crawler seed URL must use HTTP or HTTPS.");
-        }
-        if (uri.getHost() == null) {
-            throw new IllegalArgumentException("Crawler seed URL must contain a host.");
-        }
+        CrawlTargetPolicy.requireSyntax(uri);
+        CrawlTargetPolicy.requireAllowedHost(uri, normalizedHost(request));
     }
 
     private static String normalizedHost(UpsertSourceRequest request) {

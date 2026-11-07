@@ -1,0 +1,20 @@
+{
+  "fixtureId": "PH04-SYNTHETIC-001",
+  "synthetic": true,
+  "source": "SakhtYar generated controlled test corpus; NOT an actual regulation",
+  "pdfPages": 2,
+  "pdfSha256": "a839f0d0d3aa4c011d616d62c3d318d85e55435ecc4b03a609033d372b9c27f7",
+  "createdUtc": "2026-11-04",
+  "limitations": [
+    "Does not exercise OCR engine or business importer",
+    "No external domains are contacted",
+    "Observed PDF page text must be validated in target environment"
+  ],
+  "files": {
+    "golden_pages.jsonl": "c4e4585cb401778d0980206c8d1ec8210cbbb4bbbe0f0b410b1cbce066fb77cf",
+    "tampered_artifact.zip": "a98b6ad761fe736ab6127f0d15636fb236227fca05bc58c513e4da82f04c19df",
+    "synthetic_fa_two_pages.pdf": "a839f0d0d3aa4c011d616d62c3d318d85e55435ecc4b03a609033d372b9c27f7",
+    "broken_zip_invalid.zip": "44592c7c8c5dbe2f9a479f88c042453f49071b9b5247088c4a241ce286221690",
+    "expected_rules.json": "096b3f04e8735682cb23887d2459778b32d2870a08181e9d3f27024cd5f68c40"
+  }
+}

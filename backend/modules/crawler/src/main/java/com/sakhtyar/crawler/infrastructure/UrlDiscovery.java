@@ -15,8 +15,8 @@ public class UrlDiscovery {
         return links.stream()
                 .filter(link -> {
                     try {
-                        String candidate = URI.create(link).getHost();
-                        return candidate != null && candidate.equalsIgnoreCase(host);
+                        CrawlTargetPolicy.requireAllowedHost(URI.create(link), host);
+                        return true;
                     } catch (Exception e) {
                         return false;
                     }
