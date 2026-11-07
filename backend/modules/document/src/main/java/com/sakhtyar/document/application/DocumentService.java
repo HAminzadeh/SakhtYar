@@ -70,12 +70,12 @@ public class DocumentService {
         requireCase(caseId);
         caseAccess.requireWrite(caseRepository.findById(caseId).orElseThrow());
 
-        if (file.isEmpty()) {
-            throw new IllegalArgumentException("File cannot be empty.");
-        }
+        // Validate actual content signatures and upload boundaries before any
+        // object-store write. TEST documents remain blocked by requireCase().
+        Phase03DocumentSafety.validateUpload(file);
 
         UUID documentId = UUID.randomUUID();
-        String filename = sanitizeFilename(file.getOriginalFilename());
+        String filename = Phase03DocumentSafety.safeFilename(file.getOriginalFilename());
         String key = "cases/" + caseId + "/" + documentId + "/" + filename;
 
         try {
@@ -129,6 +129,10 @@ public class DocumentService {
                 .orElseThrow(() ->
                         new IllegalArgumentException("Document not found."));
         requireCase(entity.getCaseId());
+        // Never trust an object key obtained from persisted metadata without
+        // checking its immutable case/document namespace before MinIO access.
+        Phase03DocumentSafety.requireOwnedObjectKey(
+                entity.getCaseId(), entity.getId(), entity.getObjectKey());
 
         try {
             InputStream stream = minio.getObject(

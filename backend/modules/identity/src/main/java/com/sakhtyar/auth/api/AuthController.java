@@ -444,11 +444,10 @@ public class AuthController {
         );
     }
 
-    private String clientIp(HttpServletRequest request) {
-        String forwarded = request.getHeader("X-Forwarded-For");
-        if (forwarded != null && !forwarded.isBlank()) {
-            return forwarded.split(",")[0].trim();
-        }
+    // Do not trust client-supplied X-Forwarded-For: it is trivially forged and
+    // must not influence security/audit decisions. Servlet container proxy
+    // handling is the only source for the effective remote address.
+    static String clientIp(HttpServletRequest request) {
         return request.getRemoteAddr();
     }
 }

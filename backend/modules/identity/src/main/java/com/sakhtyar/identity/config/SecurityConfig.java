@@ -52,12 +52,9 @@ public class SecurityConfig {
             @Value("${app.cors.allowed-origins}") String allowedOrigins
     ) {
         CorsConfiguration config = new CorsConfiguration();
-        config.setAllowedOrigins(
-                Arrays.stream(allowedOrigins.split(","))
-                        .map(String::trim)
-                        .filter(value -> !value.isBlank())
-                        .toList()
-        );
+        // Exact origins only: never enable wildcard, embedded credentials, or
+        // non-loopback cleartext HTTP with browser credentials.
+        config.setAllowedOrigins(Phase03AllowedOrigins.parse(allowedOrigins));
         config.setAllowedMethods(
                 List.of(
                         "GET",

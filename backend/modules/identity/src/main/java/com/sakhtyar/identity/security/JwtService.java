@@ -27,7 +27,11 @@ public class JwtService {
                     "APP_JWT_SECRET must be at least 32 characters."
             );
         }
+        if (accessExpirationMinutes < 1 || accessExpirationMinutes > 1440) {
+            throw new IllegalArgumentException("Access JWT lifetime must be 1..1440 minutes.");
+        }
         this.algorithm = Algorithm.HMAC256(secret);
+        // Expiration bounds validated before storing this configuration.
         this.accessExpirationMinutes = accessExpirationMinutes;
     }
 

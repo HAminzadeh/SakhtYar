@@ -30,7 +30,11 @@ public class AuthSessionService {
             @Value("${app.security.refresh.expiration-days:30}")
             long refreshExpirationDays
     ) {
+        if (refreshExpirationDays < 1 || refreshExpirationDays > 90) {
+            throw new IllegalArgumentException("Refresh session lifetime must be 1..90 days.");
+        }
         this.repository = repository;
+        // Expiration bounds validated before storing this configuration.
         this.refreshExpirationDays = refreshExpirationDays;
     }
 
