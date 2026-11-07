@@ -24,9 +24,16 @@ public final class SimulationCoreFixtureService {
     private static final SecureRandom RNG = new SecureRandom();
     private static final long ADVISORY_LOCK_A = 81021930L;
     private final DataSource dataSource;
+    private final boolean bootstrapAllowed;
 
-    public SimulationCoreFixtureService(T10FixtureAdminConnectionProvider adminConnections) {
-        this.dataSource = Objects.requireNonNull(adminConnections).dataSource();
+    public SimulationCoreFixtureService(T10FixtureAdminConnectionProvider adminConnections,
+            @org.springframework.beans.factory.annotation.Value("${APP_T10_FIXTURE_ENABLE_ROLE_BOOTSTRAP:false}")
+            boolean explicitlyEnableRoleBootstrap) {
+        T10FixtureAdminConnectionProvider provider = Objects.requireNonNull(adminConnections);
+        this.dataSource = provider.dataSource();
+        // REAL and TEST share PostgreSQL: never create/rotate a LOGIN role through
+        // an implicit application-DataSource fallback. Operator opt-in is required.
+        this.bootstrapAllowed = explicitlyEnableRoleBootstrap && provider.isDedicated();
     }
 
     static String role(UUID workspace) {
@@ -192,6 +199,8 @@ public final class SimulationCoreFixtureService {
         }
     }
     private Connection restrictedConnection(UUID workspace) throws SQLException {
+        if (!bootstrapAllowed)
+            throw new SecurityException("TEST role bootstrap requires explicit opt-in and a dedicated admin DataSource");
         try(Connection admin=dataSource.getConnection()) { return provision(admin,workspace); }
     }
     public Map<String,Object> readiness() {
@@ -206,10 +215,14 @@ public final class SimulationCoreFixtureService {
             if(!policy)blockers.add("V60 FORCE RLS, guard triggers or core policy missing");
             if(!table)blockers.add("simulation_core_fixture table missing");
         } catch(Exception ex) { blockers.add("Database readiness query failed: "+ex.getClass().getSimpleName()); }
-        boolean ready=bootstrap&&policy&&table;
+        if (!bootstrapAllowed)
+            blockers.add("Role bootstrap disabled or dedicated admin DataSource absent; TEST writes remain BLOCKED");
+        boolean ready=bootstrapAllowed&&bootstrap&&policy&&table;
         r.put("coreFixturePermitted",ready);
-        r.put("automaticTestRoleProvisioning",bootstrap);
-        r.put("runtimeDbRoleNonBypass",ready); // reports the dedicated generated TEST login, not admin login
+        r.put("automaticTestRoleProvisioning",bootstrapAllowed&&bootstrap);
+        // Readiness is NOT the same as physically authenticated restricted-login proof.
+        r.put("runtimeDbRoleNonBypass",false);
+        r.put("physicalLoginIsolationEvidence","NOT_RUN");
         r.put("adminBootstrapDbUser",adminRole);
         r.put("runtimeDbUser","sakhtyar_tws_<workspace-id> (created on demand)");
         r.put("corePolicyCoverage",policy);
@@ -229,6 +242,9 @@ public final class SimulationCoreFixtureService {
         return m;
     }
     public Map<String,Object> create(UUID workspace,String key,String actor) {
+        if (!bootstrapAllowed)
+            throw new ResponseStatusException(HttpStatus.CONFLICT,
+                "TEST fixture role bootstrap is disabled or the admin DataSource is not dedicated");
         if(workspace==null||key==null||!key.matches("[A-Za-z0-9_-]{8,100}"))
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST,"Invalid TEST workspace or request key");
         try(Connection c=restrictedConnection(workspace)) {

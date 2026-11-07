@@ -14,7 +14,8 @@ public final class Phase02OutboundGuard {
 
     public static void requireLocalMockEndpoint(Effect effect, URI endpoint, boolean explicitTestMode) {
         if(!explicitTestMode || effect==null || endpoint==null || endpoint.getUserInfo()!=null ||
-            endpoint.getRawFragment()!=null || !"http".equalsIgnoreCase(endpoint.getScheme()) ||
+            endpoint.getRawFragment()!=null || endpoint.getRawQuery()!=null ||
+            !"http".equalsIgnoreCase(endpoint.getScheme()) ||
             !"127.0.0.1".equals(endpoint.getHost()) ||
             !MOCK_PORTS.contains(endpoint.getPort()))
             throw new SecurityException("Phase02 outbound blocked; localhost mock requires explicit test mode");

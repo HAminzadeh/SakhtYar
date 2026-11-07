@@ -41,13 +41,16 @@ public final class Phase02RestrictedIsolationProbe {
         try {
             String actual = scalarText(connection,"select current_user");
             String session = scalarText(connection,"select session_user");
-            if(!role.equals(actual) || !role.equals(session))
-                throw new SecurityException("Physical restricted TEST login was not verified");
+            String rowSecurity = scalarText(connection,"show row_security");
+            if(!role.equals(actual) || !role.equals(session) || !"on".equalsIgnoreCase(rowSecurity))
+                throw new SecurityException("Physical restricted TEST login and row_security=on were not verified");
             long restricted = scalarLong(connection,"""
                 select count(*) from pg_catalog.pg_roles
                 where rolname=current_user and rolcanlogin and not rolsuper
                   and not rolbypassrls and not rolcreaterole and not rolinherit
                   and not rolcreatedb and not rolreplication
+                  and not exists (select 1 from pg_catalog.pg_auth_members m
+                                  where m.member=pg_roles.oid)
                 """);
             if(restricted!=1L) throw new SecurityException("Unsafe PostgreSQL TEST role");
             String policy="sakhtyar_tws_policy_"+workspace.toString().replace("-", "");
