@@ -6,6 +6,7 @@ import tools.jackson.databind.ObjectMapper;
 import com.sakhtyar.analysis.domain.*;
 import com.sakhtyar.audit.application.AuditService;
 import com.sakhtyar.casefile.domain.CaseRepository;
+import com.sakhtyar.casefile.application.CaseAccessService;
 import com.sakhtyar.scenario.domain.ConstructionScenarioRepository;
 import java.time.Instant;
 import java.util.*;
@@ -18,19 +19,23 @@ public class AnalysisSnapshotService {
     private final AnalysisSnapshotRepository snapshotRepo;
     private final DataLineageRepository lineageRepo;
     private final CaseRepository caseRepo;
+    private final CaseAccessService caseAccess;
     private final ConstructionScenarioRepository scenarioRepo;
     private final AuditService auditService;
     private final SnapshotHasher hasher;
 
     public AnalysisSnapshotService(AnalysisSnapshotRepository snapshotRepo,DataLineageRepository lineageRepo,
             CaseRepository caseRepo,ConstructionScenarioRepository scenarioRepo,
-            AuditService auditService,ObjectMapper mapper) {
+            AuditService auditService,ObjectMapper mapper,CaseAccessService caseAccess) {
+        this.caseAccess=Objects.requireNonNull(caseAccess,"caseAccess");
         this.snapshotRepo=snapshotRepo; this.lineageRepo=lineageRepo; this.caseRepo=caseRepo;
         this.scenarioRepo=scenarioRepo; this.auditService=auditService; this.hasher=new SnapshotHasher(mapper);
     }
 
     @Transactional
     public SnapshotResponse create(CreateSnapshotRequest r,Authentication auth) {
+        if(r==null || r.caseId()==null) throw new IllegalArgumentException("Case required.");
+        caseAccess.requireWrite(r.caseId());
         if(!caseRepo.existsById(r.caseId())) throw new IllegalArgumentException("Construction case not found.");
 
         if(r.scenarioId()!=null && !scenarioRepo.existsById(r.scenarioId()))
@@ -83,11 +88,13 @@ public class AnalysisSnapshotService {
     public SnapshotResponse get(UUID id) {
         var e=snapshotRepo.findById(id)
                 .orElseThrow(()->new IllegalArgumentException("Analysis snapshot not found."));
+        caseAccess.requireRead(e.getCaseId());
         return toResponse(e,lineageRepo.findByAnalysisSnapshotIdOrderByCreatedAtAsc(id));
     }
 
     @Transactional(readOnly=true)
     public List<SnapshotResponse> byCase(UUID caseId,String analysisType) {
+        caseAccess.requireRead(caseId);
         List<AnalysisSnapshotEntity> list = analysisType==null || analysisType.isBlank()
                 ? snapshotRepo.findByCaseIdOrderByCreatedAtDesc(caseId)
                 : snapshotRepo.findByCaseIdAndAnalysisTypeOrderByCreatedAtDesc(caseId,normalized(analysisType));
@@ -99,13 +106,16 @@ public class AnalysisSnapshotService {
     @Transactional(readOnly=true)
     public List<SnapshotResponse> byScenario(UUID scenarioId) {
         return snapshotRepo.findByScenarioIdOrderByCreatedAtDesc(scenarioId).stream()
+                .filter(e->caseAccess.canRead(e.getCaseId()))
                 .map(e->toResponse(e,lineageRepo.findByAnalysisSnapshotIdOrderByCreatedAtAsc(e.getId())))
                 .toList();
     }
 
     @Transactional(readOnly=true)
     public List<LineageResponse> lineage(UUID snapshotId) {
-        if(!snapshotRepo.existsById(snapshotId)) throw new IllegalArgumentException("Analysis snapshot not found.");
+        var snapshot=snapshotRepo.findById(snapshotId)
+                .orElseThrow(()->new IllegalArgumentException("Analysis snapshot not found."));
+        caseAccess.requireRead(snapshot.getCaseId());
         return lineageRepo.findByAnalysisSnapshotIdOrderByCreatedAtAsc(snapshotId).stream()
                 .map(LineageResponse::from).toList();
     }

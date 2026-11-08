@@ -14,6 +14,13 @@ public class PriceAnomalyDetector {
     private static final BigDecimal HIGH_THRESHOLD = new BigDecimal("1.00");
 
     public Optional<Result> detect(BigDecimal candidate, List<BigDecimal> historicalApprovedPrices) {
+        if (candidate != null && candidate.signum() < 0) {
+            throw new IllegalArgumentException("Candidate material price must be non-negative.");
+        }
+        if (historicalApprovedPrices != null && historicalApprovedPrices.stream()
+                .anyMatch(v -> v == null || v.signum() < 0)) {
+            throw new IllegalArgumentException("Historical material prices must be non-null and non-negative.");
+        }
         if (candidate == null || historicalApprovedPrices == null || historicalApprovedPrices.size() < 3) {
             return Optional.empty();
         }

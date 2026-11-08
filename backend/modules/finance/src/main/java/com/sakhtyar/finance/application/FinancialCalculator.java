@@ -38,15 +38,14 @@ public final class FinancialCalculator {
     ) {}
 
     public Result calculate(Input input,List<Participant> participants) {
+        if (input == null) throw new IllegalArgumentException("Financial input is required.");
+        requirePositive(input.sellableAreaM2(),"sellableAreaM2");
         requireNonNegative(input.expectedSalePricePerM2(),"expectedSalePricePerM2");
         requireNonNegative(input.otherRevenue(),"otherRevenue");
         requireNonNegative(input.baseConstructionCost(),"baseConstructionCost");
         requireNonNegative(input.additionalCost(),"additionalCost");
         requireNonNegative(input.financingCost(),"financingCost");
         requireNonNegative(input.taxesAndFees(),"taxesAndFees");
-
-        if(input.sellableAreaM2()==null || input.sellableAreaM2().signum()<=0)
-            throw new IllegalArgumentException("sellableAreaM2 must be positive.");
 
         validateShares(participants);
 
@@ -69,15 +68,18 @@ public final class FinancialCalculator {
         BigDecimal margin=grossRevenue.signum()==0?null:
                 profit.multiply(new BigDecimal("100")).divide(grossRevenue,6,RoundingMode.HALF_UP);
 
-        // Preserve the financial conservation invariant after currency rounding.
-        // Earlier allocations are rounded HALF_UP; the final participant receives
-        // the deterministic remainder, so no currency minor units are lost/created.
-        List<ParticipantResult> allocations=new ArrayList<>();
+        // Allocate in stable share/key order, independent of input order. The largest
+        // share receives the bounded residual; present in caller order for API compatibility.
+        List<Participant> ordered=participants.stream()
+                .sorted(Comparator.comparing(Participant::valueSharePercent)
+                        .thenComparing(Participant::costSharePercent)
+                        .thenComparing(p->p.key().trim())).toList();
+        Map<String,ParticipantResult> byKey=new HashMap<>();
         BigDecimal allocatedRevenue=BigDecimal.ZERO;
         BigDecimal allocatedCost=BigDecimal.ZERO;
-        for(int index=0;index<participants.size();index++) {
-            Participant p=participants.get(index);
-            boolean last=index==participants.size()-1;
+        for(int index=0;index<ordered.size();index++) {
+            Participant p=ordered.get(index);
+            boolean last=index==ordered.size()-1;
             BigDecimal revenue=last ? grossRevenue.subtract(allocatedRevenue)
                     : grossRevenue.multiply(p.valueSharePercent())
                         .divide(new BigDecimal("100"),2,RoundingMode.HALF_UP)
@@ -88,16 +90,19 @@ public final class FinancialCalculator {
                         .min(totalCost.subtract(allocatedCost));
             allocatedRevenue=allocatedRevenue.add(revenue);
             allocatedCost=allocatedCost.add(cost);
-            allocations.add(new ParticipantResult(p.key(),revenue,cost,
+            byKey.put(p.key().trim(),new ParticipantResult(p.key(),revenue,cost,
                     revenue.subtract(cost).setScale(2,RoundingMode.HALF_UP)));
         }
-
+        List<ParticipantResult> allocations=participants.stream()
+                .map(p->byKey.get(p.key().trim())).toList();
         return new Result(grossRevenue,totalCost,profit,roi,margin,allocations);
     }
 
     private void validateShares(List<Participant> participants) {
         if(participants==null || participants.isEmpty())
             throw new IllegalArgumentException("At least one participant is required.");
+        if(participants.size()>1000)
+            throw new IllegalArgumentException("At most 1000 financial participants are supported.");
 
         Set<String> participantKeys=new HashSet<>();
         BigDecimal valueTotal=BigDecimal.ZERO;
@@ -119,12 +124,24 @@ public final class FinancialCalculator {
             throw new IllegalArgumentException("Participant cost shares must total 100%.");
     }
 
+    private void requirePositive(BigDecimal value,String name) {
+        requireNonNegative(value,name);
+        if(value.signum()==0) throw new IllegalArgumentException(name+" must be positive.");
+    }
+
     private void requireNonNegative(BigDecimal value,String name) {
         if(value==null || value.signum()<0) throw new IllegalArgumentException(name+" must be non-negative.");
+        requireBoundedDecimal(value,name);
     }
 
     private void requirePercent(BigDecimal value,String name) {
         if(value==null || value.signum()<0 || value.compareTo(new BigDecimal("100"))>0)
             throw new IllegalArgumentException(name+" must be between 0 and 100.");
+        requireBoundedDecimal(value,name);
+    }
+
+    private void requireBoundedDecimal(BigDecimal value,String name) {
+        if(value.precision()>38 || value.scale()>12 || ((long)value.precision()-value.scale())>30)
+            throw new IllegalArgumentException(name+" exceeds 30 integer digits or 12 decimal places.");
     }
 }

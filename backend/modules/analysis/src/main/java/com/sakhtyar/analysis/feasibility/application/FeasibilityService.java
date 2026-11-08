@@ -5,6 +5,7 @@ import static com.sakhtyar.analysis.feasibility.api.FeasibilityDtos.*;
 import com.sakhtyar.analysis.feasibility.domain.*;
 import com.sakhtyar.audit.application.AuditService;
 import com.sakhtyar.casefile.domain.CaseRepository;
+import com.sakhtyar.casefile.application.CaseAccessService;
 import com.sakhtyar.property.domain.*;
 import com.sakhtyar.regulation.domain.*;
 import com.sakhtyar.scenario.domain.*;
@@ -22,6 +23,7 @@ public class FeasibilityService {
     private final FeasibilityAssessmentRepository assessmentRepo;
     private final FeasibilityReasonRepository reasonRepo;
     private final CaseRepository caseRepo;
+    private final CaseAccessService caseAccess;
     private final PropertyRepository propertyRepo;
     private final ConstructionScenarioRepository scenarioRepo;
     private final ScenarioCostSnapshotRepository costSnapshotRepo;
@@ -32,7 +34,8 @@ public class FeasibilityService {
     public FeasibilityService(FeasibilityAssessmentRepository assessmentRepo,FeasibilityReasonRepository reasonRepo,
             CaseRepository caseRepo,PropertyRepository propertyRepo,ConstructionScenarioRepository scenarioRepo,
             ScenarioCostSnapshotRepository costSnapshotRepo,UrbanEvaluationRepository urbanEvaluationRepo,
-            AuditService auditService) {
+            AuditService auditService,CaseAccessService caseAccess) {
+        this.caseAccess=Objects.requireNonNull(caseAccess,"caseAccess");
         this.assessmentRepo=assessmentRepo; this.reasonRepo=reasonRepo; this.caseRepo=caseRepo;
         this.propertyRepo=propertyRepo; this.scenarioRepo=scenarioRepo; this.costSnapshotRepo=costSnapshotRepo;
         this.urbanEvaluationRepo=urbanEvaluationRepo; this.auditService=auditService;
@@ -40,6 +43,8 @@ public class FeasibilityService {
 
     @Transactional
     public AssessmentResponse create(CreateAssessmentRequest r,Authentication auth) {
+        if(r==null || r.caseId()==null) throw new IllegalArgumentException("Case required.");
+        caseAccess.requireWrite(r.caseId());
         if(!caseRepo.existsById(r.caseId())) throw new IllegalArgumentException("Construction case not found.");
 
         PropertyEntity property=propertyRepo.findByCaseId(r.caseId())
@@ -131,6 +136,7 @@ public class FeasibilityService {
 
     @Transactional(readOnly=true)
     public List<AssessmentResponse> byCase(UUID caseId) {
+        caseAccess.requireRead(caseId);
         return assessmentRepo.findByCaseIdOrderByAssessedAtDesc(caseId).stream()
                 .map(e->toResponse(e,reasonRepo.findByAssessmentIdOrderByIdAsc(e.getId()))).toList();
     }
@@ -138,12 +144,14 @@ public class FeasibilityService {
     @Transactional(readOnly=true)
     public List<AssessmentResponse> byScenario(UUID scenarioId) {
         return assessmentRepo.findByScenarioIdOrderByAssessedAtDesc(scenarioId).stream()
+                .filter(e->caseAccess.canRead(e.getCaseId()))
                 .map(e->toResponse(e,reasonRepo.findByAssessmentIdOrderByIdAsc(e.getId()))).toList();
     }
 
     @Transactional(readOnly=true)
     public AssessmentResponse get(UUID id) {
         var e=assessmentRepo.findById(id).orElseThrow(()->new IllegalArgumentException("Feasibility assessment not found."));
+        caseAccess.requireRead(e.getCaseId());
         return toResponse(e,reasonRepo.findByAssessmentIdOrderByIdAsc(id));
     }
 
