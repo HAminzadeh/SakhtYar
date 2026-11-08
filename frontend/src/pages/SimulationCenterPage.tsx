@@ -49,6 +49,14 @@ type BusinessE2ERun = { id: string; state: string; scenario_count: number; compl
   tester_username?: string; tester_identity_action?: string; source_commit?: string; trace_id?: string;
   businessScenarioPassedCount?: number; businessScenarioBlockedCount?: number; businessScenarioFailedCount?: number }
 type BusinessE2ECoverage = { implementedBusinessE2e: string[]; completeBusinessE2eCount: number; limitedBusinessE2eCount?: number; totalBusinessE2eCount: number; note: string }
+type Phase07DiagnosticStep = { step: number; name: string; state: string; detail: string; evidence?: unknown }
+type Phase07DiagnosticResult = { scenario_id: string; title: string; phase: string; state: string;
+  diagnosticState: string; safeChecksPassed: number; safeChecksTotal: number;
+  steps: Phase07DiagnosticStep[]; blockers: string[]; dependencies: string[]; executorEvidence: unknown }
+type Phase07DiagnosticRun = { id: string; state: string; mode: string; workspace_id: string;
+  source_commit: string; scenario_count: number; diagnosticExecutorCount: number;
+  safeChecksPassed: number; safeChecksTotal: number; businessScenarioPassedCount: number;
+  businessWorkflowsExecuted: boolean; caution: string; results: Phase07DiagnosticResult[] }
 
 type CoreFixtureReadiness = {
   coreFixturePermitted: boolean; runtimeDbRoleNonBypass: boolean; automaticTestRoleProvisioning?: boolean;
@@ -118,6 +126,7 @@ export function SimulationCenterPage() {
   const [e2eRunId, setE2eRunId] = useState<string>()
   const [e2eModalOpen, setE2eModalOpen] = useState(false)
   const [e2eSelectedCode, setE2eSelectedCode] = useState<string>()
+  const [phase07Diagnostic, setPhase07Diagnostic] = useState<Phase07DiagnosticRun>()
 
   const capabilities = useQuery({ queryKey: ['sim-capabilities'], queryFn: () => api<Capability>(`${endpoint}/capabilities`) })
   const readiness = useQuery({ queryKey: ['sim-readiness'], queryFn: () => api<Readiness>(`${endpoint}/readiness`) })
@@ -183,6 +192,17 @@ export function SimulationCenterPage() {
       const value = query.state.data as BusinessE2ERun | undefined
       return !value || ['QUEUED','RUNNING'].includes(value.state) ? 750 : false
     },
+  })
+  const runPhase07Diagnostic = useMutation({
+    mutationFn: (scenarioIds: string[]) => api<Phase07DiagnosticRun>(`${endpoint}/e2e/diagnostics/runs`, {
+      method: 'POST', body: JSON.stringify({ workspaceId, scenarioIds }),
+    }),
+    onSuccess: report => {
+      setPhase07Diagnostic(report)
+      setTab('phase07-diagnostics')
+      message.info('بررسی مستقل انجام شد؛ این خروجی تشخیصی است و معادل قبولی E2E تجاری نیست.')
+    },
+    onError: error => message.error(safeMessage(error)),
   })
   const startBusinessE2E = useMutation({
     mutationFn: (scenarioIds: string[]) => api<BusinessE2ERun>(`${endpoint}/e2e/runs`, {
@@ -385,6 +405,65 @@ export function SimulationCenterPage() {
 
       <Card style={{ borderRadius: 16 }}>
         <Tabs activeKey={tab} onChange={setTab} items={[
+          { key: 'phase07-diagnostics', label: <Space><FileSearchOutlined /> تشخیص مستقل ۲۴ سناریو</Space>, children: <>
+            <Alert showIcon type="info" style={{ marginBottom: 12 }}
+              message="۲۴ Executor تشخیصی — بدون Clone، تغییر داده REAL یا دورزدن گیت تجاری"
+              description="تمام سناریوها مستقل از وابستگی‌های تجاری بررسی می‌شوند: اتصال PostgreSQL، جداول، Route، ممیزی Scope و قراردادهای Fake فاز ۰۲. هیچ سناریویی بر اساس این بررسی PASSED تجاری اعلام نمی‌شود." />
+            <Space wrap style={{ display: 'flex', marginBottom: 12 }}>
+              <Select style={{ minWidth: 280 }} value={workspaceId} placeholder="فضای TEST فعال را انتخاب کن"
+                onChange={id => setWorkspaceId(id)} showSearch optionFilterProp="label"
+                options={(workspaces.data ?? []).map(w => ({ label: `${w.title} · ${w.code}`, value: w.id, disabled: w.state !== 'ACTIVE' }))} />
+              <Button type="primary" icon={<ExperimentOutlined />} disabled={!workspaceId}
+                loading={runPhase07Diagnostic.isPending} onClick={() => runPhase07Diagnostic.mutate([])}>
+                اجرای تشخیصی همه ۲۴ سناریو
+              </Button>
+              {phase07Diagnostic && <Button icon={<CloudDownloadOutlined />}
+                onClick={() => downloadJson(phase07Diagnostic, `phase07-diagnostics-${phase07Diagnostic.id}.json`)}>
+                دانلود خروجی JSON
+              </Button>}
+            </Space>
+            <Card size="small" style={{ marginBottom: 12 }} title="اجرای مستقل تک‌سناریو">
+              <Space wrap>{(detailedPlans.data ?? []).map(plan =>
+                <Button size="small" key={plan.id} disabled={!workspaceId || runPhase07Diagnostic.isPending}
+                  onClick={() => runPhase07Diagnostic.mutate([plan.id])}>{plan.id} · {plan.title}</Button>)}</Space>
+            </Card>
+            {phase07Diagnostic && <>
+              <Alert type="warning" showIcon style={{ marginBottom: 12 }}
+                message="خروجی فقط تشخیصی است؛ هر ۲۴ Business E2E هنوز نیاز به شواهد واقعی دارند"
+                description={`${phase07Diagnostic.caution} | Git SHA: ${phase07Diagnostic.source_commit}`} />
+              <Row gutter={[12, 12]} style={{ marginBottom: 12 }}>
+                <Col xs={12} md={6}><Card size="small"><Statistic title="Executor تشخیصی" value={phase07Diagnostic.diagnosticExecutorCount} /></Card></Col>
+                <Col xs={12} md={6}><Card size="small"><Statistic title="سناریوهای بررسی‌شده" value={phase07Diagnostic.scenario_count} /></Card></Col>
+                <Col xs={12} md={6}><Card size="small"><Statistic title="کنترل ایمن موفق" value={phase07Diagnostic.safeChecksPassed} suffix={`/ ${phase07Diagnostic.safeChecksTotal}`} /></Card></Col>
+                <Col xs={12} md={6}><Card size="small"><Statistic title="Business E2E موفق" value={phase07Diagnostic.businessScenarioPassedCount} /></Card></Col>
+              </Row>
+              <Table<Phase07DiagnosticResult> rowKey="scenario_id" size="small" pagination={{ pageSize: 8 }}
+                dataSource={phase07Diagnostic.results}
+                expandable={{ expandedRowRender: row => <>
+                  <Typography.Text strong>شواهد شش بررسی مستقل</Typography.Text>
+                  <Table<Phase07DiagnosticStep> rowKey="step" size="small" pagination={false}
+                    dataSource={row.steps} columns={[
+                      {title:'مرحله',dataIndex:'step'}, {title:'آزمون',dataIndex:'name'},
+                      {title:'وضعیت',dataIndex:'state',render:(v:string)=>status(v)},
+                      {title:'جزئیات',dataIndex:'detail'},
+                    ]} />
+                  <Typography.Text strong>موانع اجرای تجاری کامل</Typography.Text>
+                  <ul>{row.blockers.map((value, index) => <li key={index}>{value}</li>)}</ul>
+                </> }}
+                columns={[
+                  {title:'سناریو',dataIndex:'scenario_id'}, {title:'حوزه',dataIndex:'phase'},
+                  {title:'عنوان',dataIndex:'title'},
+                  {title:'کنترل‌های ایمن',render:(_:unknown,row:Phase07DiagnosticResult)=>`${row.safeChecksPassed} / ${row.safeChecksTotal}`},
+                  {title:'وضعیت تشخیص',dataIndex:'diagnosticState'},
+                  {title:'Business E2E',dataIndex:'state',render:(v:string)=>status(v)},
+                ]} />
+              <Button type="primary" icon={<CloudDownloadOutlined />}
+                onClick={() => downloadJson(phase07Diagnostic,`phase07-diagnostics-${phase07Diagnostic.id}.json`)}>
+                دریافت گزارش کامل برای تحلیل زیرساخت
+              </Button>
+            </>}
+            {!phase07Diagnostic && <Empty description="Workspace فعال را انتخاب کن و یک یا هر ۲۴ Executor تشخیصی را اجرا کن." />}
+          </> },
           { key: 'business-e2e', label: <Space><ExperimentOutlined /> اجرای واقعی E2E</Space>, children: <>
             <Alert showIcon type="warning" style={{ marginBottom: 12 }}
               message="E2E واقعی با بررسی مقدماتی تفاوت دارد"
