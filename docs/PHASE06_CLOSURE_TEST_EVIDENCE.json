@@ -1,0 +1,26 @@
+{
+  "phase": "06",
+  "baselineGitSha": "ff66065dcbb5bcdf383b32e798fe227f0841e370",
+  "evidenceTypes": {
+    "realGitHubHeadAndActions": "OBSERVED",
+    "java21IsolatedJUnitShaped": {"status": "PASS", "methods": 10, "mavenJUnit": false},
+    "nodeIndependentEvidenceVerifier": {"status": "PASS", "checks": 14, "ephemeralTestKey": true},
+    "windowsPowerShell51": "NOT_RUN",
+    "mavenActual": "NOT_RUN",
+    "frontendBuildAfterPatch": "NOT_RUN",
+    "playwrightCI": "NOT_RUN",
+    "databaseRestrictedPrincipalAndRls": "BLOCKED_NO_DB_OPERATIONS",
+    "configCrashPersistence": "BLOCKED_NO_DB_OPERATIONS",
+    "notificationDbGucSpoofAndTrigger": "BLOCKED_NO_DB_OPERATIONS",
+    "businessE2E": {"passed": 0, "total": 24, "status": "BLOCKED"}
+  },
+  "safety": {
+    "clonesCreated": 0,
+    "sqlExecuted": 0,
+    "migrationsRun": 0,
+    "dbRolesTouched": 0,
+    "realDataTouched": 0,
+    "networkProviderCalls": 0,
+    "phase02ExistingIsolationReused": true
+  }
+}

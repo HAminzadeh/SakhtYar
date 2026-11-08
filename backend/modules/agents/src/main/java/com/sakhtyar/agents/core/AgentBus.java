@@ -108,7 +108,7 @@ public class AgentBus {
                     payload
             );
         } catch (RuntimeException ex) {
-            log.warn("Could not persist agent audit event", ex);
+            log.warn("Could not persist agent audit event (exception type only): {}", ex.getClass().getSimpleName());
         }
     }
 

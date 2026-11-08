@@ -10,6 +10,14 @@ on:
         description: 'Relative path of an existing, independently produced TEST business-e2e JSON report (not production)'
         required: false
         type: string
+      evidence_root_path:
+        description: 'Relative path to trusted on-disk TEST artifacts (never REAL)'
+        required: false
+        type: string
+      evidence_attestation_path:
+        description: 'Relative path to independently CI-signed TEST artifact manifest'
+        required: false
+        type: string
 permissions:
   contents: read
 jobs:
@@ -23,6 +31,27 @@ jobs:
           node-version: '24'
       - name: Assert fail-closed release checks
         run: node tests/phase06/release_gate.contract.test.mjs
+      - name: Verify independent on-disk evidence, tamper and signature rejection
+        run: node tests/phase06/proof_verifier.contract.test.mjs
+      - name: Validate fake adapters, Phase02 isolation reuse and release topology
+        run: node tests/phase06/source_contract.mjs
+  browser-synthetic-smoke:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+      - name: Install isolated browser harness dependencies (no production login)
+        working-directory: tests/phase06/browser
+        run: npm install --no-audit --no-fund --ignore-scripts
+      - name: Install Chromium on disposable CI runner
+        working-directory: tests/phase06/browser
+        run: npx playwright install --with-deps chromium
+      - name: Run only synthetic browser sandbox (no app server / database)
+        working-directory: tests/phase06/browser
+        run: npm test -- --grep 'synthetic two-workspace'
   release-acceptance:
     if: github.event_name == 'workflow_dispatch'
     runs-on: ubuntu-latest
@@ -36,11 +65,18 @@ jobs:
         shell: bash
         env:
           REPORT_PATH: ${{ inputs.evidence_report_path }}
+          ATTESTATION_PATH: ${{ inputs.evidence_attestation_path }}
+          ARTIFACT_ROOT: ${{ inputs.evidence_root_path }}
+          SAKHTYAR_PHASE06_EVIDENCE_HMAC_KEY: ${{ secrets.SAKHTYAR_PHASE06_EVIDENCE_HMAC_KEY }}
         run: |
           test -n "$REPORT_PATH" || { echo 'BLOCKED: no report supplied'; exit 2; }
           case "$REPORT_PATH" in /*|*..*) echo 'BLOCKED: unsafe path'; exit 2;; esac
           test -f "$REPORT_PATH" || { echo 'BLOCKED: report not available'; exit 2; }
-          SAKHTYAR_PHASE06_REPORT_DIR=phase06-report node tests/phase06/release_gate.mjs "$REPORT_PATH"
+          test -n "$ATTESTATION_PATH" && test -n "$ARTIFACT_ROOT" || { echo 'BLOCKED: no signed attestation or artifact root'; exit 2; }
+          for p in "$ATTESTATION_PATH" "$ARTIFACT_ROOT"; do
+            case "$p" in /*|*..*|*\\*) echo 'BLOCKED: unsafe evidence input path'; exit 2;; esac
+          done
+          SAKHTYAR_PHASE06_REPORT_DIR=phase06-report node tests/phase06/release_approval.mjs "$REPORT_PATH" "$ARTIFACT_ROOT" "$ATTESTATION_PATH"
       - name: Store sanitized summary (never credentials or browser traces)
         if: always()
         uses: actions/upload-artifact@v4

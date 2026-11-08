@@ -92,10 +92,10 @@ public class WorkflowExecutor {
               error_message,started_at,completed_at
             ) values (?,?,?,?,?,?,?,?,?)
             """,UUID.randomUUID(),executionUuid,step.id(),step.componentId(),"FAILED",
-            input,trim(ex.getMessage(),2000),java.sql.Timestamp.from(stepStarted),java.sql.Timestamp.from(Instant.now()));
+            input,"COMPONENT_EXECUTION_FAILED",java.sql.Timestamp.from(stepStarted),java.sql.Timestamp.from(Instant.now()));
 
           results.add(new StepResult(
-            step.id(),step.componentId(),"FAILED",null,Map.of(),ex.getMessage()
+            step.id(),step.componentId(),"FAILED",null,Map.of(),"COMPONENT_EXECUTION_FAILED"
           ));
           throw ex;
         }
@@ -117,7 +117,7 @@ public class WorkflowExecutor {
         update intelligence_workflow_execution
            set status='FAILED',completed_at=?,error_message=?
          where id=?
-        """,java.sql.Timestamp.from(done),trim(ex.getMessage(),2000),executionUuid);
+        """,java.sql.Timestamp.from(done),"COMPONENT_EXECUTION_FAILED",executionUuid);
 
       return new ExecutionResponse(
         executionId,workflow.id(),workflow.version(),"FAILED",started,done,results

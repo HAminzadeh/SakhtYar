@@ -146,8 +146,6 @@ public class OllamaAiModelProvider implements AiModelProvider {
         } catch (RestClientResponseException ex) {
             throw new IllegalStateException(
                     "OLLAMA_HTTP_ERROR: status=" + ex.getStatusCode().value()
-                            + ", body=" + truncate(ex.getResponseBodyAsString(), 800),
-                    ex
             );
         } catch (ResourceAccessException ex) {
             String message = ex.getMessage() == null ? "" : ex.getMessage();
@@ -156,17 +154,14 @@ public class OllamaAiModelProvider implements AiModelProvider {
                     ? "OLLAMA_TIMEOUT"
                     : "OLLAMA_CONNECTION_FAILED";
             throw new IllegalStateException(
-                    code + ": " + properties.getBaseUrl() + " - " + message,
-                    ex
+                    code
             );
         } catch (RestClientException ex) {
             throw new IllegalStateException(
-                    "OLLAMA_CONNECTION_FAILED: " + properties.getBaseUrl()
-                            + " - " + safeMessage(ex),
-                    ex
+                    "OLLAMA_CONNECTION_FAILED"
             );
         } catch (JacksonException ex) {
-            throw new IllegalStateException("OLLAMA_INVALID_JSON: " + safeMessage(ex), ex);
+            throw new IllegalStateException("OLLAMA_INVALID_JSON");
         }
     }
 

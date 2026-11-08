@@ -80,10 +80,7 @@ public class AiModelRegistry {
     }
 
     private String safeMessage(RuntimeException ex) {
-        String message = ex.getMessage();
-        return message == null || message.isBlank()
-                ? ex.getClass().getSimpleName()
-                : message;
+        return ex.getClass().getSimpleName();
     }
 
     public record AiRuntimeStatus(
