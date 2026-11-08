@@ -58,9 +58,16 @@ public class IngestionPipeline {
     public JobResponse run(UUID sourceId, Integer maxPagesOverride, Authentication authentication) {
         // SecurityContext may not propagate into asynchronous crawler workers.
         // Enforce the supplied API principal before the first database write or HTTP request.
-        if (authentication != null && authentication.getAuthorities() != null &&
-                authentication.getAuthorities().stream().anyMatch(a -> "ROLE_TESTER".equals(a.getAuthority()))) {
+        if (authentication == null || !authentication.isAuthenticated() ||
+                authentication.getName() == null || authentication.getName().isBlank() ||
+                authentication.getAuthorities() == null) {
+            throw new SecurityException("Crawler requires an authenticated real operator");
+        }
+        if (authentication.getAuthorities().stream().anyMatch(a -> "ROLE_TESTER".equals(a.getAuthority()))) {
             throw new SecurityException("TESTER cannot start REAL crawler ingestion");
+        }
+        if (authentication.getAuthorities().stream().noneMatch(a -> "USER_MANAGE".equals(a.getAuthority()))) {
+            throw new SecurityException("Crawler REAL ingestion requires USER_MANAGE");
         }
         CrawlSourceEntity source = sourceService.requireSource(sourceId);
         if (!source.isEnabled()) {
@@ -71,9 +78,17 @@ public class IngestionPipeline {
                 ? source.getMaxPages()
                 : Math.min(maxPagesOverride, source.getMaxPages());
 
-        String actor = authentication == null || authentication.getName() == null
-                ? "system"
-                : authentication.getName();
+        if (maxPages <= 0) throw new SecurityException("Crawler page limit must be positive");
+        // Respect the declared robots policy before creating a job or discovering pages.
+        Phase04RobotsPolicy robots = Phase04RobotsPolicy.allowAll();
+        if (source.isRespectRobots()) {
+            URI robotsUrl = URI.create(source.getSeedUrl()).resolve("/robots.txt");
+            CrawlTargetPolicy.requireAllowedHost(robotsUrl, source.getAllowedHost());
+            robots = Phase04RobotsPolicy.fromResponse(
+                    pageFetcher.fetch(robotsUrl.toString(), source.getTimeoutMs(), source.getUserAgent()),
+                    source.getUserAgent());
+        }
+        String actor = authentication.getName();
 
         Instant now = Instant.now();
         CrawlJobEntity job = new CrawlJobEntity(UUID.randomUUID(), sourceId, actor, now);
@@ -89,6 +104,8 @@ public class IngestionPipeline {
                 QueueItem item = queue.removeFirst();
                 String canonical = UrlCanonicalizer.canonicalize(item.url());
                 CrawlTargetPolicy.requireAllowedHost(URI.create(canonical), source.getAllowedHost());
+                CrawlTargetPolicy.requireSameHost(URI.create(source.getSeedUrl()), URI.create(canonical));
+                robots.requireAllowed(URI.create(canonical));
                 String urlHash = Hashing.sha256(canonical);
 
                 if (urlRepository.existsByJobIdAndUrlHash(job.getId(), urlHash)) {

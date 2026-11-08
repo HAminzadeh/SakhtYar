@@ -182,6 +182,7 @@ http
                         .requestMatchers(HttpMethod.PUT, "/api/v1/contracts/**").hasAuthority("CASE_WRITE")
 
                         .requestMatchers("/api/v1/monitoring/**").hasAuthority("USER_MANAGE")
+                        .requestMatchers("/api/v1/crawler/**").hasAuthority("USER_MANAGE")
                         .requestMatchers("/api/v1/notifications/**").hasAuthority("USER_MANAGE")
                         .requestMatchers("/api/v1/intelligence/**").hasAuthority("AGENT_USE")
                         .requestMatchers("/api/v1/knowledge/admin/governance/**").hasAuthority("USER_MANAGE")

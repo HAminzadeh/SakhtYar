@@ -10,8 +10,17 @@ public final class UrlCanonicalizer {
 
     public static String canonicalize(String rawUrl) {
         try {
+            if (rawUrl == null || rawUrl.isBlank() || rawUrl.length() > 3000)
+                throw new SecurityException("Invalid crawler URL length");
             URI uri = new URI(rawUrl.trim()).normalize();
-            String scheme = uri.getScheme() == null ? "https" : uri.getScheme().toLowerCase(Locale.ROOT);
+            // A fragment is client-side only; strip it before crawler-target validation.
+            // Parsing the complete URL first still rejects malformed URI syntax.
+            if (uri.getRawFragment() != null) {
+                String normalizedUrl = uri.toString();
+                uri = new URI(normalizedUrl.substring(0, normalizedUrl.indexOf('#'))).normalize();
+            }
+            CrawlTargetPolicy.requireSyntax(uri);
+            String scheme = uri.getScheme().toLowerCase(Locale.ROOT);
             String host = uri.getHost() == null ? null : uri.getHost().toLowerCase(Locale.ROOT);
             int port = uri.getPort();
             if (("http".equals(scheme) && port == 80) || ("https".equals(scheme) && port == 443)) {

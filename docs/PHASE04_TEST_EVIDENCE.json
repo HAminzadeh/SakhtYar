@@ -1,0 +1,17 @@
+{
+  "baseline":"c2537a043d9f71ab92e28b3d8b69479ee3a62525",
+  "testedAtUtc":"2026-11-07",
+  "results":[
+    {"gate":"java21_isolated_synthetic_harness","status":"PASS","checks":20,"note":"compiled five new pure-Java contracts with synthetic stubs for FetchedPage/CrawlTargetPolicy/KnowledgeTextNormalizer; does not validate full application classpath"},
+    {"gate":"git_apply_synthetic_baseline_check","status":"PASS","checks":3,"note":"--check, apply and --reverse --check passed against constructed context fixture; real repo apply not executed here"},
+    {"gate":"phase04_maven_junit","status":"NOT_RUN","reason":"Maven and full checkout unavailable in isolated container"},
+    {"gate":"postgresql_shared_real_test","status":"BLOCKED","reason":"No direct operator PostgreSQL credentials; no DB access attempted"},
+    {"gate":"minio_redis_real_adapters","status":"BLOCKED","reason":"Only source contracts; no service connections"},
+    {"gate":"real_ocr_and_crash_resume","status":"NOT_RUN","reason":"No real OCR/process-backed test environment"},
+    {"gate":"business_e2e","status":"BLOCKED","passed":0,"count":24,"reason":"Executors still unimplemented or limited"}
+  ],
+  "databaseTouched":false,
+  "cloneCreated":false,
+  "migrationExecuted":false,
+  "gitCommitOrPushExecuted":false
+}

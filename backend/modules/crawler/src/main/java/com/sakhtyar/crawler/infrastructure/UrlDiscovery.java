@@ -8,8 +8,8 @@ import org.springframework.stereotype.Component;
 public class UrlDiscovery {
 
     public List<String> sameHostLinks(List<String> links, String allowedHost) {
-        if (allowedHost == null || allowedHost.isBlank()) {
-            return links;
+        if (allowedHost == null || allowedHost.isBlank() || links == null) {
+            throw new SecurityException("Crawler discovery requires an explicit allowed host and link list");
         }
         String host = allowedHost.trim().toLowerCase();
         return links.stream()

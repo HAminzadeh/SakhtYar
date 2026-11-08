@@ -63,6 +63,18 @@ public class PageFetcher {
                         current = next;
                         continue;
                     }
+                    if (status >= 200 && status < 300) {
+                        String mediaType = response.headers().firstValue("content-type")
+                                .orElse("").toLowerCase(java.util.Locale.ROOT);
+                        if (!(mediaType.startsWith("text/") || mediaType.startsWith("application/pdf") ||
+                                mediaType.startsWith("application/json") ||
+                                mediaType.startsWith("application/xml") ||
+                                mediaType.startsWith("application/xhtml+xml") ||
+                                (mediaType.startsWith("application/octet-stream") &&
+                                  "/robots.txt".equals(current.getPath())))) {
+                            throw new SecurityException("Crawler response MIME type denied");
+                        }
+                    }
                     Map<String, String> headers = new LinkedHashMap<>();
                     response.headers().firstValue("etag").ifPresent(v -> headers.put("etag", v));
                     response.headers().firstValue("last-modified").ifPresent(v -> headers.put("last-modified", v));

@@ -427,16 +427,22 @@ public class KnowledgeDatasetPackageService {
         Path zip = temp.resolve("package.zip");
         try (InputStream in = minio.getObject(GetObjectArgs.builder()
                 .bucket(storage.bucket()).object((String)row.get("key")).build())) {
-            Files.copy(in,zip,StandardCopyOption.REPLACE_EXISTING);
+            Phase04ArchiveGuard.copyBounded(in, zip, MAX_ZIP_BYTES);
         } catch(Exception e) {
+            new Workspace(temp, temp).close();
             throw new IOException("Could not retrieve package from MinIO.",e);
         }
-        Path extracted = temp.resolve("extracted");
-        Files.createDirectories(extracted);
-        safeUnzip(zip,extracted);
-
-        Path root = locateManifestRoot(extracted);
-        return new Workspace(temp,root);
+        try {
+            Path extracted = temp.resolve("extracted");
+            Files.createDirectories(extracted);
+            Phase04ArchiveGuard.inspect(zip, MAX_ZIP_BYTES, MAX_ZIP_ENTRIES, MAX_EXTRACTED_BYTES);
+            safeUnzip(zip,extracted);
+            Path root = locateManifestRoot(extracted);
+            return new Workspace(temp,root);
+        } catch (IOException | RuntimeException e) {
+            new Workspace(temp, temp).close();
+            throw e;
+        }
     }
 
     private Path locateManifestRoot(Path extracted) throws IOException {
@@ -479,9 +485,13 @@ public class KnowledgeDatasetPackageService {
         if (!manifest.hasNonNull("dataset_version")) throw new IllegalArgumentException("dataset_version missing.");
         JsonNode artifacts = manifest.path("artifacts");
         if (!artifacts.isArray()) throw new IllegalArgumentException("artifacts array missing.");
+        Set<String> seen = new HashSet<>();
         for (JsonNode a : artifacts) {
             String rel = a.path("path").asText();
             String expected = a.path("sha256").asText();
+            Phase04ArchiveGuard.requireSafePath(rel);
+            if (!seen.add(rel.toLowerCase(Locale.ROOT))) throw new SecurityException("Duplicate manifest path");
+            if (!expected.matches("(?i)[a-f0-9]{64}")) throw new SecurityException("Malformed artifact SHA256");
             Path file = root.resolve(rel).normalize();
             if (!file.startsWith(root) || !Files.isRegularFile(file)) throw new IllegalArgumentException("Missing artifact: " + rel);
             String actual = sha256(file);
