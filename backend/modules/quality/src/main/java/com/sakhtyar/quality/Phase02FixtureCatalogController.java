@@ -9,6 +9,7 @@ import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.server.ResponseStatusException;
 
 /** Read-only admin inventory; does not provision fixture roles, issue network calls or mutate DB. */
+@org.springframework.context.annotation.Profile("!production")
 @RestController
 public final class Phase02FixtureCatalogController {
     @GetMapping("/api/v1/admin/simulations/e2e/fixture-contracts")

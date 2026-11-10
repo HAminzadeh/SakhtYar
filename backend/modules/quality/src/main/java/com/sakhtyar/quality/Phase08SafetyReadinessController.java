@@ -17,6 +17,7 @@ import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.server.ResponseStatusException;
 
 /** Read-only, owner-authorized Phase 08 safety explanation, never a business run. */
+@org.springframework.context.annotation.Profile("!production")
 @RestController
 @RequestMapping("/api/v1/admin/simulations/e2e")
 public final class Phase08SafetyReadinessController {
@@ -24,6 +25,8 @@ public final class Phase08SafetyReadinessController {
     private final SimulationCoreFixtureService fixtures;
     private final SimulationWorkspaceAuthorizationService authorization;
     @Autowired(required=false) private BuildProperties buildProperties;
+    @Autowired(required=false) private Phase09RestrictedLoginInspector phase09RestrictedProbe;
+    @Autowired(required=false) private Phase09RuntimePolicy phase09RuntimePolicy;
     @Value("${app.dev-seed.enabled:false}") private boolean devSeedEnabled;
 
     public Phase08SafetyReadinessController(JdbcTemplate jdbc,SimulationCoreFixtureService fixtures,
@@ -38,22 +41,38 @@ public final class Phase08SafetyReadinessController {
             throw new ResponseStatusException(HttpStatus.FORBIDDEN,"Simulation administrator required");
         // The client never provides the owner identity or the DB login assertion.
         authorization.requireActiveOwner(workspaceId,actor);
-        Map<String,Object> databaseIdentity;
+        Map<String,Object> appDatabaseIdentity;
         try {
-            databaseIdentity=jdbc.queryForMap("""
+            appDatabaseIdentity=jdbc.queryForMap("""
                 select current_user::text as db_current_user,
                        session_user::text as db_session_user,
                        current_setting('row_security')::text as row_security
                 """);
-        } catch(RuntimeException ex) { databaseIdentity=Map.of(); }
+        } catch(RuntimeException ex) { appDatabaseIdentity=Map.of(); }
         Map<String,Object> readiness;
         try { readiness=fixtures.readiness(); }
         catch(RuntimeException ex) { readiness=Map.of(); }
+        // The application's JDBC identity is diagnostic ONLY. Never use it to authorize E2E.
+        Map<String,Object> restricted=phase09RestrictedProbe==null?Map.of("state","BLOCKED","blocker","PROBE_COMPONENT_MISSING"):
+            phase09RestrictedProbe.inspect(workspaceId);
+        Map<String,Object> physicalIdentity=Map.of();
+        if(Boolean.TRUE.equals(restricted.get("physicalRestrictedLogin")) &&
+           Boolean.TRUE.equals(restricted.get("restrictedRolePrivilegesVerified"))) {
+            physicalIdentity=Map.of("db_current_user",restricted.get("db_current_user"),
+                "db_session_user",restricted.get("db_session_user"),"row_security",restricted.get("row_security"));
+            Map<String,Object> copy=new LinkedHashMap<>(readiness);
+            copy.put("runtimeDbRoleNonBypass",true);
+            readiness=copy;
+        }
         String commit=buildProperties==null?"UNVERIFIED":buildProperties.get("sourceCommit");
         Phase08SafetyAdmission.Verdict decision=Phase08SafetyAdmission.assess(
-            workspaceId,readiness,databaseIdentity,devSeedEnabled,commit);
+            workspaceId,readiness,physicalIdentity,devSeedEnabled,commit);
         Map<String,Object> output=new LinkedHashMap<>(decision.report());
         output.put("mode","READ_ONLY_PHASE08_SECURITY_READINESS");
+        output.put("profile",phase09RuntimePolicy==null?"UNKNOWN":phase09RuntimePolicy.profile());
+        output.put("appJdbcIdentityNotAcceptedAsTestProof",true);
+        output.put("restrictedLoginProbe",restricted);
+        output.put("blockerDetails",Phase09SafetyBlockerCatalog.report(decision.blockers()));
         output.put("checkedAt",Instant.now().toString());
         output.put("targetCount",7);
         output.put("targets",Phase08SecurityProofCatalog.report());

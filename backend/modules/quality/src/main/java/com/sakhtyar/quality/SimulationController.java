@@ -25,6 +25,7 @@ import tools.jackson.databind.ObjectMapper;
  * rows into four RLS-guarded tables only when the runtime DB role passes its gate.
  * Such a fixture is NOT a completed business E2E scenario.
  */
+@org.springframework.context.annotation.Profile("!production")
 @RestController
 @RequestMapping("/api/v1/admin/simulations")
 public class SimulationController {

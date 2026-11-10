@@ -29,6 +29,7 @@ import org.springframework.web.server.ResponseStatusException;
  * fake adapters are used. DOES NOT alter the guarded BUSINESS E2E orchestrator or
  * claim that any business scenario passed. Reports are volatile and exportable as JSON.
  */
+@org.springframework.context.annotation.Profile("!production")
 @RestController
 @RequestMapping("/api/v1/admin/simulations/e2e/diagnostics")
 public final class Phase07DiagnosticCenterController {

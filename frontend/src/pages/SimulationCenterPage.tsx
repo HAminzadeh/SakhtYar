@@ -58,8 +58,16 @@ type Phase07DiagnosticRun = { id: string; state: string; mode: string; workspace
   safeChecksPassed: number; safeChecksTotal: number; businessScenarioPassedCount: number;
   businessWorkflowsExecuted: boolean; caution: string; results: Phase07DiagnosticResult[] }
 
+type Phase09RuntimeMode = { profile: string; development: boolean; production: boolean;
+  uiPreflightAvailable: boolean; testIsolationStillRequired: boolean }
+type Phase09BlockerDetail = {code: string; group: string; titleFa: string; remediationFa: string;
+  evidenceType: string; state: string}
+type Phase09PreflightSession = {id: string; workspaceId: string; state: string; mode: string;
+  createdAt: string; expiresAt: string; databaseResourcesCreated: boolean; evidence: unknown}
 type Phase08SafetyReadiness = {
   mode: string; state: string; sourceCommit: string; authorizedBusinessWrites: boolean;
+  profile?: string; blockerDetails?: Phase09BlockerDetail[];
+  restrictedLoginProbe?: {state: string; blocker?: string; physicalRestrictedLogin: boolean};
   blockers: string[]; targetCount: number; checkedAt: string;
   targets: Array<{ scenario_id: string; capability: string; businessAcceptance: string; requiredRealProof: string[] }>
 }
@@ -132,7 +140,10 @@ export function SimulationCenterPage() {
   const [e2eModalOpen, setE2eModalOpen] = useState(false)
   const [e2eSelectedCode, setE2eSelectedCode] = useState<string>()
   const [phase07Diagnostic, setPhase07Diagnostic] = useState<Phase07DiagnosticRun>()
+  const [phase09Session, setPhase09Session] = useState<Phase09PreflightSession>()
 
+  const runtimeMode = useQuery({ queryKey: ['sim-runtime-mode'], queryFn: () =>
+    api<Phase09RuntimeMode>(`${endpoint}/runtime-mode`), refetchOnWindowFocus: false })
   const capabilities = useQuery({ queryKey: ['sim-capabilities'], queryFn: () => api<Capability>(`${endpoint}/capabilities`) })
   const readiness = useQuery({ queryKey: ['sim-readiness'], queryFn: () => api<Readiness>(`${endpoint}/readiness`) })
   const workspaces = useQuery({ queryKey: ['sim-workspaces'], queryFn: () => api<Workspace[]>(`${endpoint}/workspaces`) })
@@ -156,6 +167,18 @@ export function SimulationCenterPage() {
     queryKey: ['sim-phase08-safety-readiness',workspaceId], enabled: Boolean(workspaceId),
     queryFn: () => api<Phase08SafetyReadiness>(`${endpoint}/e2e/safety-readiness?workspaceId=${workspaceId}`),
     refetchOnWindowFocus: false,
+  })
+  const openPhase09Session = useMutation({
+    mutationFn: () => api<Phase09PreflightSession>(`${endpoint}/e2e/preflight-sessions`, {
+      method: 'POST', body: JSON.stringify({workspaceId}),
+    }),
+    onSuccess: session => { setPhase09Session(session); message.info('جلسه فقطخواندنی بررسی ایمنی ایجاد شد؛ این به معنای اجرای E2E تجاری نیست.') },
+    onError: error => message.error(safeMessage(error)),
+  })
+  const closePhase09Session = useMutation({
+    mutationFn: (id: string) => api<unknown>(`${endpoint}/e2e/preflight-sessions/${id}`, { method: 'DELETE' }),
+    onSuccess: () => { setPhase09Session(undefined); message.success('منابع موقت جلسه حافظه آزاد شد؛ دیتابیس تغییر نکرد.') },
+    onError: error => message.error(safeMessage(error)),
   })
   // Restore a useful workspace after reload; changing it always re-keys evidence queries.
   useEffect(() => {
@@ -478,7 +501,24 @@ export function SimulationCenterPage() {
             <Alert showIcon type="warning" style={{ marginBottom: 12 }}
               message="E2E واقعی با بررسی مقدماتی تفاوت دارد"
               description="گیت فاز ۰۸ قبل از اولین نوشتن مربوط به اجرای تجاری فعال است. امکان اجرای محدود E2E-14 به معنی مجوز E2E کامل نیست؛ تا اثبات نقش محدود، ایزولاسیون کامل و شواهد، اجرای تجاری مسدود می‌ماند." />
-            <Card size="small" style={{ marginBottom: 12, borderRadius: 12 }} title="فاز ۰۸ — گیت ایمنی واقعی قبل از اولین Write">
+            <Card size="small" style={{ marginBottom: 12, borderRadius: 12 }} title="فاز ۰۸/۰۹ — پروفایل برنامه و گیت ایمنی پیش از اولین Write">
+              <Alert showIcon type={runtimeMode.data?.development ? 'info' : 'warning'} style={{marginBottom:12}}
+                message={`پروفایل Backend: ${runtimeMode.data?.profile ?? 'در حال بررسی'}`}
+                description={runtimeMode.data?.development ?
+                  'حالت Development فعال است. این حالت مجوز دسترسی به REAL یا اجرای تجاری بدون اثبات گیت نیست.' :
+                  'برای جلسه تست از پروفایل Development استفاده کن؛ Production در سمت Backend مسیرهای تست را غیرفعال می‌کند.'}/>
+              <Space wrap style={{marginBottom:12}}>
+                <Button size="small" loading={openPhase09Session.isPending}
+                  disabled={!workspaceId || !runtimeMode.data?.development || Boolean(phase09Session)}
+                  onClick={() => openPhase09Session.mutate()}>ایجاد جلسه بررسی فقط‌خواندنی</Button>
+                {phase09Session && <Button size="small" danger loading={closePhase09Session.isPending}
+                  onClick={() => closePhase09Session.mutate(phase09Session.id)}>پایان جلسه و آزادسازی منابع</Button>}
+                {phase09Session && <Button size="small" icon={<CloudDownloadOutlined />}
+                  onClick={() => downloadJson(phase09Session,`phase09-preflight-${phase09Session.id}.json`)}>دریافت شواهد جلسه</Button>}
+              </Space>
+              {phase09Session && <Alert showIcon type="info" style={{marginBottom:12}}
+                message="جلسه بررسی ایمنی فعال؛ بدون دستکاری داده‌های تجاری"
+                description={`Session ID: ${phase09Session.id} · پایان اعتبار: ${dateFa(phase09Session.expiresAt)}`} />
               <Space wrap style={{ marginBottom: 8 }}>
                 <Button size="small" icon={<ReloadOutlined />} loading={phase08Safety.isFetching}
                   disabled={!workspaceId} onClick={() => void phase08Safety.refetch()}>بازبینی گیت TEST</Button>
@@ -491,6 +531,18 @@ export function SimulationCenterPage() {
                   <Typography.Text>Source SHA: {phase08Safety.data.sourceCommit}</Typography.Text>
                   {(phase08Safety.data.blockers ?? []).map(blocker => <Typography.Text key={blocker} type="secondary">{blocker}</Typography.Text>)}
                 </Space>} />}
+              {!!phase08Safety.data?.blockerDetails?.length && <Table<Phase09BlockerDetail>
+                size="small" rowKey="code" pagination={false} style={{marginTop:12}}
+                dataSource={phase08Safety.data.blockerDetails} columns={[
+                  {title:'کنترل امنیتی',dataIndex:'titleFa'},
+                  {title:'وضعیت',dataIndex:'state',render:(v:string)=>v === 'BLOCKED' ? status('BLOCKED') : <Tag>در این گزارش مسدود نیست</Tag>},
+                  {title:'شاهد موردنیاز',dataIndex:'evidenceType'},
+                  {title:'راهکار',dataIndex:'remediationFa'},
+                ]} />}
+              {phase08Safety.data?.restrictedLoginProbe && <Typography.Paragraph type="secondary" style={{marginTop:8}}>
+                نتیجه مشاهده اتصال محدود مستقل: {phase08Safety.data.restrictedLoginProbe.state} ·
+                {phase08Safety.data.restrictedLoginProbe.blocker ?? 'نیازمند کنترل مستقل سایر مسیرها'}
+              </Typography.Paragraph>}
               {phase08Safety.isError && <Alert type="error" showIcon message="دریافت شواهد گیت فاز ۰۸ ناموفق بود؛ اجرای تجاری همچنان مسدود است." />}
             </Card>
             <Row gutter={[12, 12]} style={{ marginBottom: 14 }}>
@@ -499,11 +551,11 @@ export function SimulationCenterPage() {
             </Row>
             <Space wrap style={{ marginBottom: 14 }}>
               <Button type="primary" icon={<ExperimentOutlined />} loading={startBusinessE2E.isPending}
-                disabled={!workspaceId || !phase08Safety.data?.authorizedBusinessWrites}
+                disabled={!workspaceId || !runtimeMode.data?.development || !phase08Safety.data?.authorizedBusinessWrites}
                 onClick={() => startBusinessE2E.mutate(['E2E-14'])}>
                 اجرای واقعی E2E-14
               </Button>
-              <Button loading={startBusinessE2E.isPending} disabled={!workspaceId || !phase08Safety.data?.authorizedBusinessWrites}
+              <Button loading={startBusinessE2E.isPending} disabled={!workspaceId || !runtimeMode.data?.development || !phase08Safety.data?.authorizedBusinessWrites}
                 onClick={() => startBusinessE2E.mutate(Array.from({length:24}, (_,i) => `E2E-${String(i+1).padStart(2,'0')}`))}>
                 اجرای زنجیره پیش‌نیازهای ۲۴ سناریو
               </Button>

@@ -1,0 +1,43 @@
+name: Phase09 Development Production Safety
+on:
+  push:
+    branches: [v2]
+  pull_request:
+    branches: [v2]
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  offline-profile-security:
+    runs-on: ubuntu-latest
+    timeout-minutes: 24
+    env:
+      APP_DEV_SEED_ENABLED: 'false'
+      SPRING_FLYWAY_ENABLED: 'false'
+      SPRING_DOCKER_COMPOSE_ENABLED: 'false'
+      APP_T10_FIXTURE_ENABLE_ROLE_BOOTSTRAP: 'false'
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '21'
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+      - name: Verify profile and security source contracts
+        run: node tests/phase09/check_profiles.mjs
+      - name: Offline Quality unit tests only
+        working-directory: backend
+        run: >-
+          mvn -B -ntp -pl modules/quality -am
+          -Dtest=Phase09RuntimePolicyTest,Phase09RestrictedLoginInspectorTest,Phase09SafetyBlockerCatalogTest,Phase09PreflightSessionControllerTest,Phase09RuntimeModeControllerTest
+          -Dsurefire.failIfNoSpecifiedTests=false
+          -Dsakhtyar.source-commit=${{ github.sha }} test
+      - name: Offline startup contract tests only
+        working-directory: backend
+        run: >-
+          mvn -B -ntp -pl app -am
+          -Dtest=Phase09ProfileSafetyInitializerTest
+          -Dsurefire.failIfNoSpecifiedTests=false
+          -Dsakhtyar.source-commit=${{ github.sha }} test

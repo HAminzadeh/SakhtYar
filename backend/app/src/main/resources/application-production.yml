@@ -1,0 +1,13 @@
+# Phase09: production cannot expose the simulation/test controllers.
+app:
+  dev-seed:
+    enabled: false
+  quality:
+    phase09:
+      ui-preflight-enabled: false
+spring:
+  flyway:
+    enabled: false  # schema migrations require a separate, approved deployment process
+  jpa:
+    hibernate:
+      ddl-auto: validate

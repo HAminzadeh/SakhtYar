@@ -19,6 +19,7 @@ import tools.jackson.databind.ObjectMapper;
  * Currently executes E2E-14 on exactly four guarded tables using the T05 core fixture.
  * All other scenarios are genuinely BLOCKED, never reported as PASSED.
  */
+@org.springframework.context.annotation.Profile("!production")
 @RestController
 @RequestMapping("/api/v1/admin/simulations/e2e")
 public class SimulationBusinessE2EController implements ApplicationListener<ApplicationReadyEvent> {
@@ -38,6 +39,8 @@ public class SimulationBusinessE2EController implements ApplicationListener<Appl
     private org.springframework.boot.info.BuildProperties buildProperties;
     @org.springframework.beans.factory.annotation.Value("${app.dev-seed.enabled:false}")
     private boolean phase08DevSeedEnabled;
+    @org.springframework.beans.factory.annotation.Autowired(required=false)
+    private Phase09RuntimePolicy phase09RuntimePolicy;
     private String sourceCommit() {
         String embedded = buildProperties == null ? null : buildProperties.get("sourceCommit");
         return embedded != null && embedded.matches("(?i)[0-9a-f]{40}") ? embedded : "UNVERIFIED";
@@ -94,6 +97,8 @@ public class SimulationBusinessE2EController implements ApplicationListener<Appl
     @PostMapping("/runs") @Transactional
     public Map<String,Object> start(@RequestBody StartRequest req,Authentication a) {
         admin(a);
+        // A profile is an additional guard, never evidence of database isolation.
+        if(phase09RuntimePolicy!=null) phase09RuntimePolicy.requireDevelopment();
         if(req==null || req.workspaceId()==null || req.requestKey()==null ||
             !req.requestKey().matches("[A-Za-z0-9_-]{8,100}"))
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST,"workspaceId and requestKey required");
