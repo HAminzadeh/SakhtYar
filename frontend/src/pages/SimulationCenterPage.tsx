@@ -58,6 +58,11 @@ type Phase07DiagnosticRun = { id: string; state: string; mode: string; workspace
   safeChecksPassed: number; safeChecksTotal: number; businessScenarioPassedCount: number;
   businessWorkflowsExecuted: boolean; caution: string; results: Phase07DiagnosticResult[] }
 
+type Phase08SafetyReadiness = {
+  mode: string; state: string; sourceCommit: string; authorizedBusinessWrites: boolean;
+  blockers: string[]; targetCount: number; checkedAt: string;
+  targets: Array<{ scenario_id: string; capability: string; businessAcceptance: string; requiredRealProof: string[] }>
+}
 type CoreFixtureReadiness = {
   coreFixturePermitted: boolean; runtimeDbRoleNonBypass: boolean; automaticTestRoleProvisioning?: boolean;
   corePolicyCoverage: boolean; migration60StructureAvailable: boolean;
@@ -146,6 +151,11 @@ export function SimulationCenterPage() {
   const coreReadiness = useQuery({
     queryKey: ['sim-core-readiness'],
     queryFn: () => api<CoreFixtureReadiness>(`${endpoint}/core-fixture-readiness`),
+  })
+  const phase08Safety = useQuery({
+    queryKey: ['sim-phase08-safety-readiness',workspaceId], enabled: Boolean(workspaceId),
+    queryFn: () => api<Phase08SafetyReadiness>(`${endpoint}/e2e/safety-readiness?workspaceId=${workspaceId}`),
+    refetchOnWindowFocus: false,
   })
   // Restore a useful workspace after reload; changing it always re-keys evidence queries.
   useEffect(() => {
@@ -467,18 +477,33 @@ export function SimulationCenterPage() {
           { key: 'business-e2e', label: <Space><ExperimentOutlined /> اجرای واقعی E2E</Space>, children: <>
             <Alert showIcon type="warning" style={{ marginBottom: 12 }}
               message="E2E واقعی با بررسی مقدماتی تفاوت دارد"
-              description="برای هر ۲۴ سناریو، وابستگی‌ها مرتب شده و بررسی‌های واقعی PostgreSQL/Schema/API پیش از گیت اجرا می‌شوند. فقط E2E-14 اجازه درج محدود داده TEST دارد؛ ۲۳ گردش‌کار تجاری دیگر تا ایزوله‌سازی کامل مسدود می‌مانند. درصد پیشرفت، درصد پایان گام‌هاست نه درصد موفقیت آزمون تجاری." />
+              description="گیت فاز ۰۸ قبل از اولین نوشتن مربوط به اجرای تجاری فعال است. امکان اجرای محدود E2E-14 به معنی مجوز E2E کامل نیست؛ تا اثبات نقش محدود، ایزولاسیون کامل و شواهد، اجرای تجاری مسدود می‌ماند." />
+            <Card size="small" style={{ marginBottom: 12, borderRadius: 12 }} title="فاز ۰۸ — گیت ایمنی واقعی قبل از اولین Write">
+              <Space wrap style={{ marginBottom: 8 }}>
+                <Button size="small" icon={<ReloadOutlined />} loading={phase08Safety.isFetching}
+                  disabled={!workspaceId} onClick={() => void phase08Safety.refetch()}>بازبینی گیت TEST</Button>
+                {phase08Safety.data && <Button size="small" icon={<CloudDownloadOutlined />}
+                  onClick={() => downloadJson(phase08Safety.data,`phase08-safety-readiness-${workspaceId}.json`)}>دریافت گزارش گیت JSON</Button>}
+              </Space>
+              {phase08Safety.data && <Alert showIcon type={phase08Safety.data.authorizedBusinessWrites ? 'success' : 'warning'}
+                message={phase08Safety.data.authorizedBusinessWrites ? 'شواهد اولیه پذیرش گیت موجود است' : 'BLOCKED — اجرای تجاری قبل از اولین Write متوقف می‌شود'}
+                description={<Space direction="vertical" size={4}>
+                  <Typography.Text>Source SHA: {phase08Safety.data.sourceCommit}</Typography.Text>
+                  {(phase08Safety.data.blockers ?? []).map(blocker => <Typography.Text key={blocker} type="secondary">{blocker}</Typography.Text>)}
+                </Space>} />}
+              {phase08Safety.isError && <Alert type="error" showIcon message="دریافت شواهد گیت فاز ۰۸ ناموفق بود؛ اجرای تجاری همچنان مسدود است." />}
+            </Card>
             <Row gutter={[12, 12]} style={{ marginBottom: 14 }}>
               <Col xs={24} sm={12}><Card size="small"><Statistic title="سناریوهای دارای اجرای محدود واقعی" value={businessE2ECoverage.data?.limitedBusinessE2eCount ?? 0} suffix="از ۲۴" /></Card></Col>
               <Col xs={24} sm={12}><Card size="small"><Statistic title="سناریوهای بدون موتور E2E تجاری" value={24-(businessE2ECoverage.data?.limitedBusinessE2eCount ?? 0)} /></Card></Col>
             </Row>
             <Space wrap style={{ marginBottom: 14 }}>
               <Button type="primary" icon={<ExperimentOutlined />} loading={startBusinessE2E.isPending}
-                disabled={!workspaceId || !coreReadiness.data?.coreFixturePermitted}
+                disabled={!workspaceId || !phase08Safety.data?.authorizedBusinessWrites}
                 onClick={() => startBusinessE2E.mutate(['E2E-14'])}>
                 اجرای واقعی E2E-14
               </Button>
-              <Button loading={startBusinessE2E.isPending} disabled={!workspaceId}
+              <Button loading={startBusinessE2E.isPending} disabled={!workspaceId || !phase08Safety.data?.authorizedBusinessWrites}
                 onClick={() => startBusinessE2E.mutate(Array.from({length:24}, (_,i) => `E2E-${String(i+1).padStart(2,'0')}`))}>
                 اجرای زنجیره پیش‌نیازهای ۲۴ سناریو
               </Button>

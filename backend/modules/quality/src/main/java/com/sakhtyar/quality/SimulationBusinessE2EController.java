@@ -36,6 +36,8 @@ public class SimulationBusinessE2EController implements ApplicationListener<Appl
     // A runtime environment variable alone is not a trustworthy source of binary provenance.
     @org.springframework.beans.factory.annotation.Autowired(required = false)
     private org.springframework.boot.info.BuildProperties buildProperties;
+    @org.springframework.beans.factory.annotation.Value("${app.dev-seed.enabled:false}")
+    private boolean phase08DevSeedEnabled;
     private String sourceCommit() {
         String embedded = buildProperties == null ? null : buildProperties.get("sourceCommit");
         return embedded != null && embedded.matches("(?i)[0-9a-f]{40}") ? embedded : "UNVERIFIED";
@@ -103,6 +105,26 @@ public class SimulationBusinessE2EController implements ApplicationListener<Appl
         List<String> ordered=SimulationScenarioPlans.orderedWithPrerequisites(unique);
         // Even administrators may operate only their own ACTIVE TEST workspaces.
         workspaceAuthorization.requireActiveOwner(req.workspaceId(), a);
+        // Phase 08: verify ALL shared-DB TEST write proofs BEFORE recording a run,
+        // creating the tester account, adding an E2E step, or calling any real API.
+        // Phase 07 read-only diagnostics remain available when this is blocked.
+        Map<String,Object> observedDbIdentity;
+        try {
+            observedDbIdentity=jdbc.queryForMap("""
+                select current_user::text as db_current_user,
+                       session_user::text as db_session_user,
+                       current_setting('row_security')::text as row_security
+                """);
+        } catch(RuntimeException ex) { observedDbIdentity=Map.of(); }
+        Map<String,Object> fixtureReadiness;
+        try { fixtureReadiness=fixtures.readiness(); }
+        catch(RuntimeException ex) { fixtureReadiness=Map.of(); }
+        Phase08SafetyAdmission.Verdict safety=Phase08SafetyAdmission.assess(
+            req.workspaceId(),fixtureReadiness,observedDbIdentity,phase08DevSeedEnabled,sourceCommit());
+        if(!safety.authorized())
+            throw new ResponseStatusException(HttpStatus.CONFLICT,
+                "Phase08 TEST isolation gate BLOCKED before any business E2E database write; "+
+                "inspect GET /api/v1/admin/simulations/e2e/safety-readiness");
         Boolean active=jdbc.queryForObject("select exists(select 1 from simulation_workspace where id=? and state='ACTIVE')",
             Boolean.class,req.workspaceId());
         if(!Boolean.TRUE.equals(active)) throw new ResponseStatusException(HttpStatus.CONFLICT,"Active TEST workspace required");
