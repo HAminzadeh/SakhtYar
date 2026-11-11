@@ -518,7 +518,7 @@ export function SimulationCenterPage() {
               </Space>
               {phase09Session && <Alert showIcon type="info" style={{marginBottom:12}}
                 message="جلسه بررسی ایمنی فعال؛ بدون دستکاری داده‌های تجاری"
-                description={`Session ID: ${phase09Session.id} · پایان اعتبار: ${dateFa(phase09Session.expiresAt)}`} />
+                description={`Session ID: ${phase09Session.id} · پایان اعتبار: ${dateFa(phase09Session.expiresAt)}`} />}
               <Space wrap style={{ marginBottom: 8 }}>
                 <Button size="small" icon={<ReloadOutlined />} loading={phase08Safety.isFetching}
                   disabled={!workspaceId} onClick={() => void phase08Safety.refetch()}>بازبینی گیت TEST</Button>

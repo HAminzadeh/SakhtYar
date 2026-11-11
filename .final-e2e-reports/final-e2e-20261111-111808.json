@@ -1,0 +1,90 @@
+{
+  "timestampUtc": "2026-11-11T11:14:32.519596+00:00",
+  "mode": "safe",
+  "repo": "D:\\ChatGPT_Projects\\SakhtYar\\source",
+  "phases": [
+    {
+      "phase": "1-build-profile",
+      "checks": [
+        {
+          "name": "frontend JSX root",
+          "state": "PASSED",
+          "detail": "Patch already applied"
+        },
+        {
+          "name": "Phase09 profiles source",
+          "state": "PASSED",
+          "exitCode": 0,
+          "tail": "[PASS] Phase09 source contract: 2 profiles, startup-guard, 5 production exclusions, 11 blockers, isolated probe, UI preflight\n"
+        },
+        {
+          "name": "Phase08 source",
+          "state": "PASSED",
+          "exitCode": 0,
+          "tail": "[PASS] Phase08 source contract: seven targets, pre-write gate, owner-bound read-only API, no privileged DDL\n"
+        },
+        {
+          "name": "24 scenario plans",
+          "state": "FAILED",
+          "exitCode": 1,
+          "tail": "node:internal/modules/cjs/loader:1424\n  throw err;\n  ^\n\nError: Cannot find module 'D:\\ChatGPT_Projects\\SakhtYar\\source\\tests\\e2e\\tests\\e2e\\check_24_plans.mjs'\n    at Module._resolveFilename (node:internal/modules/cjs/loader:1421:15)\n    at defaultResolveImpl (node:internal/modules/cjs/loader:1059:19)\n    at resolveForCJSWithHooks (node:internal/modules/cjs/loader:1064:22)\n    at Module._load (node:internal/modules/cjs/loader:1227:37)\n    at TracingChannel.traceSync (node:diagnostics_channel:328:14)\n    at wrapModuleLoad (node:internal/modules/cjs/loader:245:24)\n    at Module.executeUserEntryPoint [as runMain] (node:internal/modules/run_main:154:5)\n    at node:internal/main/run_main_module:33:47 {\n  code: 'MODULE_NOT_FOUND',\n  requireStack: []\n}\n\nNode.js v24.12.0\n"
+        },
+        {
+          "name": "Frontend TypeScript/Vite build",
+          "state": "PASSED",
+          "exitCode": 0,
+          "tail": "\n> sakhtyar-frontend@0.2.0 build\n> tsc -b && vite build\n\n\u001b[36mvite v8.3.6 \u001b[32mbuilding client environment for production...\u001b[36m\u001b[39m\ntransforming...\n✓ 3224 modules transformed.\nrendering chunks...\ncomputing gzip size...\ndist/index.html                     0.51 kB │ gzip:     0.36 kB\ndist/assets/index-L82G7UTN.css    147.73 kB │ gzip:    25.76 kB\ndist/assets/index-DcK8RJxd.js   4,179.01 kB │ gzip: 1,056.46 kB\n\n\u001b[33m[plugin builtin:vite-reporter] \n(!) Some chunks are larger than 500 kB after minification. Consider:\n- Using dynamic import() to code-split the application\n- Use build.rolldownOptions.output.codeSplitting to improve chunking: https://rolldown.rs/reference/OutputOptions.codeSplitting\n- Adjust chunk size limit for this warning via build.chunkSizeWarningLimit.\u001b[39m\n\u001b[32m✓ built in 2.04s\u001b[39m\nnpm notice\nnpm notice New minor version of npm available! 11.6.2 -> 11.21.2\nnpm notice Changelog: https://github.com/npm/cli/releases/tag/v11.21.2\nnpm notice To update run: npm install -g npm@11.21.2\nnpm notice\n"
+        }
+      ]
+    },
+    {
+      "phase": "2-isolation-admission",
+      "checks": [
+        {
+          "name": "Backend Maven tests/verify",
+          "state": "PASSED",
+          "exitCode": 0,
+          "tail": "lt-test) @ sakhtyar-app ---\n[INFO] Using auto detected provider org.apache.maven.surefire.junitplatform.JUnitPlatformProvider\n[INFO] \n[INFO] -------------------------------------------------------\n[INFO]  T E S T S\n[INFO] -------------------------------------------------------\n[INFO] Running com.sakhtyar.bootstrap.Phase09ProfileSafetyInitializerTest\n[INFO] Tests run: 3, Failures: 0, Errors: 0, Skipped: 0, Time elapsed: 0.546 s -- in com.sakhtyar.bootstrap.Phase09ProfileSafetyInitializerTest\n[INFO] Running com.sakhtyar.observability.CorrelationIdFilterTest\n[INFO] Tests run: 2, Failures: 0, Errors: 0, Skipped: 0, Time elapsed: 0.191 s -- in com.sakhtyar.observability.CorrelationIdFilterTest\n[INFO] \n[INFO] Results:\n[INFO] \n[INFO] Tests run: 5, Failures: 0, Errors: 0, Skipped: 0\n[INFO] \n[INFO] \n[INFO] --- jar:3.5.1:jar (default-jar) @ sakhtyar-app ---\n[INFO] Building jar: D:\\ChatGPT_Projects\\SakhtYar\\source\\backend\\app\\target\\sakhtyar-app-0.2.0-SNAPSHOT.jar\n[INFO] \n[INFO] --- spring-boot:4.1.1:repackage (repackage) @ sakhtyar-app ---\n[INFO] Replacing main artifact D:\\ChatGPT_Projects\\SakhtYar\\source\\backend\\app\\target\\sakhtyar-app-0.2.0-SNAPSHOT.jar with repackaged archive, adding nested dependencies in BOOT-INF/.\n[INFO] The original artifact has been renamed to D:\\ChatGPT_Projects\\SakhtYar\\source\\backend\\app\\target\\sakhtyar-app-0.2.0-SNAPSHOT.jar.original\n[INFO] ------------------------------------------------------------------------\n[INFO] Reactor Summary for SakhtYar Backend 0.2.0-SNAPSHOT:\n[INFO] \n[INFO] SakhtYar Backend ................................... SUCCESS [  0.244 s]\n[INFO] SakhtYar Platform Config ........................... SUCCESS [  6.768 s]\n[INFO] SakhtYar Automation Platform ....................... SUCCESS [  0.931 s]\n[INFO] sakhtyar-shared-kernel ............................. SUCCESS [  2.248 s]\n[INFO] sakhtyar-audit ..................................... SUCCESS [  0.863 s]\n[INFO] sakhtyar-identity .................................. SUCCESS [  7.780 s]\n[INFO] sakhtyar-globalization ............................. SUCCESS [  7.566 s]\n[INFO] sakhtyar-casefile .................................. SUCCESS [ 13.834 s]\n[INFO] sakhtyar-property .................................. SUCCESS [  3.121 s]\n[INFO] sakhtyar-owner ..................................... SUCCESS [  2.334 s]\n[INFO] sakhtyar-document .................................. SUCCESS [  7.359 s]\n[INFO] sakhtyar-geo ....................................... SUCCESS [  1.164 s]\n[INFO] sakhtyar-integration-neshan ........................ SUCCESS [  5.770 s]\n[INFO] sakhtyar-knowledge ................................. SUCCESS [ 14.071 s]\n[INFO] sakhtyar-material .................................. SUCCESS [  6.916 s]\n[INFO] sakhtyar-assembly .................................. SUCCESS [  5.867 s]\n[INFO] sakhtyar-scenario .................................. SUCCESS [  4.528 s]\n[INFO] sakhtyar-regulation ................................ SUCCESS [  4.135 s]\n[INFO] sakhtyar-builder ................................... SUCCESS [  4.746 s]\n[INFO] sakhtyar-contract .................................. SUCCESS [  1.222 s]\n[INFO] sakhtyar-analysis .................................. SUCCESS [  7.742 s]\n[INFO] sakhtyar-finance ................................... SUCCESS [  7.896 s]\n[INFO] SakhtYar Market Intelligence ....................... SUCCESS [  1.505 s]\n[INFO] SakhtYar Agents .................................... SUCCESS [ 10.171 s]\n[INFO] sakhtyar-persian-intelligence ...................... SUCCESS [  0.485 s]\n[INFO] sakhtyar-intelligence .............................. SUCCESS [  4.671 s]\n[INFO] sakhtyar-crawler ................................... SUCCESS [ 11.122 s]\n[INFO] sakhtyar-sensitivity ............................... SUCCESS [ 11.430 s]\n[INFO] sakhtyar-notification .............................. SUCCESS [  6.876 s]\n[INFO] sakhtyar-monitoring ................................ SUCCESS [  7.264 s]\n[INFO] sakhtyar-web-bff ................................... SUCCESS [  2.870 s]\n[INFO] sakhtyar-quality ................................... SUCCESS [ 15.337 s]\n[INFO] SakhtYar Application ............................... SUCCESS [ 12.734 s]\n[INFO] ------------------------------------------------------------------------\n[INFO] BUILD SUCCESS\n[INFO] ------------------------------------------------------------------------\n[INFO] Total time:  03:22 min\n[INFO] Finished at: 2026-11-11T14:48:07+03:30\n[INFO] ------------------------------------------------------------------------\n"
+        },
+        {
+          "name": "Live read-only admission probe",
+          "state": "BLOCKED",
+          "detail": "Provide --base-url and --workspace-id"
+        }
+      ]
+    },
+    {
+      "phase": "3-business-e2e",
+      "checks": []
+    },
+    {
+      "phase": "4-regression-release",
+      "checks": [
+        {
+          "name": "Golden regression",
+          "state": "PASSED",
+          "exitCode": 0,
+          "tail": "...\n----------------------------------------------------------------------\nRan 3 tests in 0.000s\n\nOK\n"
+        },
+        {
+          "name": "Quality catalog",
+          "state": "PASSED",
+          "exitCode": 0,
+          "tail": "QUALITY CATALOG VALID: 123 scenarios (43 immediately executable).\n"
+        },
+        {
+          "name": "Migration naming",
+          "state": "PASSED",
+          "exitCode": 0,
+          "tail": "PASS: 66 sequential migrations including V45. This is NOT a database execution test.\n"
+        }
+      ]
+    }
+  ],
+  "overall": "FAILED",
+  "businessAcceptance": {
+    "total": 24,
+    "verifiedFullPass": 0,
+    "note": "Not claimed by this orchestration"
+  }
+}

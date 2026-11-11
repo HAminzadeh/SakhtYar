@@ -1,0 +1,35 @@
+{
+  "timestampUtc": "2026-11-11T11:04:32.808221+00:00",
+  "mode": "audit",
+  "repo": "D:\\ChatGPT_Projects\\SakhtYar\\source",
+  "phases": [
+    {
+      "phase": "1-build-profile",
+      "checks": [
+        {
+          "name": "frontend JSX root",
+          "state": "FIX_AVAILABLE",
+          "detail": "One exact unsafe span located"
+        }
+      ]
+    },
+    {
+      "phase": "2-isolation-admission",
+      "checks": []
+    },
+    {
+      "phase": "3-business-e2e",
+      "checks": []
+    },
+    {
+      "phase": "4-regression-release",
+      "checks": []
+    }
+  ],
+  "overall": "PATCH_REQUIRED",
+  "businessAcceptance": {
+    "total": 24,
+    "verifiedFullPass": 0,
+    "note": "Not claimed by this orchestration"
+  }
+}

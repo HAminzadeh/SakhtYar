@@ -87,3 +87,5 @@ models/persian/
 .local/config-secrets.properties
 .sakhtyar/repository/
 .sakhtyar/runtime/
+.final-e2e-reports/
+*.final-e2e-backup

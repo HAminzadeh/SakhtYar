@@ -47,4 +47,12 @@ const frontend=read('frontend/src/pages/SimulationCenterPage.tsx')
 assert.match(frontend,/phase09-preflight-/)
 assert.match(frontend,/blockerDetails/)
 assert.match(frontend,/sim-runtime-mode/)
+// Regression guard: Phase09 preflight conditional JSX must be fully closed.
+const phase09Start = frontend.search(/\{\s*phase09Session\s*&&\s*<Alert\b/)
+assert.ok(phase09Start >= 0, 'Phase09 preflight Alert must remain discoverable')
+const phase09Tail = frontend.slice(phase09Start)
+const phase09End = phase09Tail.search(/^\s*<Space\s+wrap\b/m)
+assert.ok(phase09End > 0, 'Phase09 preflight Alert boundary must exist')
+assert.match(phase09Tail.slice(0, phase09End), /\/>\s*\}\s*$/,
+  'Phase09 conditional preflight Alert must close its JSX expression')
 console.log('[PASS] Phase09 source contract: 2 profiles, startup-guard, 5 production exclusions, 11 blockers, isolated probe, UI preflight')
