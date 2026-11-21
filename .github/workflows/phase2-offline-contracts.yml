@@ -1,0 +1,28 @@
+name: Phase 2 - 13 Offline Scenario Contracts (Not Business E2E)
+on:
+  push:
+    branches: [v2]
+  pull_request:
+    branches: [v2]
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  offline-only:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '21'
+      - name: Compile pure offline contracts, no Spring or database
+        run: |
+          mkdir -p /tmp/sakhtyar-phase2-contracts
+          javac -encoding UTF-8 -d /tmp/sakhtyar-phase2-contracts \
+            backend/modules/quality/src/main/java/com/sakhtyar/quality/phase2/Phase2OfflineContracts.java \
+            backend/modules/quality/src/main/java/com/sakhtyar/quality/phase2/Phase2ScenarioSpecification.java \
+            tests/phase2/Phase2ContractsSmoke.java
+      - name: Validate 13 contracts; 0 business pass claims
+        run: java -cp /tmp/sakhtyar-phase2-contracts Phase2ContractsSmoke
