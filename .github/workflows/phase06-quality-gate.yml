@@ -36,7 +36,7 @@ jobs:
       - name: Validate fake adapters, Phase02 isolation reuse and release topology
         run: node tests/phase06/source_contract.mjs
   browser-synthetic-smoke:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 15
     steps:
       - uses: actions/checkout@v4

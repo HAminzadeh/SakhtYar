@@ -1,0 +1,31 @@
+name: E2E Source Readiness and Safety Contracts
+on:
+  push:
+    branches: [v2]
+  pull_request:
+    branches: [v2]
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  source-readiness:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    env:
+      APP_DEV_SEED_ENABLED: 'false'
+      SPRING_FLYWAY_ENABLED: 'false'
+      SPRING_DOCKER_COMPOSE_ENABLED: 'false'
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+      - name: Validate 24 plans, profiles, evidence gates and fail-closed behavior
+        run: node scripts/e2e_final_readiness.mjs --report .final-e2e-reports/source-readiness.json
+      - name: Archive source-readiness evidence (not business E2E acceptance)
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: e2e-source-readiness
+          path: .final-e2e-reports/source-readiness.json
+          if-no-files-found: warn
