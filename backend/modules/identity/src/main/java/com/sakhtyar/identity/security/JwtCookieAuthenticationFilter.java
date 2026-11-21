@@ -133,11 +133,11 @@ public class JwtCookieAuthenticationFilter extends OncePerRequestFilter {
     ) {
         request.setAttribute(AUTH_FAILURE_ATTRIBUTE, reason);
 
+        // Do not put user-controlled URL paths or token-bearing request data in logs.
         log.warn(
-                "Authentication rejected: reason={}, method={}, path={}",
+                "Authentication rejected: reason={}, method={}",
                 reason,
-                request.getMethod(),
-                request.getRequestURI()
+                request.getMethod()
         );
     }
 

@@ -226,7 +226,7 @@ http
                         .requestMatchers("/api/v1/admin/simulations/**").hasAuthority("USER_MANAGE")
                         .requestMatchers(HttpMethod.GET, "/api/v1/admin/quality/**").hasAuthority("QUALITY_VIEW")
                         .requestMatchers(HttpMethod.POST, "/api/v1/admin/quality/runs").hasAuthority("QUALITY_RUN_SAFE")
-                        .requestMatchers("/api/v1/admin/quality/**").hasAuthority("QUALITY_VIEW")
+                        .requestMatchers("/api/v1/admin/quality/**").denyAll()
 
                         .requestMatchers(
                                 "/api/v1/admin/operations/**"
