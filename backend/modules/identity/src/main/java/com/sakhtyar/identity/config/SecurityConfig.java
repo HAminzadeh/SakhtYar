@@ -228,6 +228,10 @@ http
                         .requestMatchers(HttpMethod.POST, "/api/v1/admin/quality/runs").hasAuthority("QUALITY_RUN_SAFE")
                         .requestMatchers("/api/v1/admin/quality/**").denyAll()
 
+                        .requestMatchers(HttpMethod.GET, "/api/v1/admin/audit/events")
+                        .hasAuthority("AUDIT_READ")
+                        .requestMatchers("/api/v1/admin/audit/**").denyAll()
+
                         .requestMatchers(
                                 "/api/v1/admin/operations/**"
                         ).hasAuthority("OPERATIONS_READ")

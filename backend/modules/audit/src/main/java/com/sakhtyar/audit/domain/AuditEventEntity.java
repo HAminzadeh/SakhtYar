@@ -3,6 +3,8 @@ package com.sakhtyar.audit.domain;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.Id;
+import jakarta.persistence.PreRemove;
+import jakarta.persistence.PreUpdate;
 import jakarta.persistence.Table;
 import java.time.Instant;
 import java.util.UUID;
@@ -51,6 +53,14 @@ public class AuditEventEntity {
         this.actor = actor;
         this.payloadText = payloadText;
         this.createdAt = createdAt;
+    }
+
+    // Defense in depth: prevent accidental JPA updates/deletes. Database-level
+    // append-only policy still requires a separately verified PostgreSQL migration.
+    @PreUpdate
+    @PreRemove
+    protected void rejectMutation() {
+        throw new IllegalStateException("Audit events are append-only");
     }
 
     public UUID getId() { return id; }

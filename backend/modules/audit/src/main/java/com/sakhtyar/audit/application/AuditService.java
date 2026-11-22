@@ -27,7 +27,7 @@ public class AuditService {
         this.objectMapper = objectMapper;
     }
 
-    @Transactional(propagation = Propagation.REQUIRES_NEW)
+    @Transactional(propagation = Propagation.REQUIRED)
     public void record(
             String aggregateType,
             UUID aggregateId,
@@ -43,7 +43,7 @@ public class AuditService {
         );
     }
 
-    @Transactional(propagation = Propagation.REQUIRES_NEW)
+    @Transactional(propagation = Propagation.REQUIRED)
     public void recordAs(
             String aggregateType,
             UUID aggregateId,
@@ -54,9 +54,9 @@ public class AuditService {
         repository.save(
                 new AuditEventEntity(
                         UUID.randomUUID(),
-                        aggregateType,
+                        AuditPayloadSanitizer.safeCode("aggregateType", aggregateType, 100),
                         aggregateId,
-                        action,
+                        AuditPayloadSanitizer.safeCode("action", action, 150),
                         actor,
                         toJson(payload),
                         Instant.now()
@@ -78,10 +78,11 @@ public class AuditService {
     private String toJson(Map<String, ?> payload) {
         try {
             return objectMapper.writeValueAsString(
-                    payload == null ? Map.of() : payload
+                    AuditPayloadSanitizer.sanitize(payload)
             );
         } catch (JacksonException e) {
-            return "{\"serializationError\":true}";
+            // Audit loss must fail the surrounding business transaction, never fake success.
+            throw new IllegalStateException("Audit serialization failed");
         }
     }
 }
