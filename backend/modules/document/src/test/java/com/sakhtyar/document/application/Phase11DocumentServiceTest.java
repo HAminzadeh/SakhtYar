@@ -120,14 +120,14 @@ class Phase11DocumentServiceTest {
     }
 
     @Test
-    void uploadWithoutDocumentWriteDoesNotTouchStorage() {
+    void uploadWithoutDocumentWriteDoesNotTouchStorage() throws Exception {
         login("CASE_WRITE");
         assertThrows(ResponseStatusException.class, () -> service.upload(caseId, pdf(), "alice"));
         verify(minio, never()).putObject(any(PutObjectArgs.class));
     }
 
     @Test
-    void documentUploadRequiresCaseWriteAuthorization() {
+    void documentUploadRequiresCaseWriteAuthorization() throws Exception {
         login("DOCUMENT_WRITE");
         doThrow(new ResponseStatusException(HttpStatus.NOT_FOUND)).when(access).requireWrite(currentCase);
         assertThrows(ResponseStatusException.class, () -> service.upload(caseId, pdf(), "alice"));
@@ -135,14 +135,14 @@ class Phase11DocumentServiceTest {
     }
 
     @Test
-    void spoofedUploaderRejectedBeforeStorageAccess() {
+    void spoofedUploaderRejectedBeforeStorageAccess() throws Exception {
         login("DOCUMENT_WRITE");
         assertThrows(ResponseStatusException.class, () -> service.upload(caseId, pdf(), "bob"));
         verify(minio, never()).putObject(any(PutObjectArgs.class));
     }
 
     @Test
-    void transactionIsRequiredBeforeExternalWrite() {
+    void transactionIsRequiredBeforeExternalWrite() throws Exception {
         login("DOCUMENT_WRITE");
         assertThrows(IllegalStateException.class, () -> service.upload(caseId, pdf(), "alice"));
         verify(minio, never()).putObject(any(PutObjectArgs.class));
@@ -191,7 +191,7 @@ class Phase11DocumentServiceTest {
         login("DOCUMENT_WRITE");
         beginManagedTransaction();
         when(minio.putObject(any(PutObjectArgs.class)))
-                .thenThrow(new java.io.IOException("simulated storage failure"));
+                .thenThrow(new IllegalStateException("simulated MinIO put failure"));
         assertThrows(IllegalStateException.class, () -> service.upload(caseId, pdf(), "alice"));
         verify(minio).removeObject(any(RemoveObjectArgs.class));
         verifyNoInteractions(audit);
