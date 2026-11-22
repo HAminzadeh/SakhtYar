@@ -20,7 +20,7 @@ import org.springframework.web.server.ResponseStatusException;
  * It intentionally never reads business row contents, creates roles or changes RLS.
  */
 @RestController
-public final class Phase02SharedDatabaseAuditController {
+public class Phase02SharedDatabaseAuditController {
     private static final Set<String> CORE = Set.of(
             "construction_case", "property", "property_owner", "case_document");
     private static final Set<String> EXTERNAL = Set.of("notification_outbox", "crawl_job");
