@@ -3,6 +3,10 @@ package com.sakhtyar.casefile.api;
 import com.sakhtyar.casefile.api.CaseDtos.CaseResponse;
 import com.sakhtyar.casefile.api.CaseDtos.UpsertCaseRequest;
 import com.sakhtyar.casefile.application.CaseService;
+import com.sakhtyar.casefile.application.CaseRevision;
+import jakarta.servlet.http.HttpServletResponse;
+import org.springframework.http.HttpHeaders;
+import org.springframework.web.bind.annotation.RequestHeader;
 import jakarta.validation.Valid;
 import java.util.List;
 import java.util.UUID;
@@ -31,7 +35,14 @@ public class CaseController {
     }
 
     @GetMapping("/{id}")
-    public CaseResponse get(@PathVariable UUID id) {
+    public CaseResponse get(@PathVariable UUID id, HttpServletResponse response) {
+        CaseResponse item = service.get(id);
+        response.setHeader(HttpHeaders.ETAG, CaseRevision.etag(item.updatedAt()));
+        return item;
+    }
+
+    // Preserve the Java method signature for existing internal callers.
+    public CaseResponse get(UUID id) {
         return service.get(id);
     }
 
@@ -46,8 +57,17 @@ public class CaseController {
     @PutMapping("/{id}")
     public CaseResponse update(
             @PathVariable UUID id,
-            @Valid @RequestBody UpsertCaseRequest request
+            @Valid @RequestBody UpsertCaseRequest request,
+            @RequestHeader(value = HttpHeaders.IF_MATCH, required = false) String ifMatch,
+            HttpServletResponse response
     ) {
+        CaseResponse item = service.update(id, request, ifMatch);
+        response.setHeader(HttpHeaders.ETAG, CaseRevision.etag(item.updatedAt()));
+        return item;
+    }
+
+    // Keep the historical Java signature available to existing callers.
+    public CaseResponse update(UUID id, UpsertCaseRequest request) {
         return service.update(id, request);
     }
 }

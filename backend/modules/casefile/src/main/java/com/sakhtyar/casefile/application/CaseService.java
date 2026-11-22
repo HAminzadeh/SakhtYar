@@ -6,6 +6,7 @@ import com.sakhtyar.casefile.api.CaseDtos.UpsertCaseRequest;
 import com.sakhtyar.casefile.domain.CaseEntity;
 import com.sakhtyar.casefile.domain.CaseRepository;
 import java.time.Instant;
+import java.time.temporal.ChronoUnit;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
@@ -30,7 +31,14 @@ public class CaseService {
     @Transactional(readOnly = true)
     public List<CaseResponse> list() {
         assertRealBusinessRequest();
-        return repository.findAllByOrderByUpdatedAtDesc()
+        var auth = org.springframework.security.core.context.SecurityContextHolder.getContext().getAuthentication();
+        if (auth == null || !auth.isAuthenticated() || auth.getName() == null || auth.getName().isBlank()) {
+            throw new org.springframework.web.server.ResponseStatusException(
+                    org.springframework.http.HttpStatus.UNAUTHORIZED, "Authentication required.");
+        }
+        boolean admin = auth.getAuthorities() != null && auth.getAuthorities().stream()
+                .anyMatch(a -> "ROLE_ADMIN".equals(a.getAuthority()));
+        return repository.findVisibleRealCases(auth.getName(), admin)
                 .stream()
                 .filter(row -> "REAL".equals(row.getDataScope()))
                 .filter(access::canRead)
@@ -50,7 +58,7 @@ public class CaseService {
             Authentication authentication
     ) {
         assertRealBusinessRequest();
-        Instant now = Instant.now();
+        Instant now = Instant.now().truncatedTo(ChronoUnit.MICROS);
 
         UUID caseId = UUID.randomUUID();
 
@@ -76,9 +84,8 @@ public class CaseService {
                 now
         );
 
-        // Flush the business row before writing the REQUIRES_NEW audit event.
-        // This prevents CASE_CREATED audit records for inserts that later fail
-        // because of a database constraint.
+        // Flush constraints before writing audit evidence in the same business transaction.
+        // AuditService now participates in the caller transaction (Phase 06).
         repository.saveAndFlush(entity);
 
         auditService.record(
@@ -96,9 +103,19 @@ public class CaseService {
 
     @Transactional
     public CaseResponse update(UUID id, UpsertCaseRequest request) {
+        return update(id, request, null);
+    }
+
+    @Transactional
+    public CaseResponse update(UUID id, UpsertCaseRequest request, String ifMatch) {
         assertRealBusinessRequest();
-        CaseEntity entity = require(id);
+        CaseEntity entity = repository.findByIdForUpdate(id)
+                .orElseThrow(() -> new org.springframework.web.server.ResponseStatusException(
+                        org.springframework.http.HttpStatus.NOT_FOUND, "Case not found."));
+        access.requireRead(entity);
         access.requireWrite(entity);
+        CaseRevision.requireMatch(ifMatch, entity.getUpdatedAt());
+        CaseLifecycle.requireEditable(entity.getStatus(), request.status());
 
         entity.update(
                 request.title().trim(),

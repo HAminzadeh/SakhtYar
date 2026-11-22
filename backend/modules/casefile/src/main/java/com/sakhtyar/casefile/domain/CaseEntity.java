@@ -8,6 +8,7 @@ import jakarta.persistence.Id;
 import jakarta.persistence.Table;
 import java.math.BigDecimal;
 import java.time.Instant;
+import java.time.temporal.ChronoUnit;
 import java.util.UUID;
 
 @Entity
@@ -108,7 +109,7 @@ public class CaseEntity {
         this.address = address;
         this.landAreaM2 = landAreaM2;
         this.coverImageUrl = coverImageUrl;
-        this.updatedAt = Instant.now();
+        this.updatedAt = Instant.now().truncatedTo(ChronoUnit.MICROS);
     }
 
     public void syncPropertySnapshot(
@@ -121,7 +122,7 @@ public class CaseEntity {
         this.district = district;
         this.address = address;
         this.landAreaM2 = landAreaM2;
-        this.updatedAt = Instant.now();
+        this.updatedAt = Instant.now().truncatedTo(ChronoUnit.MICROS);
     }
 
     public UUID getId() { return id; }

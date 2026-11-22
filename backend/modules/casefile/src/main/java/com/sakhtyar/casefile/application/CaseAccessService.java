@@ -59,7 +59,11 @@ public class CaseAccessService {
             auth.getAuthorities().stream().anyMatch(x -> "ROLE_TESTER".equals(x.getAuthority())))
             throw new ResponseStatusException(HttpStatus.NOT_FOUND, "Case not found.");
         boolean admin = auth.getAuthorities().stream().anyMatch(x -> "ROLE_ADMIN".equals(x.getAuthority()));
-        if (!admin && !item.getCreatedBy().equalsIgnoreCase(auth.getName()))
+        // Enforce CASE_WRITE in the domain boundary as defense in depth;
+        // HTTP SecurityFilterChain is not the only possible caller.
+        boolean allowedToWrite = admin || auth.getAuthorities().stream()
+                .anyMatch(x -> "CASE_WRITE".equals(x.getAuthority()));
+        if (!allowedToWrite || (!admin && !item.getCreatedBy().equalsIgnoreCase(auth.getName())))
             throw new ResponseStatusException(HttpStatus.NOT_FOUND, "Case not found.");
     }
 

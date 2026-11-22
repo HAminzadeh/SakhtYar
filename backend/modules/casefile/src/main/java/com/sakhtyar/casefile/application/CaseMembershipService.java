@@ -43,8 +43,7 @@ public class CaseMembershipService {
     }
 
     private static String validateUsername(String username) {
-        if (username == null || username.isBlank() || username.length() > 100 ||
-            username.contains("/") || username.contains("\\") || username.indexOf('\0') >= 0)
+        if (username == null || !username.trim().matches("[\\p{L}\\p{N}._-]{3,100}"))
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Invalid member username");
         return username.trim();
     }
