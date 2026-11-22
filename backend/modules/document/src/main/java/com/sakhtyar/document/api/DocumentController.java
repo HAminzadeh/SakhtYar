@@ -43,18 +43,14 @@ public class DocumentController {
     @GetMapping("/api/v1/documents/{documentId}/content")
     public ResponseEntity<?> download(@PathVariable UUID documentId) {
         DownloadedDocument document = service.download(documentId);
-
         ContentDisposition disposition = ContentDisposition.attachment()
-                .filename(document.filename(), StandardCharsets.UTF_8)
-                .build();
-
+                .filename(document.filename(), StandardCharsets.UTF_8).build();
         return ResponseEntity.ok()
                 .contentType(document.contentType())
                 .contentLength(document.sizeBytes())
-                .header(
-                        HttpHeaders.CONTENT_DISPOSITION,
-                        disposition.toString()
-                )
+                .header(HttpHeaders.CONTENT_DISPOSITION, disposition.toString())
+                .header("X-Content-Type-Options", "nosniff")
+                .header(HttpHeaders.CACHE_CONTROL, "no-store")
                 .body(document.resource());
     }
 }
