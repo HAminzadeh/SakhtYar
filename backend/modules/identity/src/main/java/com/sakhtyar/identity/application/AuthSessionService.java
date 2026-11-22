@@ -99,7 +99,7 @@ public class AuthSessionService {
 
     @Transactional
     public void revokeSession(UUID userId, UUID sessionId) {
-        AuthSessionEntity session = repository.findById(sessionId)
+        AuthSessionEntity session = repository.findByIdForUpdate(sessionId)
                 .orElseThrow(() -> new ResponseStatusException(
                         HttpStatus.NOT_FOUND,
                         "نشست پیدا نشد."
@@ -119,7 +119,7 @@ public class AuthSessionService {
     @Transactional
     public void revokeAll(UUID userId) {
         List<AuthSessionEntity> sessions =
-                repository.findAllByUserIdOrderByCreatedAtDesc(userId);
+                repository.findAllByUserIdForUpdate(userId);
 
         Instant now = Instant.now();
         for (AuthSessionEntity session : sessions) {

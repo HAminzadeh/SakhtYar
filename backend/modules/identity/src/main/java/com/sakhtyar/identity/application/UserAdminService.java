@@ -13,6 +13,7 @@ import java.time.Instant;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.http.HttpStatus;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
@@ -86,7 +87,13 @@ public class UserAdminService {
                 Instant.now()
         );
 
-        repository.save(user);
+        try {
+            // Force DB uniqueness to be checked before emitting the creation audit.
+            repository.saveAndFlush(user);
+        } catch (DataIntegrityViolationException ex) {
+            throw new ResponseStatusException(HttpStatus.CONFLICT,
+                    "Registration conflicts with an existing account.");
+        }
 
         auditService.record(
                 "USER",
@@ -107,6 +114,10 @@ public class UserAdminService {
             UpdateUserRequest request,
             String currentAdminUsername
     ) {
+        // Lock every active administrator before loading the target user, so
+        // concurrent demotions cannot both observe an outdated admin count.
+        List<UserEntity> activeAdminLocks = repository.lockUsersByRoleAndStatus(
+                UserRole.ADMIN, UserStatus.ACTIVE);
         UserEntity user = require(userId);
         String email = clean(request.email());
 
@@ -121,7 +132,7 @@ public class UserAdminService {
                     });
         }
 
-        protectLastAdmin(user, request.role(), request.status());
+        protectLastAdmin(user, request.role(), request.status(), activeAdminLocks.size());
 
         if (user.getUsername().equalsIgnoreCase(currentAdminUsername)
                 && request.status() != UserStatus.ACTIVE) {
@@ -131,6 +142,7 @@ public class UserAdminService {
             );
         }
 
+        boolean roleChanged = user.getRole() != request.role();
         user.adminUpdate(
                 request.displayName().trim(),
                 email,
@@ -140,7 +152,7 @@ public class UserAdminService {
         );
         repository.save(user);
 
-        if (request.status() != UserStatus.ACTIVE) {
+        if (roleChanged || request.status() != UserStatus.ACTIVE) {
             sessionService.revokeAll(user.getId());
         }
 
@@ -194,7 +206,8 @@ public class UserAdminService {
     private void protectLastAdmin(
             UserEntity user,
             UserRole nextRole,
-            UserStatus nextStatus
+            UserStatus nextStatus,
+            int lockedActiveAdminCount
     ) {
         boolean currentlyActiveAdmin =
                 user.getRole() == UserRole.ADMIN
@@ -206,10 +219,7 @@ public class UserAdminService {
 
         if (currentlyActiveAdmin
                 && !remainsActiveAdmin
-                && repository.countByRoleAndStatus(
-                        UserRole.ADMIN,
-                        UserStatus.ACTIVE
-                ) <= 1) {
+                && lockedActiveAdminCount <= 1) {
             throw new ResponseStatusException(
                     HttpStatus.BAD_REQUEST,
                     "Ø­Ø¯Ø§Ù‚Ù„ ÛŒÚ© Ù…Ø¯ÛŒØ± ÙØ¹Ø§Ù„ Ø¨Ø§ÛŒØ¯ Ø¯Ø± Ø³ÛŒØ³ØªÙ… Ø¨Ø§Ù‚ÛŒ Ø¨Ù…Ø§Ù†Ø¯."

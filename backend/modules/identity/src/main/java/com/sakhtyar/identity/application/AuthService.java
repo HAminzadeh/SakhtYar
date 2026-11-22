@@ -11,6 +11,7 @@ import java.time.Instant;
 import java.time.temporal.ChronoUnit;
 import java.util.Map;
 import java.util.UUID;
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.http.HttpStatus;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
@@ -76,7 +77,14 @@ public class AuthService {
                 now
         );
 
-        repository.save(user);
+        try {
+            // Flush unique constraints before recording success: concurrent registrations
+            // must report a sanitized 409 instead of a late transaction-commit 500.
+            repository.saveAndFlush(user);
+        } catch (DataIntegrityViolationException ex) {
+            throw new ResponseStatusException(HttpStatus.CONFLICT,
+                    "Registration conflicts with an existing account.");
+        }
 
         auditService.recordAs(
                 "USER",
@@ -98,7 +106,7 @@ public class AuthService {
         String normalized = username == null ? "" : username.trim();
 
         UserEntity user = repository
-                .findByUsernameIgnoreCase(normalized)
+                .findByUsernameIgnoreCaseForUpdate(normalized)
                 .orElse(null);
 
         if (user == null) {
