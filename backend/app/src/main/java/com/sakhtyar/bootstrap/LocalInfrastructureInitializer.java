@@ -12,6 +12,7 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.time.Duration;
+import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Locale;
@@ -53,7 +54,7 @@ public final class LocalInfrastructureInitializer
         verifyEndpoints(docker, composePath);
 
         LocalInfrastructureLog.ok("============================================================");
-        LocalInfrastructureLog.ok("Local infrastructure is READY.");
+        LocalInfrastructureLog.ok("Core local infrastructure is READY; observability may be degraded.");
         LocalInfrastructureLog.ok("UI (start from IntelliJ npm dev): http://localhost:5173");
         LocalInfrastructureLog.ok("Backend will start next on: http://localhost:8080");
         LocalInfrastructureLog.ok("============================================================");
@@ -134,61 +135,102 @@ public final class LocalInfrastructureInitializer
             Path composePath
     ) {
         LocalInfrastructureLog.step(
-                "[4/7] Starting/repairing services using local cached images only..."
+                "[4/7] Starting mandatory services first; optional observability is best-effort..."
         );
 
+        List<String> allServices = composeServices(docker, composePath);
+        List<String> required = allServices.stream()
+                .filter(LocalInfrastructurePolicy::isRequired)
+                .toList();
+        for (String core : List.of("db", "redis", "minio")) {
+            if (!required.contains(core)) {
+                throw new IllegalStateException("Required local Compose service is missing: " + core);
+            }
+        }
+
+        List<String> requiredArgs = new ArrayList<>(List.of(
+                "compose", "-f", composePath.toString(), "up", "-d", "--wait",
+                "--pull", "never", "--no-build"
+        ));
+        requiredArgs.addAll(required);
         DockerCommandRunner.Result result = docker.docker(
-                COMPOSE_TIMEOUT,
-                "compose",
-                "-f",
-                composePath.toString(),
-                "up",
-                "-d",
-                "--wait",
-                "--pull",
-                "never",
-                "--no-build"
+                COMPOSE_TIMEOUT, requiredArgs.toArray(String[]::new)
         );
-
         result.lines().forEach(LocalInfrastructureLog::info);
-        requireSuccess(result, "docker compose up failed.");
+        requireSuccess(result, "Mandatory local Docker services failed to start.");
 
-        LocalInfrastructureLog.ok("Compose startup completed.");
+        List<String> optional = allServices.stream()
+                .filter(service -> !LocalInfrastructurePolicy.isRequired(service))
+                .toList();
+        if (!optional.isEmpty()) {
+            List<String> optionalArgs = new ArrayList<>(List.of(
+                    "compose", "-f", composePath.toString(), "up", "-d",
+                    "--pull", "never", "--no-build", "--no-deps"
+            ));
+            optionalArgs.addAll(optional);
+            try {
+                DockerCommandRunner.Result optionalResult = docker.docker(
+                        COMPOSE_TIMEOUT, optionalArgs.toArray(String[]::new)
+                );
+                if (optionalResult.exitCode() != 0) {
+                    LocalInfrastructureLog.warn(
+                            "Optional observability startup failed; Backend startup can continue. "
+                                    + "Check docker compose logs for details."
+                    );
+                } else {
+                    LocalInfrastructureLog.ok("Optional observability containers requested.");
+                }
+            } catch (IllegalStateException e) {
+                LocalInfrastructureLog.warn(
+                        "Optional observability startup failed; Backend startup can continue. "
+                                + "Inspect local Docker logs."
+                );
+            }
+        }
+        LocalInfrastructureLog.ok("Mandatory Compose startup completed.");
     }
 
     private void validateServices(
             DockerCommandRunner docker,
             Path composePath
     ) {
-        LocalInfrastructureLog.step("[5/7] Validating service states...");
-
-        boolean failed = false;
+        LocalInfrastructureLog.step("[5/7] Validating mandatory and optional service states...");
+        boolean failedRequired = false;
 
         for (String service : composeServices(docker, composePath)) {
             String id = composeContainerId(docker, composePath, service);
-
             if (id.isBlank()) {
-                LocalInfrastructureLog.error(service + ": MISSING");
-                failed = true;
+                if (LocalInfrastructurePolicy.isRequired(service)) {
+                    LocalInfrastructureLog.error(service + ": MISSING (REQUIRED)");
+                    failedRequired = true;
+                } else {
+                    LocalInfrastructureLog.warn(service + ": MISSING (OPTIONAL OBSERVABILITY)");
+                }
                 continue;
             }
 
             String state = containerState(docker, id);
-
-            if (state.startsWith("running|healthy")
-                    || state.startsWith("running|no-healthcheck")) {
+            if (LocalInfrastructurePolicy.isRequired(service)) {
+                if (LocalInfrastructurePolicy.requiredServiceIsReady(service, state)) {
+                    LocalInfrastructureLog.ok(service + ": " + state);
+                } else {
+                    LocalInfrastructureLog.error(service + ": " + state + " (REQUIRED)");
+                    failedRequired = true;
+                }
+            } else if (LocalInfrastructurePolicy.optionalServiceIsReady(state)) {
                 LocalInfrastructureLog.ok(service + ": " + state);
-            } else if (state.startsWith("running|starting")) {
-                LocalInfrastructureLog.warn(service + ": " + state);
             } else {
-                LocalInfrastructureLog.error(service + ": " + state);
-                failed = true;
+                LocalInfrastructureLog.warn(
+                        service + ": " + state + " (OPTIONAL OBSERVABILITY DEGRADED). "
+                                + "Read-only diagnosis: docker compose -f compose.spring-local.yml "
+                                + "logs --tail 80 " + service
+                );
             }
         }
 
-        if (failed) {
+        if (failedRequired) {
             throw new IllegalStateException(
-                    "One or more local Docker services are not running correctly."
+                    "One or more mandatory local Docker services are not running correctly."
             );
         }
     }

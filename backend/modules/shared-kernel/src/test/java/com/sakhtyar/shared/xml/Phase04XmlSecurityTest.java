@@ -11,7 +11,7 @@ class Phase04XmlSecurityTest {
         String xml = """
                 <UrbanQuery xmlns="https://sakhtyar.ir/contracts/urban/v1" version="1.0">
                   <Intent>REGULATION_SEARCH</Intent><Language>fa-IR</Language>
-                  <Property><ZoneCode>منطقه ۱۲</ZoneCode><LandAreaM2>123.450</LandAreaM2></Property>
+                  <Property><LandAreaM2>123.450</LandAreaM2><ZoneCode>منطقه ۱۲</ZoneCode></Property>
                 </UrbanQuery>
                 """;
         assertDoesNotThrow(() -> XmlContractValidator.validate(xml, XSD));
