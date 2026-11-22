@@ -33,3 +33,7 @@ overrides:
       processors:
         - span-metrics
         - service-graphs
+# Seven-day retention for local Tempo blocks.
+compactor:
+  compaction:
+    block_retention: 168h

@@ -5,7 +5,8 @@
 {$SAKHTYAR_DOMAIN} {
     encode zstd gzip
 
-    @api path /api/* /actuator/*
+    @api path /api/*
+    # The internal /actuator endpoints must never traverse the public proxy.
     handle @api {
         reverse_proxy api:8080
     }

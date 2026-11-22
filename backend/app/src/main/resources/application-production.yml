@@ -17,10 +17,13 @@ app:
   dev-seed:
     enabled: false
   quality:
+    t10:
+      require-restricted-runtime: true
     phase09:
       ui-preflight-enabled: false
 spring:
   datasource:
+    url: ${DB_URL}
     username: ${SAKHTYAR_RUNTIME_DB_USER}
     password: ${SAKHTYAR_RUNTIME_DB_PASSWORD}
   flyway:
@@ -28,3 +31,9 @@ spring:
   jpa:
     hibernate:
       ddl-auto: validate
+
+# Minimize production traces; keep request/query contents and PII out of span attributes.
+management:
+  tracing:
+    sampling:
+      probability: ${OTEL_TRACES_SAMPLER_PROBABILITY:0.05}

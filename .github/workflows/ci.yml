@@ -60,6 +60,8 @@ jobs:
           POSTGRES_DB: sakhtyar
           POSTGRES_USER: sakhtyar
           POSTGRES_PASSWORD: ci-only-postgres
+          SAKHTYAR_RUNTIME_DB_USER: ci_restricted_runtime
+          SAKHTYAR_RUNTIME_DB_PASSWORD: ci-only-dedicated-runtime-password
           REDIS_PASSWORD: ci-only-redis
           MINIO_ROOT_USER: sakhtyar
           MINIO_ROOT_PASSWORD: ci-only-minio-secret
@@ -74,6 +76,16 @@ jobs:
         run: docker compose -f docker-compose.yml config --quiet
       - name: Validate Flyway naming and ordering
         run: python scripts/validate_migrations.py
+      - name: Check Phase03 DevOps offline security contracts
+        run: python scripts/devops/phase03_infra_contracts.py --root . --report .phase03-reports/infra-source-gate.json
+      - name: Publish sanitized infrastructure policy evidence only
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: phase03-infra-source-gate
+          path: .phase03-reports/infra-source-gate.json
+          if-no-files-found: ignore
+          retention-days: 7
   flyway-staging-smoke:
     runs-on: ubuntu-latest
     timeout-minutes: 35
@@ -99,10 +111,12 @@ jobs:
             flyway/flyway:11.15.0 \
             -url=jdbc:postgresql://127.0.0.1:5432/sakhtyar \
             -user=sakhtyar -password=ci-postgres-only -connectRetries=30 migrate
-      - name: Verify V45 and V46 migrations succeeded
+      - name: Verify all 66 migrations succeeded on disposable CI database
         run: |
           docker exec sakhtyar-ci-db psql -U sakhtyar -d sakhtyar -tAc \
-            "select count(*) from flyway_schema_history where version in ('45','46') and success=true" | grep -q '^2$'
+            "select count(*) from flyway_schema_history where version='66' and success=true" | grep -q '^1$'
+          docker exec sakhtyar-ci-db psql -U sakhtyar -d sakhtyar -tAc \
+            "select count(*) from flyway_schema_history where success=true" | grep -q '^66$'
       - name: Database logs on failure
         if: failure()
         run: docker logs sakhtyar-ci-db || true

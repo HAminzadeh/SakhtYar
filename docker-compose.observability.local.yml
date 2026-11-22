@@ -6,35 +6,35 @@ services:
       OTEL_EXPORTER_OTLP_TRACES_ENDPOINT: http://tempo:4318/v1/traces
       OLLAMA_AUTO_START: "false"
     ports:
-      - "${LOCAL_API_PORT:-8080}:8080"
+      - "127.0.0.1:${LOCAL_API_PORT:-8080}:8080"
 
   db:
     ports:
-      - "${LOCAL_POSTGRES_PORT:-5432}:5432"
+      - "127.0.0.1:${LOCAL_POSTGRES_PORT:-5432}:5432"
 
   minio:
     image: quay.io/minio/minio:latest
     ports:
-      - "${LOCAL_MINIO_API_PORT:-9000}:9000"
-      - "${LOCAL_MINIO_CONSOLE_PORT:-9001}:9001"
+      - "127.0.0.1:${LOCAL_MINIO_API_PORT:-9000}:9000"
+      - "127.0.0.1:${LOCAL_MINIO_CONSOLE_PORT:-9001}:9001"
 
   redis:
     ports:
-      - "${LOCAL_REDIS_PORT:-6379}:6379"
+      - "127.0.0.1:${LOCAL_REDIS_PORT:-6379}:6379"
 
   prometheus:
     ports:
-      - "${LOCAL_PROMETHEUS_PORT:-9090}:9090"
+      - "127.0.0.1:${LOCAL_PROMETHEUS_PORT:-9090}:9090"
 
   grafana:
     ports:
-      - "${LOCAL_GRAFANA_PORT:-3001}:3000"
+      - "127.0.0.1:${LOCAL_GRAFANA_PORT:-3001}:3000"
 
   loki:
     ports:
-      - "${LOCAL_LOKI_PORT:-3100}:3100"
+      - "127.0.0.1:${LOCAL_LOKI_PORT:-3100}:3100"
 
   tempo:
     ports:
-      - "${LOCAL_TEMPO_PORT:-3200}:3200"
-      - "${LOCAL_OTLP_HTTP_PORT:-4318}:4318"
+      - "127.0.0.1:${LOCAL_TEMPO_PORT:-3200}:3200"
+      - "127.0.0.1:${LOCAL_OTLP_HTTP_PORT:-4318}:4318"
