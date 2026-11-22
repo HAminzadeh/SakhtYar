@@ -1,6 +1,8 @@
 package com.sakhtyar.property.application;
 
 import com.sakhtyar.audit.application.AuditService;
+import com.sakhtyar.casefile.application.CaseAccessService;
+import com.sakhtyar.casefile.application.CaseLifecycle;
 import com.sakhtyar.casefile.domain.CaseEntity;
 import com.sakhtyar.casefile.domain.CaseRepository;
 import com.sakhtyar.property.api.PropertyDtos.MergePropertyFactsRequest;
@@ -69,20 +71,23 @@ public class PropertyService {
     private final PropertyRepository repository;
     private final CaseRepository caseRepository;
     private final AuditService auditService;
+    private final CaseAccessService caseAccess;
 
     public PropertyService(
             PropertyRepository repository,
             CaseRepository caseRepository,
-            AuditService auditService
+            AuditService auditService,
+            CaseAccessService caseAccess
     ) {
         this.repository = repository;
         this.caseRepository = caseRepository;
         this.auditService = auditService;
+        this.caseAccess = caseAccess;
     }
 
     @Transactional(readOnly = true)
     public PropertyResponse get(UUID caseId) {
-        requireCase(caseId);
+        requireCase(caseId, false);
 
         PropertyEntity entity = repository.findByCaseId(caseId)
                 .orElseThrow(() -> new ResponseStatusException(
@@ -98,7 +103,7 @@ public class PropertyService {
             UUID caseId,
             UpsertPropertyRequest request
     ) {
-        CaseEntity caseEntity = requireCase(caseId);
+        CaseEntity caseEntity = requireCase(caseId, true);
 
         PropertyEntity entity =
                 repository.findByCaseId(caseId).orElse(null);
@@ -168,6 +173,9 @@ public class PropertyService {
             );
         }
 
+        PropertyNumeric.validate(entity.getLandAreaM2(), entity.getFrontageM(),
+                entity.getPassageWidthM(), entity.getBuildingAreaM2(),
+                entity.getLatitude(), entity.getLongitude());
         repository.save(entity);
         syncCaseSnapshot(caseEntity, entity);
 
@@ -191,7 +199,7 @@ public class PropertyService {
             UUID caseId,
             MergePropertyFactsRequest request
     ) {
-        CaseEntity caseEntity = requireCase(caseId);
+        CaseEntity caseEntity = requireCase(caseId, true);
         Map<String, Object> facts = request == null
                 || request.facts() == null
                 ? Map.of()
@@ -250,6 +258,9 @@ public class PropertyService {
                         sanitizeJsonValue(raw, 0)
                 );
             }
+        }
+        if (extraAttributes.size() > MAX_ATTRIBUTE_KEYS) {
+            throw badAttribute("Too many property attributes after fact merge.");
         }
 
         entity.update(
@@ -366,6 +377,9 @@ public class PropertyService {
                 extraAttributes
         );
 
+        PropertyNumeric.validate(entity.getLandAreaM2(), entity.getFrontageM(),
+                entity.getPassageWidthM(), entity.getBuildingAreaM2(),
+                entity.getLatitude(), entity.getLongitude());
         repository.save(entity);
         syncCaseSnapshot(caseEntity, entity);
 
@@ -431,6 +445,9 @@ public class PropertyService {
             }
         }
 
+        if (result.size() > MAX_ATTRIBUTE_KEYS) {
+            throw badAttribute("Too many property attributes after merge.");
+        }
         return result;
     }
 
@@ -580,16 +597,8 @@ public class PropertyService {
         int value;
 
         try {
-            if (raw instanceof Number number) {
-                value = new BigDecimal(
-                        number.toString()
-                ).intValueExact();
-            } else {
-                value = new BigDecimal(
-                        String.valueOf(raw).trim()
-                ).intValueExact();
-            }
-        } catch (RuntimeException ex) {
+            value = PropertyNumeric.localizedInteger(raw);
+        } catch (IllegalArgumentException ex) {
             throw badFact(key, "must be an integer");
         }
 
@@ -620,13 +629,8 @@ public class PropertyService {
 
     private BigDecimal toDecimal(Object raw, String key) {
         try {
-            if (raw instanceof BigDecimal decimal) {
-                return decimal;
-            }
-            return new BigDecimal(
-                    String.valueOf(raw).trim()
-            );
-        } catch (NumberFormatException ex) {
+            return PropertyNumeric.localizedDecimal(raw);
+        } catch (IllegalArgumentException ex) {
             throw badFact(key, "must be numeric");
         }
     }
@@ -663,18 +667,28 @@ public class PropertyService {
         );
     }
 
-    private CaseEntity requireCase(UUID caseId) {
+    private CaseEntity requireCase(UUID caseId, boolean write) {
         var auth = org.springframework.security.core.context.SecurityContextHolder.getContext().getAuthentication();
         if (auth != null && auth.getAuthorities() != null && auth.getAuthorities().stream()
                 .anyMatch(a -> "ROLE_TESTER".equals(a.getAuthority()))) {
             throw new ResponseStatusException(HttpStatus.FORBIDDEN,
-                "TESTER must use an isolated TEST property executor");
+                    "TESTER must use an isolated TEST property executor");
         }
-        CaseEntity result = caseRepository.findById(caseId)
+        // Acquire the case row lock before finding or creating its single property.
+        // This serializes concurrent upserts and the mirrored case snapshot update.
+        CaseEntity result = (write ? caseRepository.findByIdForUpdate(caseId)
+                : caseRepository.findById(caseId))
                 .orElseThrow(() -> new ResponseStatusException(
                         HttpStatus.NOT_FOUND, "Case not found."));
         if (!"REAL".equals(result.getDataScope())) {
             throw new ResponseStatusException(HttpStatus.NOT_FOUND, "Case not found.");
+        }
+        // Defense in depth when invoked directly by another module without MVC interceptors.
+        if (write) {
+            caseAccess.requireWrite(result);
+            CaseLifecycle.requireEditable(result.getStatus(), result.getStatus());
+        } else {
+            caseAccess.requireRead(result);
         }
         return result;
     }

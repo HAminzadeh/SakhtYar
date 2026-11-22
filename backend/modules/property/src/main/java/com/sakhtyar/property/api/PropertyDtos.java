@@ -3,6 +3,7 @@ package com.sakhtyar.property.api;
 import com.sakhtyar.property.domain.PropertyEntity;
 import jakarta.validation.constraints.DecimalMax;
 import jakarta.validation.constraints.DecimalMin;
+import jakarta.validation.constraints.Digits;
 import jakarta.validation.constraints.Max;
 import jakarta.validation.constraints.Min;
 import jakarta.validation.constraints.Pattern;
@@ -22,13 +23,17 @@ public final class PropertyDtos {
             @Size(max = 100) String city,
             @Size(max = 100) String district,
             @Size(max = 150) String neighborhood,
-            String address,
+            @Size(max = 4000) String address,
+            @Digits(integer = 10, fraction = 2)
             @DecimalMin(value = "0.01", inclusive = true)
             BigDecimal landAreaM2,
+            @Digits(integer = 8, fraction = 2)
             @DecimalMin(value = "0.01", inclusive = true)
             BigDecimal frontageM,
+            @Digits(integer = 8, fraction = 2)
             @DecimalMin(value = "0.01", inclusive = true)
             BigDecimal passageWidthM,
+            @Digits(integer = 10, fraction = 2)
             @DecimalMin(value = "0.01", inclusive = true)
             BigDecimal buildingAreaM2,
             @Min(1000) @Max(2500)
@@ -49,8 +54,10 @@ public final class PropertyDtos {
             @Size(max = 100) String registrySubNo,
             @Size(max = 100) String registrySection,
             @Size(max = 20) String postalCode,
+            @Digits(integer = 3, fraction = 7)
             @DecimalMin("-90.0") @DecimalMax("90.0")
             BigDecimal latitude,
+            @Digits(integer = 3, fraction = 7)
             @DecimalMin("-180.0") @DecimalMax("180.0")
             BigDecimal longitude,
             Map<String, Object> attributes

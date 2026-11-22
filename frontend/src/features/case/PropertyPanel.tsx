@@ -34,6 +34,7 @@ import {
   type OptionItem,
 } from '../../domain/propertyOptions'
 import { PropertyMap } from './PropertyMap'
+import { propertyNumber, propertyInteger, invalidPropertyNumbers } from '../../domain/propertyNumeric'
 
 type PropertyForm = {
   province: string
@@ -134,13 +135,11 @@ function fromProperty(item: PropertyItem): PropertyForm {
 }
 
 function n(value: string) {
-  const x = value.trim()
-  return x === '' ? null : Number(x)
+  return propertyNumber(value)
 }
 
 function i(value: string) {
-  const x = n(value)
-  return x == null ? null : Math.trunc(x)
+  return propertyInteger(value)
 }
 
 function opts(items: OptionItem[]) {
@@ -248,15 +247,7 @@ export function PropertyPanel({
     },
   })
 
-  const invalidNumbers = useMemo(() => {
-    const checks = [
-      n(form.landAreaM2),
-      n(form.frontageM),
-      n(form.passageWidthM),
-      n(form.buildingAreaM2),
-    ]
-    return checks.some((value) => value != null && (!Number.isFinite(value) || value <= 0))
-  }, [form])
+  const invalidNumbers = useMemo(() => invalidPropertyNumbers(form), [form])
 
   const input = (
     key: keyof PropertyForm,
