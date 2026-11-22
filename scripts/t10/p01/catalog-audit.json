@@ -1,0 +1,322 @@
+{
+    "generated_at_utc":  "2026-10-30T09:03:40.1374290Z",
+    "phase":  "T10-P01-Gate01",
+    "branch":  "v2",
+    "database_container":  "sakhtyar-local-db-1",
+    "compose_project":  "sakhtyar-local",
+    "flyway_v63":  "applied",
+    "session":  {
+                    "database":  "sakhtyar",
+                    "role":  "sakhtyar",
+                    "superuser":  true,
+                    "bypassrls":  true,
+                    "app_scope_setting":  null,
+                    "app_workspace_setting":  null
+                },
+    "tables":  [
+                   {
+                       "tablename":  "app_user",
+                       "rls_enabled":  false,
+                       "rls_forced":  false,
+                       "table_owner":  "sakhtyar",
+                       "policy_count":  0,
+                       "reported_grants":  7
+                   },
+                   {
+                       "tablename":  "auth_session",
+                       "rls_enabled":  false,
+                       "rls_forced":  false,
+                       "table_owner":  "sakhtyar",
+                       "policy_count":  0,
+                       "reported_grants":  7
+                   },
+                   {
+                       "tablename":  "construction_case_access",
+                       "rls_enabled":  false,
+                       "rls_forced":  false,
+                       "table_owner":  "sakhtyar",
+                       "policy_count":  0,
+                       "reported_grants":  7
+                   },
+                   {
+                       "tablename":  "simulation_workspace",
+                       "rls_enabled":  false,
+                       "rls_forced":  false,
+                       "table_owner":  "sakhtyar",
+                       "policy_count":  0,
+                       "reported_grants":  7
+                   },
+                   {
+                       "tablename":  "t10_e2e_run",
+                       "rls_enabled":  true,
+                       "rls_forced":  true,
+                       "table_owner":  "sakhtyar",
+                       "policy_count":  0,
+                       "reported_grants":  7
+                   },
+                   {
+                       "tablename":  "t10_e2e_scenario_run",
+                       "rls_enabled":  true,
+                       "rls_forced":  true,
+                       "table_owner":  "sakhtyar",
+                       "policy_count":  0,
+                       "reported_grants":  7
+                   },
+                   {
+                       "tablename":  "t10_e2e_step",
+                       "rls_enabled":  true,
+                       "rls_forced":  true,
+                       "table_owner":  "sakhtyar",
+                       "policy_count":  0,
+                       "reported_grants":  7
+                   }
+               ],
+    "policies":  [
+
+                 ],
+    "roles":  [
+                  {
+                      "rolname":  "sakhtyar",
+                      "rolcanlogin":  true,
+                      "rolsuper":  true,
+                      "rolbypassrls":  true,
+                      "rolcreaterole":  true,
+                      "rolinherit":  true
+                  },
+                  {
+                      "rolname":  "sakhtyar_tws_a9a9369ab8d3480d9fc2fed0a085d375",
+                      "rolcanlogin":  true,
+                      "rolsuper":  false,
+                      "rolbypassrls":  false,
+                      "rolcreaterole":  false,
+                      "rolinherit":  false
+                  }
+              ],
+    "columns":  [
+                    {
+                        "table_name":  "simulation_workspace",
+                        "column_name":  "id",
+                        "udt_name":  "uuid",
+                        "is_nullable":  "NO",
+                        "ordinal_position":  1
+                    },
+                    {
+                        "table_name":  "simulation_workspace",
+                        "column_name":  "code",
+                        "udt_name":  "varchar",
+                        "is_nullable":  "NO",
+                        "ordinal_position":  2
+                    },
+                    {
+                        "table_name":  "simulation_workspace",
+                        "column_name":  "title",
+                        "udt_name":  "varchar",
+                        "is_nullable":  "NO",
+                        "ordinal_position":  3
+                    },
+                    {
+                        "table_name":  "simulation_workspace",
+                        "column_name":  "owner_username",
+                        "udt_name":  "varchar",
+                        "is_nullable":  "NO",
+                        "ordinal_position":  4
+                    },
+                    {
+                        "table_name":  "simulation_workspace",
+                        "column_name":  "state",
+                        "udt_name":  "varchar",
+                        "is_nullable":  "NO",
+                        "ordinal_position":  5
+                    },
+                    {
+                        "table_name":  "simulation_workspace",
+                        "column_name":  "created_at",
+                        "udt_name":  "timestamptz",
+                        "is_nullable":  "NO",
+                        "ordinal_position":  6
+                    },
+                    {
+                        "table_name":  "simulation_workspace",
+                        "column_name":  "updated_at",
+                        "udt_name":  "timestamptz",
+                        "is_nullable":  "NO",
+                        "ordinal_position":  7
+                    },
+                    {
+                        "table_name":  "t10_e2e_run",
+                        "column_name":  "id",
+                        "udt_name":  "uuid",
+                        "is_nullable":  "NO",
+                        "ordinal_position":  1
+                    },
+                    {
+                        "table_name":  "t10_e2e_run",
+                        "column_name":  "workspace_id",
+                        "udt_name":  "uuid",
+                        "is_nullable":  "NO",
+                        "ordinal_position":  2
+                    },
+                    {
+                        "table_name":  "t10_e2e_run",
+                        "column_name":  "requested_by",
+                        "udt_name":  "varchar",
+                        "is_nullable":  "YES",
+                        "ordinal_position":  3
+                    },
+                    {
+                        "table_name":  "t10_e2e_run",
+                        "column_name":  "source_commit",
+                        "udt_name":  "varchar",
+                        "is_nullable":  "YES",
+                        "ordinal_position":  4
+                    },
+                    {
+                        "table_name":  "t10_e2e_run",
+                        "column_name":  "started_at",
+                        "udt_name":  "timestamptz",
+                        "is_nullable":  "NO",
+                        "ordinal_position":  5
+                    },
+                    {
+                        "table_name":  "t10_e2e_run",
+                        "column_name":  "finished_at",
+                        "udt_name":  "timestamptz",
+                        "is_nullable":  "YES",
+                        "ordinal_position":  6
+                    },
+                    {
+                        "table_name":  "t10_e2e_run",
+                        "column_name":  "status",
+                        "udt_name":  "varchar",
+                        "is_nullable":  "NO",
+                        "ordinal_position":  7
+                    },
+                    {
+                        "table_name":  "t10_e2e_run",
+                        "column_name":  "scenario_count",
+                        "udt_name":  "int4",
+                        "is_nullable":  "NO",
+                        "ordinal_position":  8
+                    },
+                    {
+                        "table_name":  "t10_e2e_run",
+                        "column_name":  "summary",
+                        "udt_name":  "jsonb",
+                        "is_nullable":  "NO",
+                        "ordinal_position":  9
+                    },
+                    {
+                        "table_name":  "t10_e2e_scenario_run",
+                        "column_name":  "id",
+                        "udt_name":  "uuid",
+                        "is_nullable":  "NO",
+                        "ordinal_position":  1
+                    },
+                    {
+                        "table_name":  "t10_e2e_scenario_run",
+                        "column_name":  "run_id",
+                        "udt_name":  "uuid",
+                        "is_nullable":  "NO",
+                        "ordinal_position":  2
+                    },
+                    {
+                        "table_name":  "t10_e2e_scenario_run",
+                        "column_name":  "scenario_id",
+                        "udt_name":  "varchar",
+                        "is_nullable":  "NO",
+                        "ordinal_position":  3
+                    },
+                    {
+                        "table_name":  "t10_e2e_scenario_run",
+                        "column_name":  "started_at",
+                        "udt_name":  "timestamptz",
+                        "is_nullable":  "YES",
+                        "ordinal_position":  4
+                    },
+                    {
+                        "table_name":  "t10_e2e_scenario_run",
+                        "column_name":  "finished_at",
+                        "udt_name":  "timestamptz",
+                        "is_nullable":  "YES",
+                        "ordinal_position":  5
+                    },
+                    {
+                        "table_name":  "t10_e2e_scenario_run",
+                        "column_name":  "status",
+                        "udt_name":  "varchar",
+                        "is_nullable":  "NO",
+                        "ordinal_position":  6
+                    },
+                    {
+                        "table_name":  "t10_e2e_scenario_run",
+                        "column_name":  "result",
+                        "udt_name":  "jsonb",
+                        "is_nullable":  "NO",
+                        "ordinal_position":  7
+                    },
+                    {
+                        "table_name":  "t10_e2e_step",
+                        "column_name":  "id",
+                        "udt_name":  "uuid",
+                        "is_nullable":  "NO",
+                        "ordinal_position":  1
+                    },
+                    {
+                        "table_name":  "t10_e2e_step",
+                        "column_name":  "scenario_run_id",
+                        "udt_name":  "uuid",
+                        "is_nullable":  "NO",
+                        "ordinal_position":  2
+                    },
+                    {
+                        "table_name":  "t10_e2e_step",
+                        "column_name":  "step_key",
+                        "udt_name":  "varchar",
+                        "is_nullable":  "NO",
+                        "ordinal_position":  3
+                    },
+                    {
+                        "table_name":  "t10_e2e_step",
+                        "column_name":  "ordinal",
+                        "udt_name":  "int4",
+                        "is_nullable":  "NO",
+                        "ordinal_position":  4
+                    },
+                    {
+                        "table_name":  "t10_e2e_step",
+                        "column_name":  "started_at",
+                        "udt_name":  "timestamptz",
+                        "is_nullable":  "YES",
+                        "ordinal_position":  5
+                    },
+                    {
+                        "table_name":  "t10_e2e_step",
+                        "column_name":  "finished_at",
+                        "udt_name":  "timestamptz",
+                        "is_nullable":  "YES",
+                        "ordinal_position":  6
+                    },
+                    {
+                        "table_name":  "t10_e2e_step",
+                        "column_name":  "status",
+                        "udt_name":  "varchar",
+                        "is_nullable":  "NO",
+                        "ordinal_position":  7
+                    },
+                    {
+                        "table_name":  "t10_e2e_step",
+                        "column_name":  "evidence",
+                        "udt_name":  "jsonb",
+                        "is_nullable":  "NO",
+                        "ordinal_position":  8
+                    }
+                ],
+    "source_dirty":  true,
+    "decision":  "REVIEW_REQUIRED_BEFORE_V64",
+    "warnings":  [
+                     "This is catalog evidence, NOT proof of RLS isolation with a restricted authenticated role.",
+                     "Do not deploy policies using user-controllable session variables without an authenticated role binding.",
+                     "Do not edit V63 after Flyway applied it.",
+                     "Audit has made no database changes."
+                 ]
+}

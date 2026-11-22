@@ -1,0 +1,1293 @@
+{
+    "phase":  "T10-P01-Gate03",
+    "generatedAtUtc":  "2026-10-30T09:14:39.4666194Z",
+    "branch":  "v2",
+    "dockerProject":  "sakhtyar-local",
+    "dbIdentity":  "sakhtyar|sakhtyar|true|true",
+    "flywayV63":  "SUCCESS",
+    "roles":  [
+                  "sakhtyar|true|true|true",
+                  "sakhtyar_tws_a9a9369ab8d3480d9fc2fed0a085d375|false|false|true"
+              ],
+    "historyRls":  [
+                       "t10_e2e_run|true|true",
+                       "t10_e2e_scenario_run|true|true",
+                       "t10_e2e_step|true|true"
+                   ],
+    "historyPolicies":  [
+
+                        ],
+    "configEvidence":  [
+                           {
+                               "path":  "backend/app/src/main/resources/application.yml",
+                               "flywayEnabled":  true,
+                               "usesPostgresUserVariable":  true,
+                               "note":  "Config flags only, not proof of effective runtime database identity"
+                           },
+                           {
+                               "path":  "backend/app/src/main/resources/application-local.yml",
+                               "flywayEnabled":  false,
+                               "usesPostgresUserVariable":  true,
+                               "note":  "Config flags only, not proof of effective runtime database identity"
+                           }
+                       ],
+    "javaSymbolLocations":  [
+                                {
+                                    "path":  "backend/app/src/main/java/com/sakhtyar/operations/OperationsService.java",
+                                    "line":  11,
+                                    "kind":  "JdbcTemplate"
+                                },
+                                {
+                                    "path":  "backend/app/src/main/java/com/sakhtyar/operations/OperationsService.java",
+                                    "line":  20,
+                                    "kind":  "JdbcTemplate"
+                                },
+                                {
+                                    "path":  "backend/app/src/main/java/com/sakhtyar/operations/OperationsService.java",
+                                    "line":  27,
+                                    "kind":  "JdbcTemplate"
+                                },
+                                {
+                                    "path":  "backend/modules/agents/src/main/java/com/sakhtyar/agents/api/AiAdminController.java",
+                                    "line":  5,
+                                    "kind":  "JdbcTemplate"
+                                },
+                                {
+                                    "path":  "backend/modules/agents/src/main/java/com/sakhtyar/agents/api/AiAdminController.java",
+                                    "line":  8,
+                                    "kind":  "JdbcTemplate"
+                                },
+                                {
+                                    "path":  "backend/modules/agents/src/main/java/com/sakhtyar/agents/api/AiAdminController.java",
+                                    "line":  9,
+                                    "kind":  "JdbcTemplate"
+                                },
+                                {
+                                    "path":  "backend/modules/agents/src/main/java/com/sakhtyar/agents/api/LearningController.java",
+                                    "line":  9,
+                                    "kind":  "Authentication"
+                                },
+                                {
+                                    "path":  "backend/modules/agents/src/main/java/com/sakhtyar/agents/api/LearningController.java",
+                                    "line":  25,
+                                    "kind":  "Authentication"
+                                },
+                                {
+                                    "path":  "backend/modules/agents/src/main/java/com/sakhtyar/agents/api/LearningController.java",
+                                    "line":  27,
+                                    "kind":  "authentication"
+                                },
+                                {
+                                    "path":  "backend/modules/agents/src/main/java/com/sakhtyar/agents/conversation/AgentConversationService.java",
+                                    "line":  16,
+                                    "kind":  "Authentication"
+                                },
+                                {
+                                    "path":  "backend/modules/agents/src/main/java/com/sakhtyar/agents/conversation/AgentConversationService.java",
+                                    "line":  17,
+                                    "kind":  "SecurityContextHolder"
+                                },
+                                {
+                                    "path":  "backend/modules/agents/src/main/java/com/sakhtyar/agents/conversation/AgentConversationService.java",
+                                    "line":  142,
+                                    "kind":  "Authentication"
+                                },
+                                {
+                                    "path":  "backend/modules/agents/src/main/java/com/sakhtyar/agents/conversation/AgentConversationService.java",
+                                    "line":  143,
+                                    "kind":  "SecurityContextHolder"
+                                },
+                                {
+                                    "path":  "backend/modules/agents/src/main/java/com/sakhtyar/agents/conversation/AgentConversationService.java",
+                                    "line":  144,
+                                    "kind":  "authentication"
+                                },
+                                {
+                                    "path":  "backend/modules/agents/src/main/java/com/sakhtyar/agents/conversation/AgentConversationService.java",
+                                    "line":  147,
+                                    "kind":  "authentication"
+                                },
+                                {
+                                    "path":  "backend/modules/agents/src/main/java/com/sakhtyar/agents/glossary/PersianGlossaryService.java",
+                                    "line":  15,
+                                    "kind":  "Authentication"
+                                },
+                                {
+                                    "path":  "backend/modules/agents/src/main/java/com/sakhtyar/agents/glossary/PersianGlossaryService.java",
+                                    "line":  16,
+                                    "kind":  "SecurityContextHolder"
+                                },
+                                {
+                                    "path":  "backend/modules/agents/src/main/java/com/sakhtyar/agents/glossary/PersianGlossaryService.java",
+                                    "line":  249,
+                                    "kind":  "Authentication"
+                                },
+                                {
+                                    "path":  "backend/modules/agents/src/main/java/com/sakhtyar/agents/glossary/PersianGlossaryService.java",
+                                    "line":  250,
+                                    "kind":  "SecurityContextHolder"
+                                },
+                                {
+                                    "path":  "backend/modules/agents/src/main/java/com/sakhtyar/agents/glossary/PersianGlossaryService.java",
+                                    "line":  251,
+                                    "kind":  "authentication"
+                                },
+                                {
+                                    "path":  "backend/modules/agents/src/main/java/com/sakhtyar/agents/glossary/PersianGlossaryService.java",
+                                    "line":  254,
+                                    "kind":  "authentication"
+                                },
+                                {
+                                    "path":  "backend/modules/agents/src/main/java/com/sakhtyar/agents/input/PersianInputGateway.java",
+                                    "line":  10,
+                                    "kind":  "Authentication"
+                                },
+                                {
+                                    "path":  "backend/modules/agents/src/main/java/com/sakhtyar/agents/input/PersianInputGateway.java",
+                                    "line":  11,
+                                    "kind":  "SecurityContextHolder"
+                                },
+                                {
+                                    "path":  "backend/modules/agents/src/main/java/com/sakhtyar/agents/input/PersianInputGateway.java",
+                                    "line":  193,
+                                    "kind":  "Authentication"
+                                },
+                                {
+                                    "path":  "backend/modules/agents/src/main/java/com/sakhtyar/agents/input/PersianInputGateway.java",
+                                    "line":  194,
+                                    "kind":  "SecurityContextHolder"
+                                },
+                                {
+                                    "path":  "backend/modules/agents/src/main/java/com/sakhtyar/agents/input/PersianInputGateway.java",
+                                    "line":  196,
+                                    "kind":  "authentication"
+                                },
+                                {
+                                    "path":  "backend/modules/agents/src/main/java/com/sakhtyar/agents/input/PersianInputGateway.java",
+                                    "line":  197,
+                                    "kind":  "authentication"
+                                },
+                                {
+                                    "path":  "backend/modules/agents/src/main/java/com/sakhtyar/agents/input/PersianInputGateway.java",
+                                    "line":  198,
+                                    "kind":  "authentication"
+                                },
+                                {
+                                    "path":  "backend/modules/agents/src/main/java/com/sakhtyar/agents/input/PersianInputGateway.java",
+                                    "line":  202,
+                                    "kind":  "authentication"
+                                },
+                                {
+                                    "path":  "backend/modules/agents/src/main/java/com/sakhtyar/agents/learning/LearningLoopService.java",
+                                    "line":  14,
+                                    "kind":  "Authentication"
+                                },
+                                {
+                                    "path":  "backend/modules/agents/src/main/java/com/sakhtyar/agents/learning/LearningLoopService.java",
+                                    "line":  44,
+                                    "kind":  "Authentication"
+                                },
+                                {
+                                    "path":  "backend/modules/agents/src/main/java/com/sakhtyar/agents/learning/LearningLoopService.java",
+                                    "line":  98,
+                                    "kind":  "authentication"
+                                },
+                                {
+                                    "path":  "backend/modules/agents/src/main/java/com/sakhtyar/agents/learning/LearningLoopService.java",
+                                    "line":  136,
+                                    "kind":  "authentication"
+                                },
+                                {
+                                    "path":  "backend/modules/agents/src/main/java/com/sakhtyar/agents/learning/LearningLoopService.java",
+                                    "line":  236,
+                                    "kind":  "Authentication"
+                                },
+                                {
+                                    "path":  "backend/modules/agents/src/main/java/com/sakhtyar/agents/learning/LearningLoopService.java",
+                                    "line":  237,
+                                    "kind":  "authentication"
+                                },
+                                {
+                                    "path":  "backend/modules/agents/src/main/java/com/sakhtyar/agents/learning/LearningLoopService.java",
+                                    "line":  239,
+                                    "kind":  "authentication"
+                                },
+                                {
+                                    "path":  "backend/modules/agents/src/main/java/com/sakhtyar/agents/provider/AiGateway.java",
+                                    "line":  2,
+                                    "kind":  "JdbcTemplate"
+                                },
+                                {
+                                    "path":  "backend/modules/agents/src/main/java/com/sakhtyar/agents/provider/AiGateway.java",
+                                    "line":  4,
+                                    "kind":  "JdbcTemplate"
+                                },
+                                {
+                                    "path":  "backend/modules/analysis/src/main/java/com/sakhtyar/analysis/api/AnalysisSnapshotController.java",
+                                    "line":  7,
+                                    "kind":  "Authentication"
+                                },
+                                {
+                                    "path":  "backend/modules/analysis/src/main/java/com/sakhtyar/analysis/api/AnalysisSnapshotController.java",
+                                    "line":  17,
+                                    "kind":  "Authentication"
+                                },
+                                {
+                                    "path":  "backend/modules/analysis/src/main/java/com/sakhtyar/analysis/application/AnalysisSnapshotService.java",
+                                    "line":  12,
+                                    "kind":  "Authentication"
+                                },
+                                {
+                                    "path":  "backend/modules/analysis/src/main/java/com/sakhtyar/analysis/application/AnalysisSnapshotService.java",
+                                    "line":  33,
+                                    "kind":  "Authentication"
+                                },
+                                {
+                                    "path":  "backend/modules/analysis/src/main/java/com/sakhtyar/analysis/application/AnalysisSnapshotService.java",
+                                    "line":  135,
+                                    "kind":  "Authentication"
+                                },
+                                {
+                                    "path":  "backend/modules/analysis/src/main/java/com/sakhtyar/analysis/feasibility/api/FeasibilityController.java",
+                                    "line":  7,
+                                    "kind":  "Authentication"
+                                },
+                                {
+                                    "path":  "backend/modules/analysis/src/main/java/com/sakhtyar/analysis/feasibility/api/FeasibilityController.java",
+                                    "line":  17,
+                                    "kind":  "Authentication"
+                                },
+                                {
+                                    "path":  "backend/modules/analysis/src/main/java/com/sakhtyar/analysis/feasibility/application/FeasibilityService.java",
+                                    "line":  14,
+                                    "kind":  "Authentication"
+                                },
+                                {
+                                    "path":  "backend/modules/analysis/src/main/java/com/sakhtyar/analysis/feasibility/application/FeasibilityService.java",
+                                    "line":  42,
+                                    "kind":  "Authentication"
+                                },
+                                {
+                                    "path":  "backend/modules/analysis/src/main/java/com/sakhtyar/analysis/feasibility/application/FeasibilityService.java",
+                                    "line":  175,
+                                    "kind":  "Authentication"
+                                },
+                                {
+                                    "path":  "backend/modules/assembly/src/main/java/com/sakhtyar/assembly/api/AssemblyController.java",
+                                    "line":  9,
+                                    "kind":  "Authentication"
+                                },
+                                {
+                                    "path":  "backend/modules/assembly/src/main/java/com/sakhtyar/assembly/api/AssemblyController.java",
+                                    "line":  38,
+                                    "kind":  "Authentication"
+                                },
+                                {
+                                    "path":  "backend/modules/assembly/src/main/java/com/sakhtyar/assembly/api/AssemblyController.java",
+                                    "line":  40,
+                                    "kind":  "authentication"
+                                },
+                                {
+                                    "path":  "backend/modules/assembly/src/main/java/com/sakhtyar/assembly/api/AssemblyController.java",
+                                    "line":  76,
+                                    "kind":  "Authentication"
+                                },
+                                {
+                                    "path":  "backend/modules/assembly/src/main/java/com/sakhtyar/assembly/api/AssemblyController.java",
+                                    "line":  78,
+                                    "kind":  "authentication"
+                                },
+                                {
+                                    "path":  "backend/modules/assembly/src/main/java/com/sakhtyar/assembly/application/AssemblyService.java",
+                                    "line":  12,
+                                    "kind":  "Authentication"
+                                },
+                                {
+                                    "path":  "backend/modules/assembly/src/main/java/com/sakhtyar/assembly/application/AssemblyService.java",
+                                    "line":  70,
+                                    "kind":  "Authentication"
+                                },
+                                {
+                                    "path":  "backend/modules/assembly/src/main/java/com/sakhtyar/assembly/application/AssemblyService.java",
+                                    "line":  82,
+                                    "kind":  "authentication"
+                                },
+                                {
+                                    "path":  "backend/modules/assembly/src/main/java/com/sakhtyar/assembly/application/AssemblyService.java",
+                                    "line":  172,
+                                    "kind":  "Authentication"
+                                },
+                                {
+                                    "path":  "backend/modules/assembly/src/main/java/com/sakhtyar/assembly/application/AssemblyService.java",
+                                    "line":  222,
+                                    "kind":  "authentication"
+                                },
+                                {
+                                    "path":  "backend/modules/assembly/src/main/java/com/sakhtyar/assembly/application/AssemblyService.java",
+                                    "line":  314,
+                                    "kind":  "Authentication"
+                                },
+                                {
+                                    "path":  "backend/modules/assembly/src/main/java/com/sakhtyar/assembly/application/AssemblyService.java",
+                                    "line":  315,
+                                    "kind":  "authentication"
+                                },
+                                {
+                                    "path":  "backend/modules/assembly/src/main/java/com/sakhtyar/assembly/application/AssemblyService.java",
+                                    "line":  317,
+                                    "kind":  "authentication"
+                                },
+                                {
+                                    "path":  "backend/modules/audit/src/main/java/com/sakhtyar/audit/application/AuditService.java",
+                                    "line":  8,
+                                    "kind":  "Authentication"
+                                },
+                                {
+                                    "path":  "backend/modules/audit/src/main/java/com/sakhtyar/audit/application/AuditService.java",
+                                    "line":  9,
+                                    "kind":  "SecurityContextHolder"
+                                },
+                                {
+                                    "path":  "backend/modules/audit/src/main/java/com/sakhtyar/audit/application/AuditService.java",
+                                    "line":  68,
+                                    "kind":  "Authentication"
+                                },
+                                {
+                                    "path":  "backend/modules/audit/src/main/java/com/sakhtyar/audit/application/AuditService.java",
+                                    "line":  69,
+                                    "kind":  "SecurityContextHolder"
+                                },
+                                {
+                                    "path":  "backend/modules/audit/src/main/java/com/sakhtyar/audit/application/AuditService.java",
+                                    "line":  71,
+                                    "kind":  "authentication"
+                                },
+                                {
+                                    "path":  "backend/modules/audit/src/main/java/com/sakhtyar/audit/application/AuditService.java",
+                                    "line":  75,
+                                    "kind":  "authentication"
+                                },
+                                {
+                                    "path":  "backend/modules/casefile/src/main/java/com/sakhtyar/casefile/api/CaseController.java",
+                                    "line":  9,
+                                    "kind":  "Authentication"
+                                },
+                                {
+                                    "path":  "backend/modules/casefile/src/main/java/com/sakhtyar/casefile/api/CaseController.java",
+                                    "line":  41,
+                                    "kind":  "Authentication"
+                                },
+                                {
+                                    "path":  "backend/modules/casefile/src/main/java/com/sakhtyar/casefile/api/CaseController.java",
+                                    "line":  43,
+                                    "kind":  "authentication"
+                                },
+                                {
+                                    "path":  "backend/modules/casefile/src/main/java/com/sakhtyar/casefile/application/CaseAccessService.java",
+                                    "line":  7,
+                                    "kind":  "JdbcTemplate"
+                                },
+                                {
+                                    "path":  "backend/modules/casefile/src/main/java/com/sakhtyar/casefile/application/CaseAccessService.java",
+                                    "line":  8,
+                                    "kind":  "Authentication"
+                                },
+                                {
+                                    "path":  "backend/modules/casefile/src/main/java/com/sakhtyar/casefile/application/CaseAccessService.java",
+                                    "line":  9,
+                                    "kind":  "SecurityContextHolder"
+                                },
+                                {
+                                    "path":  "backend/modules/casefile/src/main/java/com/sakhtyar/casefile/application/CaseAccessService.java",
+                                    "line":  21,
+                                    "kind":  "JdbcTemplate"
+                                },
+                                {
+                                    "path":  "backend/modules/casefile/src/main/java/com/sakhtyar/casefile/application/CaseAccessService.java",
+                                    "line":  23,
+                                    "kind":  "JdbcTemplate"
+                                },
+                                {
+                                    "path":  "backend/modules/casefile/src/main/java/com/sakhtyar/casefile/application/CaseAccessService.java",
+                                    "line":  29,
+                                    "kind":  "Authentication"
+                                },
+                                {
+                                    "path":  "backend/modules/casefile/src/main/java/com/sakhtyar/casefile/application/CaseService.java",
+                                    "line":  13,
+                                    "kind":  "Authentication"
+                                },
+                                {
+                                    "path":  "backend/modules/casefile/src/main/java/com/sakhtyar/casefile/application/CaseService.java",
+                                    "line":  47,
+                                    "kind":  "Authentication"
+                                },
+                                {
+                                    "path":  "backend/modules/casefile/src/main/java/com/sakhtyar/casefile/application/CaseService.java",
+                                    "line":  70,
+                                    "kind":  "authentication"
+                                },
+                                {
+                                    "path":  "backend/modules/config/src/main/java/com/sakhtyar/config/ConfigDoctorService.java",
+                                    "line":  2,
+                                    "kind":  "JdbcTemplate"
+                                },
+                                {
+                                    "path":  "backend/modules/config/src/main/java/com/sakhtyar/config/ConfigDoctorService.java",
+                                    "line":  4,
+                                    "kind":  "JdbcTemplate"
+                                },
+                                {
+                                    "path":  "backend/modules/config/src/main/java/com/sakhtyar/config/ConfigStartupReporter.java",
+                                    "line":  2,
+                                    "kind":  "JdbcTemplate"
+                                },
+                                {
+                                    "path":  "backend/modules/config/src/main/java/com/sakhtyar/config/ConfigStartupReporter.java",
+                                    "line":  3,
+                                    "kind":  "JdbcTemplate"
+                                },
+                                {
+                                    "path":  "backend/modules/config/src/main/java/com/sakhtyar/config/PlatformConfigService.java",
+                                    "line":  2,
+                                    "kind":  "JdbcTemplate"
+                                },
+                                {
+                                    "path":  "backend/modules/config/src/main/java/com/sakhtyar/config/PlatformConfigService.java",
+                                    "line":  4,
+                                    "kind":  "JdbcTemplate"
+                                },
+                                {
+                                    "path":  "backend/modules/contract/src/main/java/com/sakhtyar/contract/api/ContractController.java",
+                                    "line":  7,
+                                    "kind":  "Authentication"
+                                },
+                                {
+                                    "path":  "backend/modules/contract/src/main/java/com/sakhtyar/contract/api/ContractController.java",
+                                    "line":  18,
+                                    "kind":  "Authentication"
+                                },
+                                {
+                                    "path":  "backend/modules/contract/src/main/java/com/sakhtyar/contract/application/ContractService.java",
+                                    "line":  9,
+                                    "kind":  "Authentication"
+                                },
+                                {
+                                    "path":  "backend/modules/contract/src/main/java/com/sakhtyar/contract/application/ContractService.java",
+                                    "line":  45,
+                                    "kind":  "Authentication"
+                                },
+                                {
+                                    "path":  "backend/modules/contract/src/main/java/com/sakhtyar/contract/application/ContractService.java",
+                                    "line":  102,
+                                    "kind":  "Authentication"
+                                },
+                                {
+                                    "path":  "backend/modules/crawler/src/main/java/com/sakhtyar/crawler/api/CrawlerController.java",
+                                    "line":  10,
+                                    "kind":  "Authentication"
+                                },
+                                {
+                                    "path":  "backend/modules/crawler/src/main/java/com/sakhtyar/crawler/api/CrawlerController.java",
+                                    "line":  44,
+                                    "kind":  "Authentication"
+                                },
+                                {
+                                    "path":  "backend/modules/crawler/src/main/java/com/sakhtyar/crawler/api/CrawlerController.java",
+                                    "line":  46,
+                                    "kind":  "authentication"
+                                },
+                                {
+                                    "path":  "backend/modules/crawler/src/main/java/com/sakhtyar/crawler/api/CrawlerController.java",
+                                    "line":  61,
+                                    "kind":  "Authentication"
+                                },
+                                {
+                                    "path":  "backend/modules/crawler/src/main/java/com/sakhtyar/crawler/api/CrawlerController.java",
+                                    "line":  66,
+                                    "kind":  "authentication"
+                                },
+                                {
+                                    "path":  "backend/modules/crawler/src/main/java/com/sakhtyar/crawler/api/CrawlerController.java",
+                                    "line":  74,
+                                    "kind":  "Authentication"
+                                },
+                                {
+                                    "path":  "backend/modules/crawler/src/main/java/com/sakhtyar/crawler/api/CrawlerController.java",
+                                    "line":  79,
+                                    "kind":  "authentication"
+                                },
+                                {
+                                    "path":  "backend/modules/crawler/src/main/java/com/sakhtyar/crawler/application/CrawlSourceService.java",
+                                    "line":  10,
+                                    "kind":  "Authentication"
+                                },
+                                {
+                                    "path":  "backend/modules/crawler/src/main/java/com/sakhtyar/crawler/application/CrawlSourceService.java",
+                                    "line":  48,
+                                    "kind":  "Authentication"
+                                },
+                                {
+                                    "path":  "backend/modules/crawler/src/main/java/com/sakhtyar/crawler/application/CrawlSourceService.java",
+                                    "line":  51,
+                                    "kind":  "authentication"
+                                },
+                                {
+                                    "path":  "backend/modules/crawler/src/main/java/com/sakhtyar/crawler/application/CrawlSourceService.java",
+                                    "line":  124,
+                                    "kind":  "Authentication"
+                                },
+                                {
+                                    "path":  "backend/modules/crawler/src/main/java/com/sakhtyar/crawler/application/CrawlSourceService.java",
+                                    "line":  125,
+                                    "kind":  "authentication"
+                                },
+                                {
+                                    "path":  "backend/modules/crawler/src/main/java/com/sakhtyar/crawler/application/IngestionPipeline.java",
+                                    "line":  12,
+                                    "kind":  "Authentication"
+                                },
+                                {
+                                    "path":  "backend/modules/crawler/src/main/java/com/sakhtyar/crawler/application/IngestionPipeline.java",
+                                    "line":  58,
+                                    "kind":  "Authentication"
+                                },
+                                {
+                                    "path":  "backend/modules/crawler/src/main/java/com/sakhtyar/crawler/application/IngestionPipeline.java",
+                                    "line":  68,
+                                    "kind":  "authentication"
+                                },
+                                {
+                                    "path":  "backend/modules/crawler/src/main/java/com/sakhtyar/crawler/application/IngestionPipeline.java",
+                                    "line":  70,
+                                    "kind":  "authentication"
+                                },
+                                {
+                                    "path":  "backend/modules/crawler/src/main/java/com/sakhtyar/crawler/application/JurisdictionCrawlerService.java",
+                                    "line":  6,
+                                    "kind":  "Authentication"
+                                },
+                                {
+                                    "path":  "backend/modules/crawler/src/main/java/com/sakhtyar/crawler/application/JurisdictionCrawlerService.java",
+                                    "line":  16,
+                                    "kind":  "Authentication"
+                                },
+                                {
+                                    "path":  "backend/modules/document/src/main/java/com/sakhtyar/document/api/DocumentController.java",
+                                    "line":  12,
+                                    "kind":  "Authentication"
+                                },
+                                {
+                                    "path":  "backend/modules/document/src/main/java/com/sakhtyar/document/api/DocumentController.java",
+                                    "line":  38,
+                                    "kind":  "Authentication"
+                                },
+                                {
+                                    "path":  "backend/modules/document/src/main/java/com/sakhtyar/document/api/DocumentController.java",
+                                    "line":  40,
+                                    "kind":  "authentication"
+                                },
+                                {
+                                    "path":  "backend/modules/finance/src/main/java/com/sakhtyar/finance/api/FinancialAnalysisController.java",
+                                    "line":  7,
+                                    "kind":  "Authentication"
+                                },
+                                {
+                                    "path":  "backend/modules/finance/src/main/java/com/sakhtyar/finance/api/FinancialAnalysisController.java",
+                                    "line":  17,
+                                    "kind":  "Authentication"
+                                },
+                                {
+                                    "path":  "backend/modules/finance/src/main/java/com/sakhtyar/finance/application/FinancialAnalysisService.java",
+                                    "line":  13,
+                                    "kind":  "Authentication"
+                                },
+                                {
+                                    "path":  "backend/modules/finance/src/main/java/com/sakhtyar/finance/application/FinancialAnalysisService.java",
+                                    "line":  39,
+                                    "kind":  "Authentication"
+                                },
+                                {
+                                    "path":  "backend/modules/finance/src/main/java/com/sakhtyar/finance/application/FinancialAnalysisService.java",
+                                    "line":  168,
+                                    "kind":  "Authentication"
+                                },
+                                {
+                                    "path":  "backend/modules/globalization/src/main/java/com/sakhtyar/globalization/api/GlobalController.java",
+                                    "line":  8,
+                                    "kind":  "Authentication"
+                                },
+                                {
+                                    "path":  "backend/modules/globalization/src/main/java/com/sakhtyar/globalization/api/GlobalController.java",
+                                    "line":  38,
+                                    "kind":  "Authentication"
+                                },
+                                {
+                                    "path":  "backend/modules/globalization/src/main/java/com/sakhtyar/globalization/api/GlobalController.java",
+                                    "line":  39,
+                                    "kind":  "Authentication"
+                                },
+                                {
+                                    "path":  "backend/modules/globalization/src/main/java/com/sakhtyar/globalization/application/CatalogService.java",
+                                    "line":  7,
+                                    "kind":  "JdbcTemplate"
+                                },
+                                {
+                                    "path":  "backend/modules/globalization/src/main/java/com/sakhtyar/globalization/application/CatalogService.java",
+                                    "line":  12,
+                                    "kind":  "JdbcTemplate"
+                                },
+                                {
+                                    "path":  "backend/modules/globalization/src/main/java/com/sakhtyar/globalization/application/CatalogService.java",
+                                    "line":  13,
+                                    "kind":  "JdbcTemplate"
+                                },
+                                {
+                                    "path":  "backend/modules/globalization/src/main/java/com/sakhtyar/globalization/application/CurrencyCatalogBootstrap.java",
+                                    "line":  7,
+                                    "kind":  "JdbcTemplate"
+                                },
+                                {
+                                    "path":  "backend/modules/globalization/src/main/java/com/sakhtyar/globalization/application/CurrencyCatalogBootstrap.java",
+                                    "line":  12,
+                                    "kind":  "JdbcTemplate"
+                                },
+                                {
+                                    "path":  "backend/modules/globalization/src/main/java/com/sakhtyar/globalization/application/CurrencyCatalogBootstrap.java",
+                                    "line":  13,
+                                    "kind":  "JdbcTemplate"
+                                },
+                                {
+                                    "path":  "backend/modules/globalization/src/main/java/com/sakhtyar/globalization/application/FxService.java",
+                                    "line":  7,
+                                    "kind":  "JdbcTemplate"
+                                },
+                                {
+                                    "path":  "backend/modules/globalization/src/main/java/com/sakhtyar/globalization/application/FxService.java",
+                                    "line":  13,
+                                    "kind":  "JdbcTemplate"
+                                },
+                                {
+                                    "path":  "backend/modules/globalization/src/main/java/com/sakhtyar/globalization/application/FxService.java",
+                                    "line":  14,
+                                    "kind":  "JdbcTemplate"
+                                },
+                                {
+                                    "path":  "backend/modules/globalization/src/main/java/com/sakhtyar/globalization/application/GeoNamesImporter.java",
+                                    "line":  14,
+                                    "kind":  "JdbcTemplate"
+                                },
+                                {
+                                    "path":  "backend/modules/globalization/src/main/java/com/sakhtyar/globalization/application/GeoNamesImporter.java",
+                                    "line":  23,
+                                    "kind":  "JdbcTemplate"
+                                },
+                                {
+                                    "path":  "backend/modules/globalization/src/main/java/com/sakhtyar/globalization/application/GeoNamesImporter.java",
+                                    "line":  31,
+                                    "kind":  "JdbcTemplate"
+                                },
+                                {
+                                    "path":  "backend/modules/globalization/src/main/java/com/sakhtyar/globalization/application/GeoNamesImporter.java",
+                                    "line":  450,
+                                    "kind":  "JdbcTemplate"
+                                },
+                                {
+                                    "path":  "backend/modules/globalization/src/main/java/com/sakhtyar/globalization/application/JurisdictionService.java",
+                                    "line":  5,
+                                    "kind":  "JdbcTemplate"
+                                },
+                                {
+                                    "path":  "backend/modules/globalization/src/main/java/com/sakhtyar/globalization/application/JurisdictionService.java",
+                                    "line":  11,
+                                    "kind":  "JdbcTemplate"
+                                },
+                                {
+                                    "path":  "backend/modules/globalization/src/main/java/com/sakhtyar/globalization/application/JurisdictionService.java",
+                                    "line":  12,
+                                    "kind":  "JdbcTemplate"
+                                },
+                                {
+                                    "path":  "backend/modules/globalization/src/main/java/com/sakhtyar/globalization/application/MasterDataAdminService.java",
+                                    "line":  9,
+                                    "kind":  "JdbcTemplate"
+                                },
+                                {
+                                    "path":  "backend/modules/globalization/src/main/java/com/sakhtyar/globalization/application/MasterDataAdminService.java",
+                                    "line":  18,
+                                    "kind":  "JdbcTemplate"
+                                },
+                                {
+                                    "path":  "backend/modules/globalization/src/main/java/com/sakhtyar/globalization/application/MasterDataAdminService.java",
+                                    "line":  28,
+                                    "kind":  "JdbcTemplate"
+                                },
+                                {
+                                    "path":  "backend/modules/globalization/src/main/java/com/sakhtyar/globalization/application/UserPreferenceService.java",
+                                    "line":  7,
+                                    "kind":  "JdbcTemplate"
+                                },
+                                {
+                                    "path":  "backend/modules/globalization/src/main/java/com/sakhtyar/globalization/application/UserPreferenceService.java",
+                                    "line":  8,
+                                    "kind":  "Authentication"
+                                },
+                                {
+                                    "path":  "backend/modules/globalization/src/main/java/com/sakhtyar/globalization/application/UserPreferenceService.java",
+                                    "line":  14,
+                                    "kind":  "JdbcTemplate"
+                                },
+                                {
+                                    "path":  "backend/modules/globalization/src/main/java/com/sakhtyar/globalization/application/UserPreferenceService.java",
+                                    "line":  16,
+                                    "kind":  "JdbcTemplate"
+                                },
+                                {
+                                    "path":  "backend/modules/globalization/src/main/java/com/sakhtyar/globalization/application/UserPreferenceService.java",
+                                    "line":  19,
+                                    "kind":  "Authentication"
+                                },
+                                {
+                                    "path":  "backend/modules/globalization/src/main/java/com/sakhtyar/globalization/application/UserPreferenceService.java",
+                                    "line":  40,
+                                    "kind":  "Authentication"
+                                },
+                                {
+                                    "path":  "backend/modules/globalization/src/main/java/com/sakhtyar/globalization/application/UserPreferenceService.java",
+                                    "line":  106,
+                                    "kind":  "Authentication"
+                                },
+                                {
+                                    "path":  "backend/modules/identity/src/main/java/com/sakhtyar/auth/api/AuthController.java",
+                                    "line":  21,
+                                    "kind":  "Authentication"
+                                },
+                                {
+                                    "path":  "backend/modules/identity/src/main/java/com/sakhtyar/auth/api/AuthController.java",
+                                    "line":  34,
+                                    "kind":  "Authentication"
+                                },
+                                {
+                                    "path":  "backend/modules/identity/src/main/java/com/sakhtyar/auth/api/AuthController.java",
+                                    "line":  122,
+                                    "kind":  "Authentication"
+                                },
+                                {
+                                    "path":  "backend/modules/identity/src/main/java/com/sakhtyar/auth/api/AuthController.java",
+                                    "line":  124,
+                                    "kind":  "Authentication"
+                                },
+                                {
+                                    "path":  "backend/modules/identity/src/main/java/com/sakhtyar/auth/api/AuthController.java",
+                                    "line":  145,
+                                    "kind":  "Authentication"
+                                },
+                                {
+                                    "path":  "backend/modules/identity/src/main/java/com/sakhtyar/auth/api/AuthController.java",
+                                    "line":  147,
+                                    "kind":  "authentication"
+                                },
+                                {
+                                    "path":  "backend/modules/identity/src/main/java/com/sakhtyar/auth/api/AuthController.java",
+                                    "line":  153,
+                                    "kind":  "Authentication"
+                                },
+                                {
+                                    "path":  "backend/modules/identity/src/main/java/com/sakhtyar/auth/api/AuthController.java",
+                                    "line":  158,
+                                    "kind":  "authentication"
+                                },
+                                {
+                                    "path":  "backend/modules/identity/src/main/java/com/sakhtyar/auth/api/AuthController.java",
+                                    "line":  167,
+                                    "kind":  "Authentication"
+                                },
+                                {
+                                    "path":  "backend/modules/identity/src/main/java/com/sakhtyar/auth/api/AuthController.java",
+                                    "line":  172,
+                                    "kind":  "authentication"
+                                },
+                                {
+                                    "path":  "backend/modules/identity/src/main/java/com/sakhtyar/auth/api/AuthController.java",
+                                    "line":  176,
+                                    "kind":  "authentication"
+                                },
+                                {
+                                    "path":  "backend/modules/identity/src/main/java/com/sakhtyar/auth/api/AuthController.java",
+                                    "line":  192,
+                                    "kind":  "Authentication"
+                                },
+                                {
+                                    "path":  "backend/modules/identity/src/main/java/com/sakhtyar/auth/api/AuthController.java",
+                                    "line":  194,
+                                    "kind":  "Authentication"
+                                },
+                                {
+                                    "path":  "backend/modules/identity/src/main/java/com/sakhtyar/auth/api/AuthController.java",
+                                    "line":  202,
+                                    "kind":  "Authentication"
+                                },
+                                {
+                                    "path":  "backend/modules/identity/src/main/java/com/sakhtyar/auth/api/AuthController.java",
+                                    "line":  204,
+                                    "kind":  "authentication"
+                                },
+                                {
+                                    "path":  "backend/modules/identity/src/main/java/com/sakhtyar/auth/api/AuthController.java",
+                                    "line":  216,
+                                    "kind":  "Authentication"
+                                },
+                                {
+                                    "path":  "backend/modules/identity/src/main/java/com/sakhtyar/auth/api/AuthController.java",
+                                    "line":  220,
+                                    "kind":  "authentication"
+                                },
+                                {
+                                    "path":  "backend/modules/identity/src/main/java/com/sakhtyar/auth/api/AuthController.java",
+                                    "line":  228,
+                                    "kind":  "Authentication"
+                                },
+                                {
+                                    "path":  "backend/modules/identity/src/main/java/com/sakhtyar/auth/api/AuthController.java",
+                                    "line":  232,
+                                    "kind":  "authentication"
+                                },
+                                {
+                                    "path":  "backend/modules/identity/src/main/java/com/sakhtyar/auth/api/AuthController.java",
+                                    "line":  333,
+                                    "kind":  "Authentication"
+                                },
+                                {
+                                    "path":  "backend/modules/identity/src/main/java/com/sakhtyar/auth/api/AuthController.java",
+                                    "line":  362,
+                                    "kind":  "Authentication"
+                                },
+                                {
+                                    "path":  "backend/modules/identity/src/main/java/com/sakhtyar/auth/api/AuthController.java",
+                                    "line":  379,
+                                    "kind":  "Authentication"
+                                },
+                                {
+                                    "path":  "backend/modules/identity/src/main/java/com/sakhtyar/auth/api/AuthController.java",
+                                    "line":  386,
+                                    "kind":  "Authentication"
+                                },
+                                {
+                                    "path":  "backend/modules/identity/src/main/java/com/sakhtyar/auth/api/UserAdminController.java",
+                                    "line":  12,
+                                    "kind":  "Authentication"
+                                },
+                                {
+                                    "path":  "backend/modules/identity/src/main/java/com/sakhtyar/auth/api/UserAdminController.java",
+                                    "line":  49,
+                                    "kind":  "Authentication"
+                                },
+                                {
+                                    "path":  "backend/modules/identity/src/main/java/com/sakhtyar/auth/api/UserAdminController.java",
+                                    "line":  54,
+                                    "kind":  "authentication"
+                                },
+                                {
+                                    "path":  "backend/modules/identity/src/main/java/com/sakhtyar/identity/config/SecurityConfig.java",
+                                    "line":  7,
+                                    "kind":  "Authentication"
+                                },
+                                {
+                                    "path":  "backend/modules/identity/src/main/java/com/sakhtyar/identity/config/SecurityConfig.java",
+                                    "line":  17,
+                                    "kind":  "authentication"
+                                },
+                                {
+                                    "path":  "backend/modules/identity/src/main/java/com/sakhtyar/identity/config/SecurityConfig.java",
+                                    "line":  40,
+                                    "kind":  "Authentication"
+                                },
+                                {
+                                    "path":  "backend/modules/identity/src/main/java/com/sakhtyar/identity/config/SecurityConfig.java",
+                                    "line":  44,
+                                    "kind":  "Authentication"
+                                },
+                                {
+                                    "path":  "backend/modules/identity/src/main/java/com/sakhtyar/identity/config/SecurityConfig.java",
+                                    "line":  45,
+                                    "kind":  "Authentication"
+                                },
+                                {
+                                    "path":  "backend/modules/identity/src/main/java/com/sakhtyar/identity/config/SecurityConfig.java",
+                                    "line":  95,
+                                    "kind":  "Authentication"
+                                },
+                                {
+                                    "path":  "backend/modules/identity/src/main/java/com/sakhtyar/identity/config/SecurityConfig.java",
+                                    "line":  98,
+                                    "kind":  "Authentication"
+                                },
+                                {
+                                    "path":  "backend/modules/identity/src/main/java/com/sakhtyar/identity/config/SecurityConfig.java",
+                                    "line":  99,
+                                    "kind":  "Authentication"
+                                },
+                                {
+                                    "path":  "backend/modules/identity/src/main/java/com/sakhtyar/identity/config/SecurityConfig.java",
+                                    "line":  110,
+                                    "kind":  "authentication"
+                                },
+                                {
+                                    "path":  "backend/modules/identity/src/main/java/com/sakhtyar/identity/config/SecurityConfig.java",
+                                    "line":  112,
+                                    "kind":  "Authentication"
+                                },
+                                {
+                                    "path":  "backend/modules/identity/src/main/java/com/sakhtyar/identity/config/SecurityConfig.java",
+                                    "line":  116,
+                                    "kind":  "AUTHENTICATION"
+                                },
+                                {
+                                    "path":  "backend/modules/identity/src/main/java/com/sakhtyar/identity/config/SecurityConfig.java",
+                                    "line":  123,
+                                    "kind":  "Authentication"
+                                },
+                                {
+                                    "path":  "backend/modules/identity/src/main/java/com/sakhtyar/identity/config/SecurityConfig.java",
+                                    "line":  169,
+                                    "kind":  "authentication"
+                                },
+                                {
+                                    "path":  "backend/modules/identity/src/main/java/com/sakhtyar/identity/config/SecurityConfig.java",
+                                    "line":  345,
+                                    "kind":  "Authentication"
+                                },
+                                {
+                                    "path":  "backend/modules/identity/src/main/java/com/sakhtyar/identity/security/JwtCookieAuthenticationFilter.java",
+                                    "line":  16,
+                                    "kind":  "authentication"
+                                },
+                                {
+                                    "path":  "backend/modules/identity/src/main/java/com/sakhtyar/identity/security/JwtCookieAuthenticationFilter.java",
+                                    "line":  17,
+                                    "kind":  "authentication"
+                                },
+                                {
+                                    "path":  "backend/modules/identity/src/main/java/com/sakhtyar/identity/security/JwtCookieAuthenticationFilter.java",
+                                    "line":  18,
+                                    "kind":  "SecurityContextHolder"
+                                },
+                                {
+                                    "path":  "backend/modules/identity/src/main/java/com/sakhtyar/identity/security/JwtCookieAuthenticationFilter.java",
+                                    "line":  23,
+                                    "kind":  "Authentication"
+                                },
+                                {
+                                    "path":  "backend/modules/identity/src/main/java/com/sakhtyar/identity/security/JwtCookieAuthenticationFilter.java",
+                                    "line":  30,
+                                    "kind":  "Authentication"
+                                },
+                                {
+                                    "path":  "backend/modules/identity/src/main/java/com/sakhtyar/identity/security/JwtCookieAuthenticationFilter.java",
+                                    "line":  36,
+                                    "kind":  "Authentication"
+                                },
+                                {
+                                    "path":  "backend/modules/identity/src/main/java/com/sakhtyar/identity/security/JwtCookieAuthenticationFilter.java",
+                                    "line":  65,
+                                    "kind":  "Authentication"
+                                },
+                                {
+                                    "path":  "backend/modules/identity/src/main/java/com/sakhtyar/identity/security/JwtCookieAuthenticationFilter.java",
+                                    "line":  66,
+                                    "kind":  "SecurityContextHolder"
+                                },
+                                {
+                                    "path":  "backend/modules/identity/src/main/java/com/sakhtyar/identity/security/JwtCookieAuthenticationFilter.java",
+                                    "line":  68,
+                                    "kind":  "Authentication"
+                                },
+                                {
+                                    "path":  "backend/modules/identity/src/main/java/com/sakhtyar/identity/security/JwtCookieAuthenticationFilter.java",
+                                    "line":  69,
+                                    "kind":  "Authentication"
+                                },
+                                {
+                                    "path":  "backend/modules/identity/src/main/java/com/sakhtyar/identity/security/JwtCookieAuthenticationFilter.java",
+                                    "line":  70,
+                                    "kind":  "Authentication"
+                                },
+                                {
+                                    "path":  "backend/modules/identity/src/main/java/com/sakhtyar/identity/security/JwtCookieAuthenticationFilter.java",
+                                    "line":  107,
+                                    "kind":  "Authentication"
+                                },
+                                {
+                                    "path":  "backend/modules/identity/src/main/java/com/sakhtyar/identity/security/JwtCookieAuthenticationFilter.java",
+                                    "line":  108,
+                                    "kind":  "Authentication"
+                                },
+                                {
+                                    "path":  "backend/modules/identity/src/main/java/com/sakhtyar/identity/security/JwtCookieAuthenticationFilter.java",
+                                    "line":  114,
+                                    "kind":  "SecurityContextHolder"
+                                },
+                                {
+                                    "path":  "backend/modules/identity/src/main/java/com/sakhtyar/identity/security/JwtCookieAuthenticationFilter.java",
+                                    "line":  137,
+                                    "kind":  "Authentication"
+                                },
+                                {
+                                    "path":  "backend/modules/identity/src/main/java/com/sakhtyar/identity/security/SecurityDiagnosticsFilter.java",
+                                    "line":  17,
+                                    "kind":  "Authentication"
+                                },
+                                {
+                                    "path":  "backend/modules/identity/src/main/java/com/sakhtyar/identity/security/SecurityDiagnosticsFilter.java",
+                                    "line":  18,
+                                    "kind":  "SecurityContextHolder"
+                                },
+                                {
+                                    "path":  "backend/modules/identity/src/main/java/com/sakhtyar/identity/security/SecurityDiagnosticsFilter.java",
+                                    "line":  48,
+                                    "kind":  "Authentication"
+                                },
+                                {
+                                    "path":  "backend/modules/identity/src/main/java/com/sakhtyar/identity/security/SecurityDiagnosticsFilter.java",
+                                    "line":  49,
+                                    "kind":  "SecurityContextHolder"
+                                },
+                                {
+                                    "path":  "backend/modules/identity/src/main/java/com/sakhtyar/identity/security/SecurityDiagnosticsFilter.java",
+                                    "line":  52,
+                                    "kind":  "Authentication"
+                                },
+                                {
+                                    "path":  "backend/modules/identity/src/main/java/com/sakhtyar/identity/security/SecurityDiagnosticsFilter.java",
+                                    "line":  54,
+                                    "kind":  "Authentication"
+                                },
+                                {
+                                    "path":  "backend/modules/identity/src/main/java/com/sakhtyar/identity/security/SecurityDiagnosticsFilter.java",
+                                    "line":  81,
+                                    "kind":  "Authentication"
+                                },
+                                {
+                                    "path":  "backend/modules/identity/src/main/java/com/sakhtyar/identity/security/SecurityDiagnosticsFilter.java",
+                                    "line":  82,
+                                    "kind":  "SecurityContextHolder"
+                                },
+                                {
+                                    "path":  "backend/modules/identity/src/main/java/com/sakhtyar/identity/security/SecurityDiagnosticsFilter.java",
+                                    "line":  86,
+                                    "kind":  "Authentication"
+                                },
+                                {
+                                    "path":  "backend/modules/identity/src/test/java/com/sakhtyar/identity/security/JwtFilterRegistrationPolicyTest.java",
+                                    "line":  13,
+                                    "kind":  "Authentication"
+                                },
+                                {
+                                    "path":  "backend/modules/intelligence/src/main/java/com/sakhtyar/intelligence/application/WorkflowExecutor.java",
+                                    "line":  7,
+                                    "kind":  "JdbcTemplate"
+                                },
+                                {
+                                    "path":  "backend/modules/intelligence/src/main/java/com/sakhtyar/intelligence/application/WorkflowExecutor.java",
+                                    "line":  14,
+                                    "kind":  "JdbcTemplate"
+                                },
+                                {
+                                    "path":  "backend/modules/intelligence/src/main/java/com/sakhtyar/intelligence/application/WorkflowExecutor.java",
+                                    "line":  16,
+                                    "kind":  "JdbcTemplate"
+                                },
+                                {
+                                    "path":  "backend/modules/knowledge/src/main/java/com/sakhtyar/knowledge/api/KnowledgeAdminController.java",
+                                    "line":  12,
+                                    "kind":  "Authentication"
+                                },
+                                {
+                                    "path":  "backend/modules/knowledge/src/main/java/com/sakhtyar/knowledge/api/KnowledgeAdminController.java",
+                                    "line":  54,
+                                    "kind":  "Authentication"
+                                },
+                                {
+                                    "path":  "backend/modules/knowledge/src/main/java/com/sakhtyar/knowledge/api/KnowledgeAdminController.java",
+                                    "line":  129,
+                                    "kind":  "Authentication"
+                                },
+                                {
+                                    "path":  "backend/modules/knowledge/src/main/java/com/sakhtyar/knowledge/api/KnowledgeAdminController.java",
+                                    "line":  131,
+                                    "kind":  "authentication"
+                                },
+                                {
+                                    "path":  "backend/modules/knowledge/src/main/java/com/sakhtyar/knowledge/api/KnowledgeAdminController.java",
+                                    "line":  142,
+                                    "kind":  "Authentication"
+                                },
+                                {
+                                    "path":  "backend/modules/knowledge/src/main/java/com/sakhtyar/knowledge/api/KnowledgeAdminController.java",
+                                    "line":  144,
+                                    "kind":  "authentication"
+                                },
+                                {
+                                    "path":  "backend/modules/knowledge/src/main/java/com/sakhtyar/knowledge/api/KnowledgeAdminController.java",
+                                    "line":  150,
+                                    "kind":  "Authentication"
+                                },
+                                {
+                                    "path":  "backend/modules/knowledge/src/main/java/com/sakhtyar/knowledge/api/KnowledgeAdminController.java",
+                                    "line":  152,
+                                    "kind":  "authentication"
+                                },
+                                {
+                                    "path":  "backend/modules/knowledge/src/main/java/com/sakhtyar/knowledge/api/KnowledgeAdminController.java",
+                                    "line":  158,
+                                    "kind":  "Authentication"
+                                },
+                                {
+                                    "path":  "backend/modules/knowledge/src/main/java/com/sakhtyar/knowledge/api/KnowledgeAdminController.java",
+                                    "line":  160,
+                                    "kind":  "authentication"
+                                },
+                                {
+                                    "path":  "backend/modules/knowledge/src/main/java/com/sakhtyar/knowledge/api/KnowledgeAiCatalogueController.java",
+                                    "line":  3,
+                                    "kind":  "JdbcTemplate"
+                                },
+                                {
+                                    "path":  "backend/modules/knowledge/src/main/java/com/sakhtyar/knowledge/api/KnowledgeAiCatalogueController.java",
+                                    "line":  11,
+                                    "kind":  "JdbcTemplate"
+                                },
+                                {
+                                    "path":  "backend/modules/knowledge/src/main/java/com/sakhtyar/knowledge/api/KnowledgeAiCatalogueController.java",
+                                    "line":  12,
+                                    "kind":  "JdbcTemplate"
+                                },
+                                {
+                                    "path":  "backend/modules/knowledge/src/main/java/com/sakhtyar/knowledge/api/KnowledgeAiCurationController.java",
+                                    "line":  9,
+                                    "kind":  "JdbcTemplate"
+                                },
+                                {
+                                    "path":  "backend/modules/knowledge/src/main/java/com/sakhtyar/knowledge/api/KnowledgeAiCurationController.java",
+                                    "line":  11,
+                                    "kind":  "Authentication"
+                                },
+                                {
+                                    "path":  "backend/modules/knowledge/src/main/java/com/sakhtyar/knowledge/api/KnowledgeAiCurationController.java",
+                                    "line":  24,
+                                    "kind":  "JdbcTemplate"
+                                },
+                                {
+                                    "path":  "backend/modules/knowledge/src/main/java/com/sakhtyar/knowledge/api/KnowledgeAiCurationController.java",
+                                    "line":  28,
+                                    "kind":  "JdbcTemplate"
+                                },
+                                {
+                                    "path":  "backend/modules/knowledge/src/main/java/com/sakhtyar/knowledge/api/KnowledgeAiCurationController.java",
+                                    "line":  32,
+                                    "kind":  "Authentication"
+                                },
+                                {
+                                    "path":  "backend/modules/knowledge/src/main/java/com/sakhtyar/knowledge/api/KnowledgeAiCurationController.java",
+                                    "line":  37,
+                                    "kind":  "Authentication"
+                                },
+                                {
+                                    "path":  "backend/modules/knowledge/src/main/java/com/sakhtyar/knowledge/api/KnowledgeAiCurationController.java",
+                                    "line":  109,
+                                    "kind":  "Authentication"
+                                },
+                                {
+                                    "path":  "backend/modules/knowledge/src/main/java/com/sakhtyar/knowledge/api/KnowledgeAiCurationController.java",
+                                    "line":  126,
+                                    "kind":  "Authentication"
+                                },
+                                {
+                                    "path":  "backend/modules/knowledge/src/main/java/com/sakhtyar/knowledge/api/KnowledgeAiCurationController.java",
+                                    "line":  159,
+                                    "kind":  "Authentication"
+                                },
+                                {
+                                    "path":  "backend/modules/knowledge/src/main/java/com/sakhtyar/knowledge/api/KnowledgeAiCurationController.java",
+                                    "line":  178,
+                                    "kind":  "Authentication"
+                                },
+                                {
+                                    "path":  "backend/modules/knowledge/src/main/java/com/sakhtyar/knowledge/api/KnowledgeAiCurationController.java",
+                                    "line":  250,
+                                    "kind":  "Authentication"
+                                },
+                                {
+                                    "path":  "backend/modules/knowledge/src/main/java/com/sakhtyar/knowledge/api/KnowledgeAiCurationController.java",
+                                    "line":  274,
+                                    "kind":  "Authentication"
+                                },
+                                {
+                                    "path":  "backend/modules/knowledge/src/main/java/com/sakhtyar/knowledge/api/KnowledgeAiCurationController.java",
+                                    "line":  279,
+                                    "kind":  "Authentication"
+                                },
+                                {
+                                    "path":  "backend/modules/knowledge/src/main/java/com/sakhtyar/knowledge/api/KnowledgeAiCurationController.java",
+                                    "line":  327,
+                                    "kind":  "Authentication"
+                                },
+                                {
+                                    "path":  "backend/modules/knowledge/src/main/java/com/sakhtyar/knowledge/api/KnowledgeAiCurationController.java",
+                                    "line":  333,
+                                    "kind":  "Authentication"
+                                },
+                                {
+                                    "path":  "backend/modules/knowledge/src/main/java/com/sakhtyar/knowledge/api/KnowledgeAiCurationController.java",
+                                    "line":  354,
+                                    "kind":  "Authentication"
+                                },
+                                {
+                                    "path":  "backend/modules/knowledge/src/main/java/com/sakhtyar/knowledge/api/KnowledgeAiCurationController.java",
+                                    "line":  364,
+                                    "kind":  "Authentication"
+                                },
+                                {
+                                    "path":  "backend/modules/knowledge/src/main/java/com/sakhtyar/knowledge/api/KnowledgeAiCurationController.java",
+                                    "line":  391,
+                                    "kind":  "Authentication"
+                                },
+                                {
+                                    "path":  "backend/modules/knowledge/src/main/java/com/sakhtyar/knowledge/api/KnowledgeAiImportController.java",
+                                    "line":  6,
+                                    "kind":  "Authentication"
+                                },
+                                {
+                                    "path":  "backend/modules/knowledge/src/main/java/com/sakhtyar/knowledge/api/KnowledgeAiImportController.java",
+                                    "line":  16,
+                                    "kind":  "Authentication"
+                                },
+                                {
+                                    "path":  "backend/modules/knowledge/src/main/java/com/sakhtyar/knowledge/api/KnowledgeAiImportController.java",
+                                    "line":  24,
+                                    "kind":  "Authentication"
+                                },
+                                {
+                                    "path":  "backend/modules/knowledge/src/main/java/com/sakhtyar/knowledge/api/KnowledgeAiImportController.java",
+                                    "line":  28,
+                                    "kind":  "Authentication"
+                                },
+                                {
+                                    "path":  "backend/modules/knowledge/src/main/java/com/sakhtyar/knowledge/api/KnowledgeAiImportController.java",
+                                    "line":  33,
+                                    "kind":  "Authentication"
+                                },
+                                {
+                                    "path":  "backend/modules/knowledge/src/main/java/com/sakhtyar/knowledge/api/KnowledgeAiImportController.java",
+                                    "line":  37,
+                                    "kind":  "Authentication"
+                                }
+                            ],
+    "findings":  [
+                     "Existing DB session is not proof of the active API datasource principal.",
+                     "A restricted PostgreSQL role and server-verified workspace authorization are prerequisites to V64.",
+                     "No database changes or migration SQL were executed by Gate03.",
+                     "Java symbol matches are discovery hints, not security proof."
+                 ],
+    "verdict":  "BLOCKED_PENDING_RUNTIME_IDENTITY_AND_AUTHORIZATION_PROOF"
+}

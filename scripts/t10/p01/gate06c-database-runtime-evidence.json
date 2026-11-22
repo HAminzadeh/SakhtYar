@@ -1,0 +1,62 @@
+{
+    "phase":  "T10-P01-Gate06C",
+    "generatedUtc":  "2026-10-31T18:02:24.3346885Z",
+    "branch":  "v2",
+    "composeProject":  "sakhtyar-local",
+    "dbAuditIdentity":  "sakhtyar|sakhtyar",
+    "flywayVersions":  [
+                           "58|true",
+                           "60|true",
+                           "63|true"
+                       ],
+    "discoveredRoleFlags":  [
+                                "sakhtyar|true|true|true|true",
+                                "sakhtyar_tws_a9a9369ab8d3480d9fc2fed0a085d375|false|false|false|true"
+                            ],
+    "historyRls":  [
+                       "t10_e2e_run|true|true",
+                       "t10_e2e_scenario_run|true|true",
+                       "t10_e2e_step|true|true"
+                   ],
+    "historyPolicies":  [
+
+                        ],
+    "historyGrants":  [
+                          "t10_e2e_run|sakhtyar|DELETE",
+                          "t10_e2e_run|sakhtyar|INSERT",
+                          "t10_e2e_run|sakhtyar|REFERENCES",
+                          "t10_e2e_run|sakhtyar|SELECT",
+                          "t10_e2e_run|sakhtyar|TRIGGER",
+                          "t10_e2e_run|sakhtyar|TRUNCATE",
+                          "t10_e2e_run|sakhtyar|UPDATE",
+                          "t10_e2e_scenario_run|sakhtyar|DELETE",
+                          "t10_e2e_scenario_run|sakhtyar|INSERT",
+                          "t10_e2e_scenario_run|sakhtyar|REFERENCES",
+                          "t10_e2e_scenario_run|sakhtyar|SELECT",
+                          "t10_e2e_scenario_run|sakhtyar|TRIGGER",
+                          "t10_e2e_scenario_run|sakhtyar|TRUNCATE",
+                          "t10_e2e_scenario_run|sakhtyar|UPDATE",
+                          "t10_e2e_step|sakhtyar|DELETE",
+                          "t10_e2e_step|sakhtyar|INSERT",
+                          "t10_e2e_step|sakhtyar|REFERENCES",
+                          "t10_e2e_step|sakhtyar|SELECT",
+                          "t10_e2e_step|sakhtyar|TRIGGER",
+                          "t10_e2e_step|sakhtyar|TRUNCATE",
+                          "t10_e2e_step|sakhtyar|UPDATE"
+                      ],
+    "activeDbSessionsSnapshot":  [
+
+                                 ],
+    "sourceChecks":  {
+                         "configSeparateRuntimeUser":  true,
+                         "configSeparateFlywayUser":  true,
+                         "runtimeRoleGuardExists":  true,
+                         "fixtureDedicatedProviderExists":  true
+                     },
+    "limitations":  [
+                        "A psql audit session and pg_stat_activity snapshot are not proof of the effective Spring Boot runtime DataSource identity.",
+                        "Do not store database credentials in this report.",
+                        "No grants, roles, policies, migrations or configuration environment variables are modified."
+                    ],
+    "status":  "AWAITING_RESTRICTED_RUNTIME_PROOF_AND_VERSIONED_MIGRATION"
+}

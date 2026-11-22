@@ -165,7 +165,7 @@ export function CaseOverview({
         <Grid size={{ xs: 12, sm: 6, lg: 3 }}>
           <StatCard
             title="مالکین"
-            value={`${ownerItems.length.toLocaleString('fa-IR')} نفر`}
+            value={`${ownerItems.length.toLocaleString(document.documentElement.lang === 'fa' ? 'fa-IR' : 'en-US')} نفر`}
             subtitle={
               primaryOwner
                 ? `رابط: ${primaryOwner.firstName} ${primaryOwner.lastName}`
@@ -191,7 +191,7 @@ export function CaseOverview({
         <Grid size={{ xs: 12, sm: 6, lg: 3 }}>
           <StatCard
             title="مدارک"
-            value={`${(documents.data?.length ?? 0).toLocaleString('fa-IR')} فایل`}
+            value={`${(documents.data?.length ?? 0).toLocaleString(document.documentElement.lang === 'fa' ? 'fa-IR' : 'en-US')} فایل`}
             icon={<DescriptionRoundedIcon />}
           />
         </Grid>
@@ -215,7 +215,7 @@ export function CaseOverview({
               مالکین:{' '}
               <strong>
                 {ownerItems.length > 0
-                  ? `${ownerItems.length.toLocaleString('fa-IR')} مالک ثبت شده`
+                  ? `${ownerItems.length.toLocaleString(document.documentElement.lang === 'fa' ? 'fa-IR' : 'en-US')} مالک ثبت شده`
                   : 'هنوز ثبت نشده'}
               </strong>
             </Typography>
@@ -224,7 +224,7 @@ export function CaseOverview({
               مدارک:{' '}
               <strong>
                 {(documents.data?.length ?? 0) > 0
-                  ? `${documents.data?.length.toLocaleString('fa-IR')} فایل`
+                  ? `${documents.data?.length.toLocaleString(document.documentElement.lang === 'fa' ? 'fa-IR' : 'en-US')} فایل`
                   : 'هنوز ثبت نشده'}
               </strong>
             </Typography>

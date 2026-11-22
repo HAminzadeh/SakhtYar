@@ -1,0 +1,22 @@
+{
+  "schemaVersion": 1,
+  "repository": ".sakhtyar/repository",
+  "policy": "detect-cache-download-verify-install-configure-verify",
+  "dependencies": [
+    {"id":"git","name":"Git","kind":"CORE","command":"git.exe","wingetId":"Git.Git","required":true},
+    {"id":"docker","name":"Docker Desktop","kind":"CORE","command":"docker.exe","wingetId":"Docker.DockerDesktop","required":true},
+    {"id":"java","name":"Java 21","kind":"CORE","command":"java.exe","wingetId":"EclipseAdoptium.Temurin.21.JDK","required":true},
+    {"id":"node","name":"Node.js 24+","kind":"CORE","command":"node.exe","wingetId":"OpenJS.NodeJS","required":true},
+    {"id":"python","name":"Python","kind":"CORE","command":"python.exe","wingetId":"Python.Python.3.13","required":true},
+    {"id":"tesseract","name":"Tesseract OCR","kind":"OCR","command":"tesseract.exe","wingetId":"UB-Mannheim.TesseractOCR","required":true},
+    {"id":"fas","name":"Persian OCR data","kind":"OCR","artifact":"tesseract/tessdata/fas.traineddata","required":true},
+    {"id":"ollama","name":"Ollama","kind":"AI","command":"ollama.exe","wingetId":"Ollama.Ollama","required":false}
+  ],
+  "python": [
+    {"import":"pymupdf","package":"PyMuPDF==1.26.4"},
+    {"import":"docx","package":"python-docx==1.2.0"},
+    {"import":"pptx","package":"python-pptx==1.0.2"},
+    {"import":"pytesseract","package":"pytesseract==0.3.13"},
+    {"import":"PIL","package":"Pillow==11.3.0"}
+  ]
+}

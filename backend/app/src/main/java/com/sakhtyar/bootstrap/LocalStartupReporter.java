@@ -10,7 +10,8 @@ import org.springframework.stereotype.Component;
 @Component
 public class LocalStartupReporter {
 
-    private static final Logger log = LoggerFactory.getLogger(LocalStartupReporter.class);
+    private static final Logger log =
+            LoggerFactory.getLogger(LocalStartupReporter.class);
 
     private final Environment environment;
 
@@ -26,12 +27,18 @@ public class LocalStartupReporter {
 
         String port = environment.getProperty("server.port", "8080");
 
+        log.info("");
         log.info("============================================================");
-        log.info("SakhtYar is READY");
-        log.info("Backend: http://localhost:{}", port);
-        log.info("UI: http://localhost:5173");
-        log.info("MinIO API: http://localhost:9000");
-        log.info("MinIO Console: http://localhost:9001");
+        log.info("SAKHTYAR LOCAL READY");
+        log.info("Backend        : http://localhost:{}", port);
+        log.info("Frontend (IDE) : http://localhost:5175");
+        log.info("MinIO API      : http://localhost:9000");
+        log.info("MinIO Console  : http://localhost:9001");
+        log.info("Prometheus     : http://localhost:9090");
+        log.info("Grafana        : http://localhost:13001");
+        log.info("Loki           : http://localhost:3100");
+        log.info("Tempo          : http://localhost:3200");
         log.info("============================================================");
+        log.info("");
     }
 }

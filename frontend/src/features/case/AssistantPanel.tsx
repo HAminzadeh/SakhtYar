@@ -162,8 +162,8 @@ export function AssistantPanel({ caseId }: { caseId: string }) {
   }
 
   return (
-    <Stack spacing={2}>
-      <Card variant="outlined">
+    <Stack spacing={2} className="sakhtyar-assistant-v56">
+      <Card variant="outlined" className="sakhtyar-assistant-card">
         <CardContent>
           <Stack spacing={2}>
             <Stack direction="row" spacing={1} alignItems="center">
@@ -236,7 +236,7 @@ export function AssistantPanel({ caseId }: { caseId: string }) {
         </CardContent>
       </Card>
 
-      <Card variant="outlined">
+      <Card variant="outlined" className="sakhtyar-assistant-card">
         <CardContent>
           <Stack spacing={2}>
             <Typography fontWeight={700}>گفتگو</Typography>
@@ -276,7 +276,7 @@ export function AssistantPanel({ caseId }: { caseId: string }) {
       </Card>
 
       {effectiveResult && (
-        <Card variant="outlined">
+        <Card variant="outlined" className="sakhtyar-assistant-card">
           <CardContent>
             <Stack spacing={2}>
               <Stack

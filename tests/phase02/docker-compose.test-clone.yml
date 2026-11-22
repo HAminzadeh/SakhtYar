@@ -1,0 +1,18 @@
+# Disposable TEST-only PostgreSQL clone shell. Never mount production data volumes here.
+services:
+  sakhtyar-phase02-clone:
+    image: postgis/postgis:16-3.4
+    environment:
+      POSTGRES_DB: sakhtyar_test_clone_phase02
+      POSTGRES_USER: phase02_clone_admin
+      POSTGRES_PASSWORD: ${PHASE02_CLONE_POSTGRES_PASSWORD:?Set a unique test-only password in your shell}
+    ports:
+      - "127.0.0.1:55432:5432"
+    tmpfs:
+      - /var/lib/postgresql/data:rw,noexec,nosuid,size=2g
+    networks:
+      - phase02_internal
+    restart: "no"
+networks:
+  phase02_internal:
+    internal: true

@@ -1,196 +1,218 @@
-import { AdminPanelSettingsRoundedIcon, ConstructionRoundedIcon, FolderRoundedIcon, LogoutRoundedIcon, PersonRoundedIcon } from '../ui/antdIcons'
 import {
-  AppBar,
+  BellOutlined,
+  FolderOpenOutlined,
+  PoweroffOutlined,
+  SafetyCertificateOutlined,
+  RobotOutlined,
+  ToolOutlined,
+  DashboardOutlined,
+  AuditOutlined,
+  UserOutlined,
+  BookOutlined,
+  ImportOutlined,
+  QuestionCircleOutlined,
+} from '@ant-design/icons'
+import {
+  Dropdown,
   Avatar,
-  BottomNavigation,
-  BottomNavigationAction,
-  Box,
+  Badge,
   Button,
-  Container,
-  Stack,
-  Toolbar,
+  Tooltip,
   Typography,
-  useMediaQuery,
-  useTheme,
-} from '../ui/antdCompat'
-import { Link, Outlet, useLocation, useNavigate } from 'react-router-dom'
+} from 'antd'
+import {
+  Link,
+  Outlet,
+  useLocation,
+  useNavigate,
+} from 'react-router-dom'
 import { useAuth } from '../auth/AuthProvider'
+import {
+  roleLabel,
+  safeDisplayName,
+} from '../ui/presentation'
+import { LanguageSwitcher } from '../ui/LanguageSwitcher'
+import { useI18n } from '../i18n/LanguageProvider'
 
 export function AppShell() {
   const { user, logout, hasPermission } = useAuth()
+  const { t } = useI18n()
   const navigate = useNavigate()
   const location = useLocation()
-  const theme = useTheme()
-  const isMobile = useMediaQuery(theme.breakpoints.down('sm'))
+
+  const active = (prefix: string) =>
+    location.pathname.startsWith(prefix)
 
   const handleLogout = async () => {
     await logout()
     navigate('/login')
   }
 
-  const mobileValue = location.pathname.startsWith('/admin/users')
-    ? 'users'
-    : location.pathname.startsWith('/account')
-      ? 'account'
-      : location.pathname.startsWith('/cases')
-        ? 'cases'
-        : false
+  const profileName = safeDisplayName(
+    user?.displayName,
+    roleLabel(user?.role) ||
+      user?.username ||
+      'کاربر ساخت‌یار',
+  )
 
   return (
-    <Box minHeight="100vh" bgcolor="background.default">
-      <AppBar
-        position="sticky"
-        elevation={0}
-        color="inherit"
-        sx={{
-          borderBottom: '1px solid',
-          borderColor: 'divider',
-          backdropFilter: 'blur(12px)',
-          bgcolor: 'rgba(255,255,255,0.94)',
-        }}
-      >
-        <Toolbar sx={{ minHeight: { xs: 60, md: 68 } }}>
-          <Stack direction="row" spacing={1.25} alignItems="center">
-            <Box
-              sx={{
-                width: 38,
-                height: 38,
-                borderRadius: 2.5,
-                display: 'grid',
-                placeItems: 'center',
-                bgcolor: 'primary.main',
-                color: 'primary.contrastText',
-              }}
-            >
-              <ConstructionRoundedIcon fontSize="small" />
-            </Box>
-            <Box>
-              <Typography fontWeight={900} lineHeight={1.1}>
-                ساخت‌یار
-              </Typography>
-              {!isMobile && (
-                <Typography variant="caption" color="text.secondary">
-                  مدیریت هوشمند مشارکت در ساخت
-                </Typography>
-              )}
-            </Box>
-          </Stack>
-
-          <Box sx={{ flexGrow: 1 }} />
-
-          {!isMobile && (
-            <Stack direction="row" spacing={0.75} alignItems="center">
-              {hasPermission('CASE_READ') && (
-                <Button component={Link} to="/cases" color="inherit">
-                  پرونده‌ها
-                </Button>
-              )}
-
-              {hasPermission('USER_MANAGE') && (
-                <Button
-                  component={Link}
-                  to="/admin/users"
-                  color="inherit"
-                  startIcon={<AdminPanelSettingsRoundedIcon />}
-                >
-                  کاربران
-                </Button>
-              )}
-
-              <Button component={Link} to="/account" color="inherit">
-                حساب من
-              </Button>
-
-              <Stack direction="row" spacing={1} alignItems="center" mx={1}>
-                <Avatar
-                  sx={{
-                    width: 32,
-                    height: 32,
-                    bgcolor: 'primary.50',
-                    color: 'primary.main',
-                  }}
-                >
-                  <PersonRoundedIcon fontSize="small" />
-                </Avatar>
-                <Box>
-                  <Typography variant="body2" fontWeight={700}>
-                    {user?.displayName}
-                  </Typography>
-                  <Typography variant="caption" color="text.secondary">
-                    {user?.role}
-                  </Typography>
-                </Box>
-              </Stack>
-
-              <Button
-                color="inherit"
-                startIcon={<LogoutRoundedIcon />}
-                onClick={handleLogout}
-              >
-                خروج
-              </Button>
-            </Stack>
-          )}
-        </Toolbar>
-      </AppBar>
-
-      <Container
-        maxWidth={false}
-        sx={{
-          maxWidth: '1440px',
-          py: { xs: 2, sm: 3, md: 4 },
-          px: { xs: 1.5, sm: 2.5, md: 3 },
-          pb: { xs: 10, sm: 4 },
-        }}
-      >
-        <Outlet />
-      </Container>
-
-      {isMobile && (
-        <BottomNavigation
-          showLabels
-          value={mobileValue}
-          onChange={(_, value) => {
-            if (value === 'cases') navigate('/cases')
-            if (value === 'users') navigate('/admin/users')
-            if (value === 'account') navigate('/account')
-          }}
-          sx={{
-            position: 'fixed',
-            left: 0,
-            right: 0,
-            bottom: 0,
-            zIndex: 1300,
-            borderTop: '1px solid',
-            borderColor: 'divider',
-            height: 68,
-            bgcolor: 'rgba(255,255,255,0.97)',
-            backdropFilter: 'blur(12px)',
-          }}
+    <div className="sakhtyar-shell">
+      <header className="sakhtyar-topbar sakhtyar-topbar-v56">
+        <Link
+          to="/cases"
+          className="sakhtyar-brand sakhtyar-brand-v56"
         >
+          <img
+            src="/assets/sakhtyar/brand/sakhtyar-mark.svg"
+            alt=""
+            className="sakhtyar-brand-mark"
+          />
+          <span className="sakhtyar-brand-copy">
+            <strong>ساخت‌یار</strong>
+            <small>
+              سامانه مدیریت هوشمند مشارکت در ساخت
+            </small>
+          </span>
+        </Link>
+
+        <nav className="sakhtyar-main-nav">
           {hasPermission('CASE_READ') && (
-            <BottomNavigationAction
-              value="cases"
-              label="پرونده‌ها"
-              icon={<FolderRoundedIcon />}
-            />
+            <Button
+              type={
+                active('/cases') ? 'primary' : 'default'
+              }
+              icon={<FolderOpenOutlined />}
+              onClick={() => navigate('/cases')}
+            >
+              پرونده‌ها
+            </Button>
           )}
 
           {hasPermission('USER_MANAGE') && (
-            <BottomNavigationAction
-              value="users"
-              label="کاربران"
-              icon={<AdminPanelSettingsRoundedIcon />}
-            />
+            <Button
+              type={
+                active('/admin/users')
+                  ? 'primary'
+                  : 'default'
+              }
+              icon={<SafetyCertificateOutlined />}
+              onClick={() =>
+                navigate('/admin/users')
+              }
+            >
+              کاربران
+            </Button>
           )}
 
-          <BottomNavigationAction
-            value="account"
-            label="حساب من"
-            icon={<PersonRoundedIcon />}
+          {hasPermission('AI_MANAGE') && (
+            <Button type={active('/admin/ai') ? 'primary' : 'default'} icon={<RobotOutlined />} onClick={() => navigate('/admin/ai')}>
+              مدیریت هوش مصنوعی
+            </Button>
+          )}
+
+
+          {hasPermission('OPERATIONS_READ') && (
+            <Button type={active('/admin/operations') ? 'primary' : 'default'} icon={<DashboardOutlined />} onClick={() => navigate('/admin/operations')}>
+              عملیات
+            </Button>
+          )}
+
+          {hasPermission('USER_MANAGE') && (
+            <Button
+              type={location.pathname === '/admin/knowledge' ? 'primary' : 'default'}
+              icon={<BookOutlined />}
+              onClick={() => navigate('/admin/knowledge')}
+            >
+              مرکز دانش
+            </Button>
+          )}
+          {hasPermission('USER_MANAGE') && (
+            <Button
+              type={active('/admin/knowledge/import') ? 'primary' : 'default'}
+              icon={<ImportOutlined />}
+              onClick={() => navigate('/admin/knowledge/import')}
+            >
+              ورود دانش
+            </Button>
+          )}
+          {(hasPermission('USER_MANAGE') || hasPermission('QUALITY_VIEW')) && (
+            <Dropdown trigger={['click']} placement="bottomRight" menu={{items: [
+              ...(hasPermission('QUALITY_VIEW') ? [{ key:'quality',label:'مرکز آزمون و تضمین کیفیت',icon:<AuditOutlined />,onClick:()=>navigate('/admin/quality') }] : []),
+              ...(hasPermission('USER_MANAGE') ? [{ key:'simulations',label:'شبیه‌سازی و داده‌های آزمایشی',icon:<AuditOutlined />,onClick:()=>navigate('/admin/simulations') }] : []),
+              ...(hasPermission('USER_MANAGE') ? [{ key:'engineering',label:'مرکز راهبری هوش مصنوعی',icon:<ToolOutlined />,onClick:()=>navigate('/admin/engineering') }] : []),
+            ]}}>
+              <Button type={active('/admin/quality') || active('/admin/engineering') || active('/admin/simulations') ? 'primary' : 'default'} icon={<ToolOutlined />}>مراکز تخصصی</Button>
+            </Dropdown>
+          )}
+          <Button type={active('/help') ? 'primary' : 'default'} icon={<QuestionCircleOutlined />} onClick={() => navigate('/help')}>
+            آموزش
+          </Button>
+
+          <Button
+            type={
+              active('/account') ? 'primary' : 'default'
+            }
+            icon={<UserOutlined />}
+            onClick={() => navigate('/account')}
+          >
+            حساب من
+          </Button>
+          <Dropdown menu={{items: [
+            ...(hasPermission('CASE_READ') ? [{key:'market',label:'تحلیل بازار',onClick:()=>navigate('/market')}] : []),
+            ...(hasPermission('USER_MANAGE') ? [
+              {key:'builders',label:'مدیریت سازندگان',onClick:()=>navigate('/admin/builders')},
+              {key:'events',label:'مانیتورینگ و اعلان‌ها',onClick:()=>navigate('/admin/events')},
+            ] : []),
+            ...(hasPermission('AGENT_USE') ? [{key:'intelligence',label:'رجیستری هوشمندی',onClick:()=>navigate('/intelligence')}] : []),
+          ]}} trigger={['click']}>
+            <Button>خدمات هوشمند</Button>
+          </Dropdown>
+        </nav>
+
+        <div className="sakhtyar-profile-panel">
+          <LanguageSwitcher />
+          <Button type="text" onClick={() => navigate('/settings')}>
+            {t('settings')}
+          </Button>
+          <Badge dot offset={[-2, 4]}>
+            <Button
+              className="sakhtyar-notification"
+              type="text"
+              icon={<BellOutlined />}
+              aria-label="اعلان‌ها"
+            />
+          </Badge>
+
+          <Avatar
+            className="sakhtyar-profile-avatar"
+            icon={<UserOutlined />}
           />
-        </BottomNavigation>
-      )}
-    </Box>
+
+          <div className="sakhtyar-profile-copy">
+            <Typography.Text strong>
+              {profileName}
+            </Typography.Text>
+            <Typography.Text type="secondary">
+              {roleLabel(user?.role)}
+            </Typography.Text>
+          </div>
+
+          <Tooltip title="خروج از حساب">
+            <Button
+              danger
+              shape="circle"
+              className="sakhtyar-logout-button"
+              icon={<PoweroffOutlined />}
+              aria-label="خروج"
+              onClick={handleLogout}
+            />
+          </Tooltip>
+        </div>
+      </header>
+
+      <main className="sakhtyar-page">
+        <Outlet />
+      </main>
+    </div>
   )
 }

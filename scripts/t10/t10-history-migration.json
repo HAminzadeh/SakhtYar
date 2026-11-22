@@ -1,0 +1,6 @@
+{
+    "status":  "installed-in-source-not-executed",
+    "purpose":  "T10 immutable E2E history foundation",
+    "version":  63,
+    "file":  "V63__t10_e2e_history.sql"
+}

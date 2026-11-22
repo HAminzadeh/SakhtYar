@@ -29,12 +29,16 @@ dist/
 .vite/
 **/.vite/
 
+# TypeScript incremental build metadata
+*.tsbuildinfo
+
 # =========================
 # Environment files
 # =========================
 .env
 .env.local
 .env.*.local
+.env.observability.local
 
 # Keep examples
 !.env.example
@@ -46,6 +50,7 @@ dist/
 *.log
 *.tmp
 *.temp
+*.part
 *.dump
 *.dumpstream
 
@@ -53,9 +58,34 @@ dist/
 # OS
 # =========================
 .DS_Store
-Thumbs.db.env.observability.local
+Thumbs.db
+
+# =========================
+# Local generated artifacts
+# =========================
+.local/
+
+# =========================
+# Local runtime/build artifacts
+# =========================
 sakhtyar-running-app.jar
 jar-check/
-.env.observability.local
+# =========================
+# Persian Intelligence local model cache
+# =========================
+models/persian/
+!models/persian/.gitkeep
 
-/.local/docker-images/
+# Python bytecode/cache
+**/__pycache__/
+*.py[cod]
+
+
+# Python bytecode/cache
+**/__pycache__/
+*.py[cod]
+.local/config-secrets.properties
+.sakhtyar/repository/
+.sakhtyar/runtime/
+.final-e2e-reports/
+*.final-e2e-backup

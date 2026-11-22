@@ -1,0 +1,35 @@
+{
+  "timestampUtc": "2026-11-11T11:06:33.625964+00:00",
+  "mode": "apply",
+  "repo": "D:\\ChatGPT_Projects\\SakhtYar\\source",
+  "phases": [
+    {
+      "phase": "1-build-profile",
+      "checks": [
+        {
+          "name": "frontend JSX patch",
+          "state": "PASSED",
+          "detail": "Patched; backup: frontend\\src\\pages\\SimulationCenterPage.tsx.final-e2e-backup"
+        }
+      ]
+    },
+    {
+      "phase": "2-isolation-admission",
+      "checks": []
+    },
+    {
+      "phase": "3-business-e2e",
+      "checks": []
+    },
+    {
+      "phase": "4-regression-release",
+      "checks": []
+    }
+  ],
+  "overall": "SOURCE_CHECKS_PASSED_NOT_E2E_ACCEPTED",
+  "businessAcceptance": {
+    "total": 24,
+    "verifiedFullPass": 0,
+    "note": "Not claimed by this orchestration"
+  }
+}

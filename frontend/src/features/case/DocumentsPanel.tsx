@@ -11,10 +11,12 @@ import {
   Stack,
   Typography,
 } from '../../ui/antdCompat'
+import { App as AntdApp } from 'antd'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { type ChangeEvent } from 'react'
-import { api } from '../../api/client'
+import { type ChangeEvent, useRef, useState } from 'react'
+import { ApiError, api } from '../../api/client'
 import type { DocumentItem } from '../../api/types'
+import { useI18n } from '../../i18n/LanguageProvider'
 
 function readableSize(value: number) {
   if (value < 1024) return `${value} B`
@@ -24,6 +26,10 @@ function readableSize(value: number) {
 
 export function DocumentsPanel({ caseId }: { caseId: string }) {
   const queryClient = useQueryClient()
+  const inputRef = useRef<HTMLInputElement | null>(null)
+  const [uploadError, setUploadError] = useState<string | null>(null)
+  const { message } = AntdApp.useApp()
+  const { language } = useI18n()
 
   const documents = useQuery({
     queryKey: ['documents', caseId],
@@ -44,19 +50,36 @@ export function DocumentsPanel({ caseId }: { caseId: string }) {
         },
       )
     },
-    onSuccess: () => {
+    onSuccess: (document) => {
+      setUploadError(null)
+      message.success(
+        language === 'fa'
+          ? `مدرک «${document.originalFilename}» با موفقیت بارگذاری شد.`
+          : `Document "${document.originalFilename}" uploaded successfully.`,
+      )
       queryClient.invalidateQueries({ queryKey: ['documents', caseId] })
+    },
+    onError: (error) => {
+      const text =
+        error instanceof ApiError
+          ? error.message
+          : language === 'fa'
+            ? 'بارگذاری مدرک ناموفق بود.'
+            : 'Document upload failed.'
+
+      setUploadError(text)
+      message.error(text)
     },
   })
 
   const handleFile = (event: ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0]
-
-    if (file) {
-      upload.mutate(file)
-    }
-
     event.target.value = ''
+
+    if (!file) return
+
+    setUploadError(null)
+    upload.mutate(file)
   }
 
   return (
@@ -78,43 +101,65 @@ export function DocumentsPanel({ caseId }: { caseId: string }) {
               </Typography>
             </div>
 
-            <Button
-              component="label"
-              variant="outlined"
-              startIcon={<CloudUploadRoundedIcon />}
-              disabled={upload.isPending}
-            >
-              {upload.isPending ? 'در حال بارگذاری...' : 'بارگذاری مدرک'}
-              <input hidden type="file" onChange={handleFile} />
-            </Button>
+            <div>
+              <input
+                ref={inputRef}
+                type="file"
+                hidden
+                onChange={handleFile}
+                accept=".pdf,.jpg,.jpeg,.png,.webp,.doc,.docx,.xls,.xlsx,.txt,.zip"
+              />
+              <Button
+                variant="outlined"
+                startIcon={<CloudUploadRoundedIcon />}
+                disabled={upload.isPending}
+                onClick={() => inputRef.current?.click()}
+              >
+                {upload.isPending ? 'در حال بارگذاری...' : 'بارگذاری مدرک'}
+              </Button>
+            </div>
           </Stack>
 
-          {upload.isError && (
+          {uploadError ? (
             <Alert severity="error">
-              بارگذاری فایل ناموفق بود.
+              {uploadError}
             </Alert>
-          )}
+          ) : null}
 
-          {documents.isError && (
+          {documents.isError ? (
             <Alert severity="error">
-              دریافت فهرست مدارک ناموفق بود.
+              {language === 'fa'
+                ? 'دریافت فهرست مدارک ناموفق بود.'
+                : 'Failed to load documents.'}
             </Alert>
-          )}
+          ) : null}
 
           <Divider />
 
           <List disablePadding>
-            {documents.isLoading && (
+            {documents.isLoading ? (
               <ListItem>
-                <ListItemText primary="در حال دریافت مدارک..." />
+                <ListItemText
+                  primary={
+                    language === 'fa'
+                      ? 'در حال دریافت مدارک...'
+                      : 'Loading documents...'
+                  }
+                />
               </ListItem>
-            )}
+            ) : null}
 
-            {documents.data?.length === 0 && (
+            {documents.data?.length === 0 ? (
               <ListItem>
-                <ListItemText primary="هنوز مدرکی ثبت نشده است." />
+                <ListItemText
+                  primary={
+                    language === 'fa'
+                      ? 'هنوز مدرکی ثبت نشده است.'
+                      : 'No documents have been uploaded yet.'
+                  }
+                />
               </ListItem>
-            )}
+            ) : null}
 
             {documents.data?.map((document) => (
               <ListItem
@@ -125,7 +170,7 @@ export function DocumentsPanel({ caseId }: { caseId: string }) {
                     href={`/api/v1/documents/${document.id}/content`}
                     target="_blank"
                   >
-                    دریافت
+                    {language === 'fa' ? 'دریافت' : 'Download'}
                   </Button>
                 }
               >

@@ -1,0 +1,11 @@
+-- REVIEW-ONLY TEMPLATE. NOT A PRODUCTION MIGRATION. NEVER RUN WITHOUT DBA REVIEW.
+-- In a DISPOSABLE CLONE ONLY, consider initially non-login principals:
+-- CREATE ROLE sakhtyar_runtime NOLOGIN NOSUPERUSER NOBYPASSRLS NOCREATEDB NOCREATEROLE NOREPLICATION NOINHERIT;
+-- CREATE ROLE sakhtyar_flyway NOLOGIN NOSUPERUSER NOBYPASSRLS NOCREATEDB NOCREATEROLE NOREPLICATION NOINHERIT;
+-- CREATE ROLE sakhtyar_fixture_admin NOLOGIN NOSUPERUSER NOBYPASSRLS NOCREATEDB NOCREATEROLE NOREPLICATION NOINHERIT;
+-- No passwords in Git/SQL. Change to LOGIN only in a credential-managed, isolated setup.
+-- Derive TABLE/SEQUENCE/FUNCTION grants from actual module paths; do not blanket grant.
+-- Runtime must not own tables, inherit DDL roles, SET ROLE to a privileged user, or access Flyway history.
+-- Fixture must be isolated to TEST and blocked from REAL external effects.
+-- Flyway DDL privilege and object ownership must be designed with independent owner-role review.
+-- V63 is immutable. V64 policies must NOT be enabled until workspace negative tests pass.

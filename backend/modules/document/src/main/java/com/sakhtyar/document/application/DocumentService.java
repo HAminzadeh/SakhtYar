@@ -2,6 +2,7 @@ package com.sakhtyar.document.application;
 
 import com.sakhtyar.audit.application.AuditService;
 import com.sakhtyar.casefile.domain.CaseRepository;
+import com.sakhtyar.casefile.application.CaseAccessService;
 import com.sakhtyar.document.api.DocumentDtos.DocumentResponse;
 import com.sakhtyar.document.domain.DocumentEntity;
 import com.sakhtyar.document.domain.DocumentRepository;
@@ -29,6 +30,7 @@ public class DocumentService {
 
     private final DocumentRepository repository;
     private final CaseRepository caseRepository;
+    private final CaseAccessService caseAccess;
     private final AuditService auditService;
     private final MinioClient minio;
     private final StorageProperties storage;
@@ -36,12 +38,14 @@ public class DocumentService {
     public DocumentService(
             DocumentRepository repository,
             CaseRepository caseRepository,
+            CaseAccessService caseAccess,
             AuditService auditService,
             MinioClient minio,
             StorageProperties storage
     ) {
         this.repository = repository;
         this.caseRepository = caseRepository;
+        this.caseAccess = caseAccess;
         this.auditService = auditService;
         this.minio = minio;
         this.storage = storage;
@@ -64,13 +68,14 @@ public class DocumentService {
             String uploadedBy
     ) {
         requireCase(caseId);
+        caseAccess.requireWrite(caseRepository.findById(caseId).orElseThrow());
 
-        if (file.isEmpty()) {
-            throw new IllegalArgumentException("File cannot be empty.");
-        }
+        // Validate actual content signatures and upload boundaries before any
+        // object-store write. TEST documents remain blocked by requireCase().
+        Phase03DocumentSafety.validateUpload(file);
 
         UUID documentId = UUID.randomUUID();
-        String filename = sanitizeFilename(file.getOriginalFilename());
+        String filename = Phase03DocumentSafety.safeFilename(file.getOriginalFilename());
         String key = "cases/" + caseId + "/" + documentId + "/" + filename;
 
         try {
@@ -123,6 +128,11 @@ public class DocumentService {
         DocumentEntity entity = repository.findById(documentId)
                 .orElseThrow(() ->
                         new IllegalArgumentException("Document not found."));
+        requireCase(entity.getCaseId());
+        // Never trust an object key obtained from persisted metadata without
+        // checking its immutable case/document namespace before MinIO access.
+        Phase03DocumentSafety.requireOwnedObjectKey(
+                entity.getCaseId(), entity.getId(), entity.getObjectKey());
 
         try {
             InputStream stream = minio.getObject(
@@ -169,9 +179,24 @@ public class DocumentService {
     }
 
     private void requireCase(UUID caseId) {
-        if (!caseRepository.existsById(caseId)) {
-            throw new IllegalArgumentException("Case not found.");
+        var entity = caseRepository.findById(caseId)
+                .orElseThrow(() -> new IllegalArgumentException("Case not found."));
+        // The general MinIO adapter currently uses cases/<id> (REAL namespace).
+        // Do not allow a TEST case to reach this adapter until it is isolated.
+        if (!"REAL".equals(entity.getDataScope())) {
+            throw new org.springframework.web.server.ResponseStatusException(
+                    org.springframework.http.HttpStatus.FORBIDDEN,
+                    "TEST document storage is blocked until workspace/run namespace enforcement is integrated");
         }
+        var auth = org.springframework.security.core.context.SecurityContextHolder.getContext().getAuthentication();
+        if (auth != null && auth.getAuthorities() != null && auth.getAuthorities().stream()
+                .anyMatch(a -> "ROLE_TESTER".equals(a.getAuthority()))) {
+            throw new org.springframework.web.server.ResponseStatusException(
+                    org.springframework.http.HttpStatus.FORBIDDEN,
+                    "TESTER cannot read or write the REAL MinIO namespace");
+        }
+        // Direct document-id downloads must enforce case ACL, not just DOCUMENT_READ.
+        caseAccess.requireRead(entity);
     }
 
     private String sha256(MultipartFile file) throws Exception {

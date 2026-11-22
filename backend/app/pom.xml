@@ -13,11 +13,14 @@
 
   <artifactId>sakhtyar-app</artifactId>
   <name>SakhtYar Application</name>
+  <!-- Explicit CI/local-build provenance. Never derive from a random runtime Git checkout. -->
+  <properties><sakhtyar.source-commit>UNVERIFIED</sakhtyar.source-commit></properties>
 
   <dependencies>
     <dependency><groupId>com.sakhtyar</groupId><artifactId>sakhtyar-shared-kernel</artifactId></dependency>
     <dependency><groupId>com.sakhtyar</groupId><artifactId>sakhtyar-audit</artifactId></dependency>
     <dependency><groupId>com.sakhtyar</groupId><artifactId>sakhtyar-identity</artifactId></dependency>
+    <dependency><groupId>com.sakhtyar</groupId><artifactId>sakhtyar-globalization</artifactId></dependency>
     <dependency><groupId>com.sakhtyar</groupId><artifactId>sakhtyar-casefile</artifactId></dependency>
     <dependency><groupId>com.sakhtyar</groupId><artifactId>sakhtyar-property</artifactId></dependency>
     <dependency><groupId>com.sakhtyar</groupId><artifactId>sakhtyar-owner</artifactId></dependency>
@@ -25,6 +28,29 @@
     <dependency><groupId>com.sakhtyar</groupId><artifactId>sakhtyar-geo</artifactId></dependency>
     <dependency><groupId>com.sakhtyar</groupId><artifactId>sakhtyar-integration-neshan</artifactId></dependency>
     <dependency><groupId>com.sakhtyar</groupId><artifactId>sakhtyar-agents</artifactId></dependency>
+    <dependency><groupId>com.sakhtyar</groupId><artifactId>sakhtyar-builder</artifactId></dependency>
+    <dependency><groupId>com.sakhtyar</groupId><artifactId>sakhtyar-contract</artifactId></dependency>
+    <dependency><groupId>com.sakhtyar</groupId><artifactId>sakhtyar-persian-intelligence</artifactId></dependency>
+    <dependency><groupId>com.sakhtyar</groupId><artifactId>sakhtyar-knowledge</artifactId></dependency>
+    <dependency><groupId>com.sakhtyar</groupId><artifactId>sakhtyar-crawler</artifactId></dependency>
+    <dependency><groupId>com.sakhtyar</groupId><artifactId>sakhtyar-material</artifactId></dependency>
+    <dependency><groupId>com.sakhtyar</groupId><artifactId>sakhtyar-assembly</artifactId></dependency>
+    <dependency><groupId>com.sakhtyar</groupId><artifactId>sakhtyar-scenario</artifactId></dependency>
+    <dependency><groupId>com.sakhtyar</groupId><artifactId>sakhtyar-regulation</artifactId></dependency>
+    <dependency><groupId>com.sakhtyar</groupId><artifactId>sakhtyar-finance</artifactId></dependency>
+    <dependency><groupId>com.sakhtyar</groupId><artifactId>sakhtyar-sensitivity</artifactId></dependency>
+    <dependency><groupId>com.sakhtyar</groupId><artifactId>sakhtyar-analysis</artifactId></dependency>
+
+    <dependency><groupId>com.sakhtyar</groupId><artifactId>sakhtyar-intelligence</artifactId></dependency>
+
+    <dependency><groupId>com.sakhtyar</groupId><artifactId>sakhtyar-market-intelligence</artifactId></dependency>
+
+    <dependency><groupId>com.sakhtyar</groupId><artifactId>sakhtyar-notification</artifactId></dependency>
+
+    <dependency><groupId>com.sakhtyar</groupId><artifactId>sakhtyar-monitoring</artifactId></dependency>
+
+    <dependency><groupId>com.sakhtyar</groupId><artifactId>sakhtyar-web-bff</artifactId></dependency>
+    <dependency><groupId>com.sakhtyar</groupId><artifactId>sakhtyar-quality</artifactId><version>${project.version}</version></dependency>
 
     <dependency><groupId>org.springframework.boot</groupId><artifactId>spring-boot-starter-web</artifactId></dependency>
     <dependency><groupId>org.springframework.boot</groupId><artifactId>spring-boot-starter-data-jpa</artifactId></dependency>
@@ -46,6 +72,9 @@
     </dependency>
 
     <dependency><groupId>org.springframework.boot</groupId><artifactId>spring-boot-starter-test</artifactId><scope>test</scope></dependency>
+  
+    <dependency><groupId>com.sakhtyar</groupId><artifactId>sakhtyar-config</artifactId><version>${project.version}</version></dependency>
+    <dependency><groupId>com.sakhtyar</groupId><artifactId>sakhtyar-automation</artifactId><version>${project.version}</version></dependency>
   </dependencies>
 
   <build>
@@ -53,6 +82,12 @@
       <plugin>
         <groupId>org.springframework.boot</groupId>
         <artifactId>spring-boot-maven-plugin</artifactId>
+        <executions>
+          <execution><goals><goal>build-info</goal></goals></execution>
+        </executions>
+        <configuration>
+          <additionalProperties><sourceCommit>${sakhtyar.source-commit}</sourceCommit></additionalProperties>
+        </configuration>
       </plugin>
       <plugin>
         <groupId>org.apache.maven.plugins</groupId>

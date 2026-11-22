@@ -157,11 +157,20 @@ public class OwnerService {
     }
 
     private PropertyEntity requireProperty(UUID caseId) {
-        return propertyRepository.findByCaseId(caseId)
+        var auth = org.springframework.security.core.context.SecurityContextHolder.getContext().getAuthentication();
+        if (auth != null && auth.getAuthorities() != null && auth.getAuthorities().stream()
+                .anyMatch(a -> "ROLE_TESTER".equals(a.getAuthority()))) {
+            throw new ResponseStatusException(HttpStatus.FORBIDDEN,
+                "TESTER must use an isolated TEST owner executor");
+        }
+        PropertyEntity property = propertyRepository.findByCaseId(caseId)
                 .orElseThrow(() -> new ResponseStatusException(
                         HttpStatus.NOT_FOUND,
-                        "Property not found for case. Save property information first."
-                ));
+                        "Property not found for case. Save property information first."));
+        if (!"REAL".equals(property.getDataScope())) {
+            throw new ResponseStatusException(HttpStatus.NOT_FOUND, "Property not found.");
+        }
+        return property;
     }
 
     private OwnerEntity requireOwner(UUID propertyId, UUID ownerId) {

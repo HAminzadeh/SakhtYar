@@ -31,138 +31,271 @@ type AnyProps = Record<string, any>
 type InputEvent = ChangeEvent<HTMLInputElement | HTMLTextAreaElement>
 type InputKeyEvent = KeyboardEvent<HTMLInputElement | HTMLTextAreaElement>
 
-const unit = (value: any) => typeof value === 'number' ? value * 8 : value
-
-function pickResponsive(value: any) {
-  if (value == null || typeof value !== 'object' || Array.isArray(value)) return value
-  const width = typeof window === 'undefined' ? 1200 : window.innerWidth
-  if (width >= 1200 && value.xl != null) return value.xl
-  if (width >= 992 && value.lg != null) return value.lg
-  if (width >= 768 && value.md != null) return value.md
-  if (width >= 576 && value.sm != null) return value.sm
-  return value.xs ?? value.sm ?? value.md ?? value.lg ?? value.xl
+const colors: Record<string, string> = {
+  'primary.main': '#2563EB',
+  'primary.contrastText': '#FFFFFF',
+  'primary.50': '#EFF6FF',
+  'text.primary': '#101828',
+  'text.secondary': '#667085',
+  divider: '#E4E7EC',
+  'background.default': '#F6F8FC',
+  'background.paper': '#FFFFFF',
+  'grey.50': '#F9FAFB',
+  'grey.100': '#F2F4F7',
 }
 
-function sxToStyle(sx: any): React.CSSProperties {
-  if (!sx || typeof sx !== 'object' || Array.isArray(sx)) return {}
-  const s: AnyProps = { ...sx }
-  const out: AnyProps = {}
-  const direct = [
-    'width','height','minWidth','maxWidth','minHeight','maxHeight','display',
-    'position','top','right','bottom','left','zIndex','overflow','overflowX','overflowY',
-    'opacity','cursor','textAlign','flex','flexGrow','flexShrink','flexBasis','flexWrap',
-    'alignItems','alignSelf','justifyContent','placeItems','gap','rowGap','columnGap',
-    'fontSize','fontWeight','lineHeight','letterSpacing','whiteSpace','background',
-    'backgroundColor','color','border','borderTop','borderBottom','borderLeft','borderRight',
-    'borderColor','borderRadius','boxShadow','backdropFilter','transition',
-  ]
-  for (const key of direct) {
-    if (s[key] != null && typeof s[key] !== 'object') out[key] = pickResponsive(s[key])
-  }
-  if (s.bgcolor != null) out.backgroundColor = pickResponsive(s.bgcolor)
-  if (s.p != null) out.padding = unit(pickResponsive(s.p))
-  if (s.pt != null) out.paddingTop = unit(pickResponsive(s.pt))
-  if (s.pb != null) out.paddingBottom = unit(pickResponsive(s.pb))
-  if (s.pl != null) out.paddingLeft = unit(pickResponsive(s.pl))
-  if (s.pr != null) out.paddingRight = unit(pickResponsive(s.pr))
-  if (s.px != null) out.paddingInline = unit(pickResponsive(s.px))
-  if (s.py != null) out.paddingBlock = unit(pickResponsive(s.py))
-  if (s.m != null) out.margin = unit(pickResponsive(s.m))
-  if (s.mt != null) out.marginTop = unit(pickResponsive(s.mt))
-  if (s.mb != null) out.marginBottom = unit(pickResponsive(s.mb))
-  if (s.ml != null) out.marginLeft = unit(pickResponsive(s.ml))
-  if (s.mr != null) out.marginRight = unit(pickResponsive(s.mr))
-  if (s.mx != null) out.marginInline = unit(pickResponsive(s.mx))
-  if (s.my != null) out.marginBlock = unit(pickResponsive(s.my))
-  return out
-}
+const spacing = (value: any) =>
+  typeof value === 'number' ? value * 8 : value
 
-function mergeStyle(props: AnyProps, extra?: React.CSSProperties) {
-  return { ...sxToStyle(props.sx), ...extra, ...(props.style || {}) }
-}
+const radius = (value: any) =>
+  typeof value === 'number' ? value * 4 : value
 
-function clean(props: AnyProps) {
-  const {
-    sx, spacing, direction, alignItems, justifyContent, gap, bgcolor,
-    mt, mb, mx, my, p, px, py, pt, pb, component, fullWidth,
-    startIcon, endIcon, severity, variant, gutterBottom, fontWeight,
-    color, display, borderTop, borderColor, size, container, item,
-    ...rest
-  } = props
-  return rest
-}
+const resolveToken = (value: any) =>
+  typeof value === 'string' ? colors[value] ?? value : value
 
 function useViewport() {
   const [width, setWidth] = useState(() =>
     typeof window === 'undefined' ? 1200 : window.innerWidth,
   )
+
   useEffect(() => {
-    const fn = () => setWidth(window.innerWidth)
-    window.addEventListener('resize', fn)
-    return () => window.removeEventListener('resize', fn)
+    const onResize = () => setWidth(window.innerWidth)
+    window.addEventListener('resize', onResize)
+    return () => window.removeEventListener('resize', onResize)
   }, [])
+
   return width
 }
 
-export function Box({ component: Component = 'div', children, ...props }: AnyProps) {
-  return <Component {...clean(props)} style={mergeStyle(props)}>{children}</Component>
+function responsive(value: any, width: number) {
+  if (value == null || typeof value !== 'object' || Array.isArray(value)) {
+    return value
+  }
+
+  if (width >= 1200 && value.xl != null) return value.xl
+  if (width >= 992 && value.lg != null) return value.lg
+  if (width >= 768 && value.md != null) return value.md
+  if (width >= 576 && value.sm != null) return value.sm
+
+  return value.xs ?? value.sm ?? value.md ?? value.lg ?? value.xl
+}
+
+function systemStyle(source: AnyProps | undefined, width: number): React.CSSProperties {
+  if (!source || typeof source !== 'object' || Array.isArray(source)) return {}
+
+  const s = source
+  const out: AnyProps = {}
+
+  const plain = [
+    'width',
+    'height',
+    'minWidth',
+    'maxWidth',
+    'minHeight',
+    'maxHeight',
+    'display',
+    'position',
+    'top',
+    'right',
+    'bottom',
+    'left',
+    'zIndex',
+    'overflow',
+    'overflowX',
+    'overflowY',
+    'opacity',
+    'cursor',
+    'textAlign',
+    'flex',
+    'flexGrow',
+    'flexShrink',
+    'flexBasis',
+    'flexWrap',
+    'alignItems',
+    'alignSelf',
+    'justifyContent',
+    'placeItems',
+    'fontSize',
+    'fontWeight',
+    'lineHeight',
+    'letterSpacing',
+    'whiteSpace',
+    'background',
+    'boxShadow',
+    'backdropFilter',
+    'transition',
+  ]
+
+  for (const key of plain) {
+    if (s[key] != null) {
+      out[key] = responsive(s[key], width)
+    }
+  }
+
+  for (const key of ['color', 'backgroundColor', 'borderColor']) {
+    if (s[key] != null) {
+      out[key] = resolveToken(responsive(s[key], width))
+    }
+  }
+
+  if (s.bgcolor != null) {
+    out.backgroundColor = resolveToken(responsive(s.bgcolor, width))
+  }
+
+  for (const key of ['gap', 'rowGap', 'columnGap']) {
+    if (s[key] != null) {
+      out[key] = spacing(responsive(s[key], width))
+    }
+  }
+
+  if (s.borderRadius != null) {
+    out.borderRadius = radius(responsive(s.borderRadius, width))
+  }
+
+  for (const key of ['border', 'borderTop', 'borderBottom', 'borderLeft', 'borderRight']) {
+    if (s[key] != null) {
+      const value = responsive(s[key], width)
+      out[key] = typeof value === 'number' ? `${value}px solid` : value
+    }
+  }
+
+  const paddingMap: Record<string, string> = {
+    p: 'padding',
+    pt: 'paddingTop',
+    pb: 'paddingBottom',
+    pl: 'paddingLeft',
+    pr: 'paddingRight',
+    px: 'paddingInline',
+    py: 'paddingBlock',
+  }
+
+  const marginMap: Record<string, string> = {
+    m: 'margin',
+    mt: 'marginTop',
+    mb: 'marginBottom',
+    ml: 'marginLeft',
+    mr: 'marginRight',
+    mx: 'marginInline',
+    my: 'marginBlock',
+  }
+
+  for (const [key, cssKey] of Object.entries(paddingMap)) {
+    if (s[key] != null) {
+      out[cssKey] = spacing(responsive(s[key], width))
+    }
+  }
+
+  for (const [key, cssKey] of Object.entries(marginMap)) {
+    if (s[key] != null) {
+      out[cssKey] = spacing(responsive(s[key], width))
+    }
+  }
+
+  return out
+}
+
+const systemKeys = new Set([
+  'sx','spacing','direction','alignItems','alignSelf','justifyContent','gap',
+  'rowGap','columnGap','bgcolor','m','mt','mb','ml','mr','mx','my',
+  'p','px','py','pt','pb','pl','pr','component','fullWidth','startIcon',
+  'endIcon','severity','variant','gutterBottom','fontWeight','color','display',
+  'border','borderTop','borderBottom','borderLeft','borderRight','borderColor',
+  'borderRadius','size','container','item','width','height','minWidth','maxWidth',
+  'minHeight','maxHeight','position','top','right','bottom','left','zIndex',
+  'overflow','overflowX','overflowY','opacity','cursor','textAlign','flex',
+  'flexGrow','flexShrink','flexBasis','flexWrap','placeItems','fontSize',
+  'lineHeight','letterSpacing','whiteSpace','background','backgroundColor',
+  'boxShadow','backdropFilter','transition','scrollButtons',
+  'allowScrollButtonsMobile','iconPosition','showLabels','elevation','maxWidth',
+])
+
+function clean(props: AnyProps) {
+  const rest: AnyProps = {}
+  for (const [key, value] of Object.entries(props)) {
+    if (!systemKeys.has(key)) rest[key] = value
+  }
+  return rest
+}
+
+function mergedStyle(
+  props: AnyProps,
+  width: number,
+  extra?: React.CSSProperties,
+): React.CSSProperties {
+  return {
+    ...systemStyle(props, width),
+    ...systemStyle(props.sx, width),
+    ...extra,
+    ...(props.style ?? {}),
+  }
+}
+
+export function Box({
+  component: Component = 'div',
+  children,
+  ...props
+}: AnyProps) {
+  const width = useViewport()
+  return (
+    <Component {...clean(props)} style={mergedStyle(props, width)}>
+      {children}
+    </Component>
+  )
 }
 
 export function Stack({
+  component: Component = 'div',
   children,
   direction = 'column',
-  spacing,
+  spacing: spacingValue,
   gap,
   alignItems,
   justifyContent,
   ...props
 }: AnyProps) {
   const width = useViewport()
-  const resolve = (v: any) => {
-    if (!v || typeof v !== 'object' || Array.isArray(v)) return v
-    if (width >= 1200 && v.xl != null) return v.xl
-    if (width >= 992 && v.lg != null) return v.lg
-    if (width >= 768 && v.md != null) return v.md
-    if (width >= 576 && v.sm != null) return v.sm
-    return v.xs ?? 'column'
-  }
+  const resolvedDirection = responsive(direction, width)
+  const resolvedGap =
+    gap != null
+      ? spacing(responsive(gap, width))
+      : spacingValue != null
+        ? spacing(responsive(spacingValue, width))
+        : undefined
 
   return (
-    <div
+    <Component
       {...clean(props)}
-      style={mergeStyle(props, {
+      style={mergedStyle(props, width, {
         display: 'flex',
-        flexDirection: resolve(direction),
-        gap: gap != null ? unit(resolve(gap)) : spacing != null ? unit(resolve(spacing)) : undefined,
-        alignItems: resolve(alignItems),
-        justifyContent: resolve(justifyContent),
+        flexDirection: resolvedDirection,
+        gap: resolvedGap,
+        alignItems: responsive(alignItems, width),
+        justifyContent: responsive(justifyContent, width),
       })}
     >
       {children}
-    </div>
+    </Component>
   )
 }
 
-export function Grid({ children, container, spacing, size, ...props }: AnyProps) {
+export function Grid({
+  children,
+  container,
+  spacing: spacingValue,
+  size,
+  ...props
+}: AnyProps) {
   const width = useViewport()
-  const resolveSize = () => {
-    if (typeof size === 'number') return size
-    if (!size) return 12
-    if (width >= 1200 && size.xl != null) return size.xl
-    if (width >= 992 && size.lg != null) return size.lg
-    if (width >= 768 && size.md != null) return size.md
-    if (width >= 576 && size.sm != null) return size.sm
-    return size.xs ?? 12
-  }
 
   if (container) {
+    const gap = spacing(responsive(spacingValue ?? 0, width))
     return (
       <div
         {...clean(props)}
-        style={mergeStyle(props, {
-          display: 'flex',
-          flexWrap: 'wrap',
-          gap: unit(pickResponsive(spacing ?? 0)),
+        style={mergedStyle(props, width, {
+          display: 'grid',
+          gridTemplateColumns: 'repeat(12, minmax(0, 1fr))',
+          gap,
         })}
       >
         {children}
@@ -170,13 +303,15 @@ export function Grid({ children, container, spacing, size, ...props }: AnyProps)
     )
   }
 
-  const n = resolveSize()
+  const resolved =
+    typeof size === 'number' ? size : responsive(size ?? 12, width) ?? 12
+
   return (
     <div
       {...clean(props)}
-      style={mergeStyle(props, {
-        flex: `0 0 calc(${(n / 12) * 100}% - 12px)`,
-        maxWidth: `calc(${(n / 12) * 100}% - 12px)`,
+      style={mergedStyle(props, width, {
+        gridColumn: `span ${Math.max(1, Math.min(12, Number(resolved)))} / span ${Math.max(1, Math.min(12, Number(resolved)))}`,
+        minWidth: 0,
       })}
     >
       {children}
@@ -193,8 +328,9 @@ export function Typography({
   gutterBottom,
   ...props
 }: AnyProps) {
-  const style = mergeStyle(props, {
-    color: color === 'text.secondary' ? '#667085' : undefined,
+  const width = useViewport()
+  const style = mergedStyle(props, width, {
+    color: color ? resolveToken(color) : undefined,
     fontWeight,
     marginBottom: gutterBottom ? 8 : undefined,
   })
@@ -203,11 +339,35 @@ export function Typography({
     const C = component
     return <C {...clean(props)} style={style}>{children}</C>
   }
-  if (variant === 'h4') return <AntTypography.Title level={2} style={style}>{children}</AntTypography.Title>
-  if (variant === 'h5') return <AntTypography.Title level={3} style={style}>{children}</AntTypography.Title>
-  if (variant === 'h6') return <AntTypography.Title level={5} style={style}>{children}</AntTypography.Title>
-  if (variant === 'caption') return <AntTypography.Text type="secondary" style={{ fontSize: 12, ...style }}>{children}</AntTypography.Text>
-  return <AntTypography.Text style={style}>{children}</AntTypography.Text>
+
+  if (variant === 'h4') {
+    return <AntTypography.Title level={2} style={style}>{children}</AntTypography.Title>
+  }
+  if (variant === 'h5') {
+    return <AntTypography.Title level={3} style={style}>{children}</AntTypography.Title>
+  }
+  if (variant === 'h6') {
+    return <AntTypography.Title level={5} style={style}>{children}</AntTypography.Title>
+  }
+  if (variant === 'caption') {
+    return (
+      <AntTypography.Text
+        type={color === 'text.secondary' ? 'secondary' : undefined}
+        style={{ fontSize: 12, ...style }}
+      >
+        {children}
+      </AntTypography.Text>
+    )
+  }
+
+  return (
+    <AntTypography.Text
+      type={color === 'text.secondary' ? 'secondary' : undefined}
+      style={style}
+    >
+      {children}
+    </AntTypography.Text>
+  )
 }
 
 export function Button({
@@ -220,16 +380,40 @@ export function Button({
   component: Component,
   to,
   children,
+  type: htmlType,
   ...props
 }: AnyProps) {
+  const width = useViewport()
+
   const button = (
     <AntButton
       {...clean(props)}
       danger={color === 'error'}
-      type={variant === 'contained' ? 'primary' : variant === 'text' ? 'text' : 'default'}
-      size={size === 'large' ? 'large' : size === 'small' ? 'small' : 'middle'}
+      type={
+        variant === 'contained'
+          ? 'primary'
+          : variant === 'text'
+            ? 'text'
+            : 'default'
+      }
+      htmlType={
+        htmlType === 'submit' || htmlType === 'reset'
+          ? htmlType
+          : 'button'
+      }
+      size={
+        size === 'large'
+          ? 'large'
+          : size === 'small'
+            ? 'small'
+            : 'middle'
+      }
       icon={startIcon}
-      style={mergeStyle(props, fullWidth ? { width: '100%' } : undefined)}
+      style={mergedStyle(
+        props,
+        width,
+        fullWidth ? { width: '100%' } : undefined,
+      )}
     >
       {children}
       {endIcon ? <span style={{ marginInlineStart: 6 }}>{endIcon}</span> : null}
@@ -237,13 +421,18 @@ export function Button({
   )
 
   if (Component) {
-    return <Component to={to} style={{ textDecoration: 'none' }}>{button}</Component>
+    return (
+      <Component to={to} style={{ textDecoration: 'none' }}>
+        {button}
+      </Component>
+    )
   }
 
   return button
 }
 
 export function IconButton({ children, color, ...props }: AnyProps) {
+  const width = useViewport()
   return (
     <AntButton
       {...clean(props)}
@@ -251,17 +440,19 @@ export function IconButton({ children, color, ...props }: AnyProps) {
       type="text"
       shape="circle"
       icon={children}
-      style={mergeStyle(props)}
+      style={mergedStyle(props, width)}
     />
   )
 }
 
 export function Card({ children, variant, ...props }: AnyProps) {
+  const width = useViewport()
   return (
     <AntCard
       {...clean(props)}
       bordered={variant === 'outlined' || props.bordered !== false}
-      style={mergeStyle(props)}
+      styles={{ body: { padding: 0 } }}
+      style={mergedStyle(props, width)}
     >
       {children}
     </AntCard>
@@ -269,17 +460,38 @@ export function Card({ children, variant, ...props }: AnyProps) {
 }
 
 export function CardContent({ children, ...props }: AnyProps) {
-  return <div {...clean(props)} style={mergeStyle(props)}>{children}</div>
+  const width = useViewport()
+  const hasOwnPadding =
+    props?.sx?.p != null ||
+    props?.sx?.px != null ||
+    props?.sx?.py != null ||
+    props?.p != null ||
+    props?.px != null ||
+    props?.py != null
+
+  return (
+    <div
+      {...clean(props)}
+      style={mergedStyle(
+        props,
+        width,
+        hasOwnPadding ? undefined : { padding: width < 576 ? 16 : 24 },
+      )}
+    >
+      {children}
+    </div>
+  )
 }
 
 export function CardActionArea({ children, onClick, ...props }: AnyProps) {
+  const width = useViewport()
   return (
     <div
       role="button"
       tabIndex={0}
       onClick={onClick}
       {...clean(props)}
-      style={mergeStyle(props, { cursor: 'pointer' })}
+      style={mergedStyle(props, width, { cursor: 'pointer' })}
     >
       {children}
     </div>
@@ -287,14 +499,33 @@ export function CardActionArea({ children, onClick, ...props }: AnyProps) {
 }
 
 export function Paper({ children, ...props }: AnyProps) {
-  return <AntCard {...clean(props)} style={mergeStyle(props)}>{children}</AntCard>
+  const width = useViewport()
+  return (
+    <div
+      {...clean(props)}
+      style={mergedStyle(props, width, {
+        background: '#fff',
+      })}
+    >
+      {children}
+    </div>
+  )
 }
 
-export function Alert({ severity = 'info', children, onClose, ...props }: AnyProps) {
+export function Alert({
+  severity = 'info',
+  children,
+  onClose,
+  ...props
+}: AnyProps) {
   const type =
-    severity === 'error' ? 'error' :
-    severity === 'warning' ? 'warning' :
-    severity === 'success' ? 'success' : 'info'
+    severity === 'error'
+      ? 'error'
+      : severity === 'warning'
+        ? 'warning'
+        : severity === 'success'
+          ? 'success'
+          : 'info'
 
   return (
     <AntAlert
@@ -309,11 +540,17 @@ export function Alert({ severity = 'info', children, onClose, ...props }: AnyPro
 }
 
 export function Chip({ label, color, icon, onClick, ...props }: AnyProps) {
+  const width = useViewport()
   const antColor =
-    color === 'success' ? 'success' :
-    color === 'warning' ? 'warning' :
-    color === 'error' ? 'error' :
-    color === 'primary' ? 'blue' : undefined
+    color === 'success'
+      ? 'success'
+      : color === 'warning'
+        ? 'warning'
+        : color === 'error'
+          ? 'error'
+          : color === 'primary'
+            ? 'blue'
+            : undefined
 
   return (
     <Tag
@@ -321,7 +558,11 @@ export function Chip({ label, color, icon, onClick, ...props }: AnyProps) {
       color={antColor}
       icon={icon}
       onClick={onClick}
-      style={mergeStyle(props, onClick ? { cursor: 'pointer' } : undefined)}
+      style={mergedStyle(
+        props,
+        width,
+        onClick ? { cursor: 'pointer' } : undefined,
+      )}
     >
       {label}
     </Tag>
@@ -333,15 +574,29 @@ export function CircularProgress({ size = 24 }: { size?: number }) {
 }
 
 export function LinearProgress({ value = 0, ...props }: AnyProps) {
-  return <Progress percent={value} showInfo={false} strokeLinecap="round" style={mergeStyle(props)} />
+  const width = useViewport()
+  return (
+    <Progress
+      percent={value}
+      showInfo={false}
+      strokeLinecap="round"
+      style={mergedStyle(props, width)}
+    />
+  )
 }
 
 export function Divider(props: AnyProps) {
-  return <AntDivider {...clean(props)} style={mergeStyle(props)} />
+  const width = useViewport()
+  return <AntDivider {...clean(props)} style={mergedStyle(props, width)} />
 }
 
 export function Avatar({ children, ...props }: AnyProps) {
-  return <AntAvatar {...clean(props)} style={mergeStyle(props)}>{children}</AntAvatar>
+  const width = useViewport()
+  return (
+    <AntAvatar {...clean(props)} style={mergedStyle(props, width)}>
+      {children}
+    </AntAvatar>
+  )
 }
 
 export function Tooltip({ title, children, ...props }: AnyProps) {
@@ -356,14 +611,25 @@ export function Checkbox({
   checked?: boolean
   onChange?: (event: { target: { checked: boolean } }) => void
 } & AnyProps) {
-  return <AntCheckbox {...clean(props)} checked={checked} onChange={onChange as any} />
+  return (
+    <AntCheckbox
+      {...clean(props)}
+      checked={checked}
+      onChange={onChange as any}
+    />
+  )
 }
 
 export function FormControlLabel({ control, label, ...props }: AnyProps) {
+  const width = useViewport()
   return (
     <label
       {...clean(props)}
-      style={mergeStyle(props, { display: 'flex', gap: 8, alignItems: 'center' })}
+      style={mergedStyle(props, width, {
+        display: 'flex',
+        gap: 8,
+        alignItems: 'center',
+      })}
     >
       {control}
       <span>{label}</span>
@@ -414,11 +680,12 @@ export function TextField({
   ...props
 }: TextFieldProps) {
   const common: AnyProps = {
-    value: value ?? '',
+    ...clean(props),
+    ...(value !== undefined ? { value: value ?? '' } : {}),
     placeholder,
     disabled,
     status: error ? 'error' : undefined,
-    style: fullWidth === false ? undefined : { width: '100%' },
+    style: { width: fullWidth === false ? undefined : '100%' },
   }
 
   let control: ReactNode
@@ -473,11 +740,24 @@ export function TextField({
   }
 
   return (
-    <div style={mergeStyle(props, { width: fullWidth === false ? undefined : '100%' })}>
-      {label ? <div style={{ marginBottom: 6, fontSize: 13, fontWeight: 600 }}>{label}</div> : null}
+    <div style={{ width: fullWidth === false ? undefined : '100%' }}>
+      {label ? (
+        <div
+          className="sakhtyar-field-label"
+          style={{ marginBottom: 7, fontWeight: 700 }}
+        >
+          {label}
+        </div>
+      ) : null}
       {control}
       {helperText ? (
-        <div style={{ marginTop: 4, fontSize: 12, color: error ? '#ff4d4f' : '#667085' }}>
+        <div
+          style={{
+            marginTop: 5,
+            fontSize: 12,
+            color: error ? '#DC2626' : '#667085',
+          }}
+        >
           {helperText}
         </div>
       ) : null}
@@ -485,13 +765,24 @@ export function TextField({
   )
 }
 
-export function DialogTitle({ children }: { children?: ReactNode }) { return <>{children}</> }
+export function DialogTitle({ children }: { children?: ReactNode }) {
+  return <>{children}</>
+}
 ;(DialogTitle as AnyProps).__dialogPart = 'title'
 
-export function DialogContent({ children }: { children?: ReactNode }) { return <>{children}</> }
+export function DialogContent({ children }: { children?: ReactNode }) {
+  return <>{children}</>
+}
 ;(DialogContent as AnyProps).__dialogPart = 'content'
 
-export function DialogActions({ children }: { children?: ReactNode; sx?: any }) { return <>{children}</> }
+export function DialogActions({
+  children,
+}: {
+  children?: ReactNode
+  sx?: any
+}) {
+  return <>{children}</>
+}
 ;(DialogActions as AnyProps).__dialogPart = 'actions'
 
 export function Dialog({
@@ -523,11 +814,27 @@ export function Dialog({
       onCancel={onClose}
       title={title}
       footer={
-        actions
-          ? <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8 }}>{actions}</div>
-          : null
+        actions ? (
+          <div
+            style={{
+              display: 'flex',
+              justifyContent: 'flex-end',
+              gap: 8,
+            }}
+          >
+            {actions}
+          </div>
+        ) : null
       }
-      width={maxWidth === 'sm' ? 620 : maxWidth === 'md' ? 820 : 720}
+      width={
+        maxWidth === 'xs'
+          ? 460
+          : maxWidth === 'sm'
+            ? 620
+            : maxWidth === 'md'
+              ? 820
+              : 720
+      }
       destroyOnHidden
     >
       {content}
@@ -535,7 +842,12 @@ export function Dialog({
   )
 }
 
-export function Tab(_: { value: string; label: ReactNode; icon?: ReactNode; [key: string]: any }) {
+export function Tab(_: {
+  value: string
+  label: ReactNode
+  icon?: ReactNode
+  [key: string]: any
+}) {
   return null
 }
 ;(Tab as AnyProps).__tab = true
@@ -551,13 +863,21 @@ export function Tabs({
   children?: ReactNode
   [key: string]: any
 }) {
+  const width = useViewport()
   const items = Children.toArray(children)
     .filter(isValidElement)
     .map((child: any) => ({
       key: String(child.props.value),
       label: (
-        <span>
-          {child.props.icon ? <span style={{ marginInlineEnd: 6 }}>{child.props.icon}</span> : null}
+        <span
+          style={{
+            display: 'inline-flex',
+            alignItems: 'center',
+            gap: 7,
+            whiteSpace: 'nowrap',
+          }}
+        >
+          {child.props.icon}
           {child.props.label}
         </span>
       ),
@@ -568,24 +888,42 @@ export function Tabs({
       activeKey={String(value)}
       onChange={(key) => onChange?.(undefined, key)}
       items={items}
-      {...clean(props)}
+      tabBarGutter={width < 576 ? 4 : 12}
+      style={mergedStyle(props, width)}
     />
   )
 }
 
-export function Skeleton({ height, ...props }: { height?: number; [key: string]: any }) {
-  return <AntSkeleton.Node active style={{ width: '100%', height: height ?? 120, ...mergeStyle(props) }} />
+export function Skeleton({
+  height,
+  ...props
+}: {
+  height?: number
+  [key: string]: any
+}) {
+  const width = useViewport()
+  return (
+    <AntSkeleton.Node
+      active
+      style={{
+        width: '100%',
+        height: height ?? 120,
+        ...mergedStyle(props, width),
+      }}
+    />
+  )
 }
 
 export function AppBar({ children, ...props }: AnyProps) {
+  const width = useViewport()
   return (
     <header
       {...clean(props)}
-      style={mergeStyle(props, {
+      style={mergedStyle(props, width, {
         position: 'sticky',
         top: 0,
         zIndex: 1000,
-        background: '#fff',
+        background: 'rgba(255,255,255,.96)',
       })}
     >
       {children}
@@ -594,14 +932,15 @@ export function AppBar({ children, ...props }: AnyProps) {
 }
 
 export function Toolbar({ children, ...props }: AnyProps) {
+  const width = useViewport()
   return (
     <div
       {...clean(props)}
-      style={mergeStyle(props, {
+      style={mergedStyle(props, width, {
         display: 'flex',
         alignItems: 'center',
         minHeight: 64,
-        paddingInline: 20,
+        paddingInline: width < 576 ? 14 : 22,
       })}
     >
       {children}
@@ -610,10 +949,11 @@ export function Toolbar({ children, ...props }: AnyProps) {
 }
 
 export function Container({ children, ...props }: AnyProps) {
+  const width = useViewport()
   return (
     <main
       {...clean(props)}
-      style={mergeStyle(props, {
+      style={mergedStyle(props, width, {
         width: '100%',
         marginInline: 'auto',
       })}
@@ -634,10 +974,11 @@ export function BottomNavigation({
   onChange?: (event: unknown, value: string) => void
   [key: string]: any
 }) {
+  const width = useViewport()
   return (
     <nav
       {...clean(props)}
-      style={mergeStyle(props, {
+      style={mergedStyle(props, width, {
         display: 'flex',
         justifyContent: 'space-around',
       })}
@@ -679,14 +1020,21 @@ export function BottomNavigationAction({
 }
 
 export function List({ children, ...props }: AnyProps) {
-  return <div {...clean(props)} style={mergeStyle(props)}>{children}</div>
+  const width = useViewport()
+  return <div {...clean(props)} style={mergedStyle(props, width)}>{children}</div>
 }
 
-export function ListItem({ children, secondaryAction, divider, ...props }: AnyProps) {
+export function ListItem({
+  children,
+  secondaryAction,
+  divider,
+  ...props
+}: AnyProps) {
+  const width = useViewport()
   return (
     <div
       {...clean(props)}
-      style={mergeStyle(props, {
+      style={mergedStyle(props, width, {
         display: 'flex',
         justifyContent: 'space-between',
         alignItems: 'center',
@@ -700,14 +1048,20 @@ export function ListItem({ children, secondaryAction, divider, ...props }: AnyPr
   )
 }
 
-export function ListItemButton({ children, divider, onClick, ...props }: AnyProps) {
+export function ListItemButton({
+  children,
+  divider,
+  onClick,
+  ...props
+}: AnyProps) {
+  const width = useViewport()
   return (
     <div
       role="button"
       tabIndex={0}
       onClick={onClick}
       {...clean(props)}
-      style={mergeStyle(props, {
+      style={mergedStyle(props, width, {
         cursor: 'pointer',
         padding: '10px 12px',
         borderBottom: divider ? '1px solid #f0f0f0' : undefined,
@@ -721,21 +1075,34 @@ export function ListItemButton({ children, divider, onClick, ...props }: AnyProp
 export function ListItemText({ primary, secondary }: AnyProps) {
   return (
     <div>
-      <div style={{ fontWeight: 600 }}>{primary}</div>
-      {secondary ? <div style={{ color: '#667085', fontSize: 12, marginTop: 4 }}>{secondary}</div> : null}
+      <div style={{ fontWeight: 700 }}>{primary}</div>
+      {secondary ? (
+        <div style={{ color: '#667085', fontSize: 12, marginTop: 4 }}>
+          {secondary}
+        </div>
+      ) : null}
     </div>
   )
 }
 
 export function TableContainer({ children, ...props }: AnyProps) {
-  return <div {...clean(props)} style={mergeStyle(props, { overflowX: 'auto' })}>{children}</div>
+  const width = useViewport()
+  return (
+    <div
+      {...clean(props)}
+      style={mergedStyle(props, width, { overflowX: 'auto' })}
+    >
+      {children}
+    </div>
+  )
 }
 
 export function Table({ children, ...props }: AnyProps) {
+  const width = useViewport()
   return (
     <table
       {...clean(props)}
-      style={mergeStyle(props, {
+      style={mergedStyle(props, width, {
         width: '100%',
         borderCollapse: 'collapse',
       })}
@@ -745,15 +1112,22 @@ export function Table({ children, ...props }: AnyProps) {
   )
 }
 
-export function TableHead({ children }: AnyProps) { return <thead>{children}</thead> }
-export function TableBody({ children }: AnyProps) { return <tbody>{children}</tbody> }
-export function TableRow({ children, ...props }: AnyProps) { return <tr {...clean(props)}>{children}</tr> }
+export function TableHead({ children }: AnyProps) {
+  return <thead>{children}</thead>
+}
+export function TableBody({ children }: AnyProps) {
+  return <tbody>{children}</tbody>
+}
+export function TableRow({ children, ...props }: AnyProps) {
+  return <tr {...clean(props)}>{children}</tr>
+}
 
 export function TableCell({ children, align, colSpan, ...props }: AnyProps) {
+  const width = useViewport()
   return (
     <td
       colSpan={colSpan}
-      style={mergeStyle(props, {
+      style={mergedStyle(props, width, {
         padding: '12px 10px',
         borderBottom: '1px solid #f0f0f0',
         textAlign: align === 'left' ? 'left' : undefined,

@@ -1,0 +1,28 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://sakhtyar.local/schemas/agent-request-v2.schema.json",
+  "title": "SakhtYar Canonical Agent Request",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schemaVersion",
+    "requestId",
+    "correlationId",
+    "intent",
+    "context",
+    "data",
+    "metadata",
+    "createdAt"
+  ],
+  "properties": {
+    "schemaVersion": { "const": "2.0" },
+    "requestId": { "type": "string", "format": "uuid" },
+    "correlationId": { "type": "string", "format": "uuid" },
+    "projectId": { "type": ["string", "null"], "format": "uuid" },
+    "intent": { "type": "string", "minLength": 1 },
+    "context": { "type": "object" },
+    "data": { "type": "object" },
+    "metadata": { "type": "object" },
+    "createdAt": { "type": "string", "format": "date-time" }
+  }
+}

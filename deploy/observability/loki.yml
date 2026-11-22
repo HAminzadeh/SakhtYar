@@ -20,3 +20,12 @@ schema_config:
       index:
         prefix: index_
         period: 24h
+
+# Local single-binary filesystem retention; validate against installed Loki before deployment.
+compactor:
+  working_directory: /loki/compactor
+  compaction_interval: 10m
+  retention_enabled: true
+  delete_request_store: filesystem
+limits_config:
+  retention_period: 168h

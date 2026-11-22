@@ -1,0 +1,11 @@
+{
+  "checkV2ray" : true,
+  "checkProxy" : true,
+  "checkGermany" : true,
+  "checkRouter" : true,
+  "rememberSessions" : true,
+  "logDiagnostics" : true,
+  "monitorConnection" : true,
+  "usageStatus" : true,
+  "language" : "fa"
+}

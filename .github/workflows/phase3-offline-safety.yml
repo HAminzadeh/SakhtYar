@@ -1,0 +1,60 @@
+name: Phase3 Offline Source Contracts (Not Business E2E)
+on:
+  push:
+    branches: [v2]
+  pull_request:
+    branches: [v2]
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  offline-contracts:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '21'
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+      - name: Four domain oracles (no app, DB or network)
+        run: |
+          mkdir -p /tmp/sakhtyar-phase3-classes
+          javac -encoding UTF-8 -d /tmp/sakhtyar-phase3-classes \
+            backend/modules/quality/src/main/java/com/sakhtyar/quality/phase3/Phase3OfflineContractEngine.java \
+            backend/modules/quality/src/main/java/com/sakhtyar/quality/phase3/Phase3ScenarioSpecification.java \
+            tests/phase3/Phase3OfflineSmoke.java
+          java -cp /tmp/sakhtyar-phase3-classes Phase3OfflineSmoke
+      - name: Verify 24 scenario inventory is honest and BLOCKED
+        run: node tests/phase3/phase3_readiness.contract.test.mjs
+      - name: Existing signed evidence verifier regression
+        run: node tests/phase06/proof_verifier.contract.test.mjs
+      - name: Existing release fail-closed gate regression
+        run: node tests/phase06/release_gate.contract.test.mjs
+      - name: Save source inventory only, never release approval
+        run: node scripts/phase3_release_readiness.mjs
+      - uses: actions/upload-artifact@v4
+        with:
+          name: phase3-offline-readiness-blocked
+          path: .final-e2e-reports/phase3-offline-readiness.json
+          retention-days: 7
+  synthetic-browser:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+      - name: Install isolated Playwright harness dependencies
+        working-directory: tests/phase06/browser
+        run: npm install --no-audit --no-fund --ignore-scripts
+      - name: Install disposable Chromium
+        working-directory: tests/phase06/browser
+        run: npx playwright install --with-deps chromium
+      - name: Synthetic RTL/viewport only, no application server or credentials
+        working-directory: tests/phase06/browser
+        run: npx playwright test phase3.synthetic.spec.mjs

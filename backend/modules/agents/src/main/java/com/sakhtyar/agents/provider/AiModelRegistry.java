@@ -28,6 +28,13 @@ public class AiModelRegistry {
         this.providers = Map.copyOf(values);
     }
 
+    public Optional<AiModelProvider> provider(String id) {
+        if (id == null || id.isBlank()) return Optional.empty();
+        return Optional.ofNullable(providers.get(id.trim().toLowerCase()));
+    }
+
+    public List<String> registeredProviderIds() { return providers.keySet().stream().sorted().toList(); }
+
     public Optional<AiModelProvider> activeProvider() {
         if (!properties.isEnabled()) {
             return Optional.empty();
@@ -73,10 +80,7 @@ public class AiModelRegistry {
     }
 
     private String safeMessage(RuntimeException ex) {
-        String message = ex.getMessage();
-        return message == null || message.isBlank()
-                ? ex.getClass().getSimpleName()
-                : message;
+        return ex.getClass().getSimpleName();
     }
 
     public record AiRuntimeStatus(

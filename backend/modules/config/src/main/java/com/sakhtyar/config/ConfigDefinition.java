@@ -1,0 +1,2 @@
+package com.sakhtyar.config;
+public record ConfigDefinition(String key,String category,String labelFa,String labelEn,String descriptionFa,String descriptionEn,String dataType,boolean secret,String applyMode,String defaultValue,String propertyName,String envName,boolean bootstrap,boolean required) {}

@@ -1,0 +1,36 @@
+name: Phase08 Phase1 fail-closed safety contracts
+on:
+  push:
+    branches: [v2]
+  pull_request:
+    branches: [v2]
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  offline-admission-contracts:
+    runs-on: ubuntu-latest
+    timeout-minutes: 18
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '21'
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+      - name: Check pre-write safety source contracts
+        run: node tests/phase08/source_contract.mjs
+      - name: Execute only offline JUnit safety tests (no application startup)
+        env:
+          APP_DEV_SEED_ENABLED: 'false'
+          SPRING_DOCKER_COMPOSE_ENABLED: 'false'
+          APP_T10_FIXTURE_ENABLE_ROLE_BOOTSTRAP: 'false'
+        working-directory: backend
+        run: >-
+          mvn -B -ntp -pl modules/quality -am
+          -Dtest=Phase08SafetyAdmissionTest,Phase08SyntheticFixturePlanTest,Phase08SafetyReadinessControllerTest,Phase08BusinessAdmissionBeforeWriteTest
+          -Dsurefire.failIfNoSpecifiedTests=false
+          -Dsakhtyar.source-commit=${{ github.sha }}
+          test

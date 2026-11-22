@@ -1,0 +1,8 @@
+package com.sakhtyar.scenario.domain;
+import jakarta.persistence.*; import java.math.BigDecimal; import java.util.UUID;
+@Entity @Table(name="scenario_cost_snapshot_line")
+public class ScenarioCostSnapshotLineEntity {
+ @Id private UUID id; @Column(name="snapshot_id",nullable=false) private UUID snapshotId; @Column(name="scenario_item_id",nullable=false) private UUID scenarioItemId; @Column(name="assembly_id",nullable=false) private UUID assemblyId; @Column(name="assembly_estimate_id",nullable=false) private UUID assemblyEstimateId; @Column(nullable=false,precision=20,scale=6) private BigDecimal quantity; @Column(name="unit_cost",nullable=false,precision=20,scale=2) private BigDecimal unitCost; @Column(name="line_total",nullable=false,precision=20,scale=2) private BigDecimal lineTotal;
+ protected ScenarioCostSnapshotLineEntity(){} public ScenarioCostSnapshotLineEntity(UUID id,UUID snapshotId,UUID scenarioItemId,UUID assemblyId,UUID assemblyEstimateId,BigDecimal quantity,BigDecimal unitCost,BigDecimal lineTotal){this.id=id;this.snapshotId=snapshotId;this.scenarioItemId=scenarioItemId;this.assemblyId=assemblyId;this.assemblyEstimateId=assemblyEstimateId;this.quantity=quantity;this.unitCost=unitCost;this.lineTotal=lineTotal;}
+ public UUID getId(){return id;} public UUID getSnapshotId(){return snapshotId;} public UUID getScenarioItemId(){return scenarioItemId;} public UUID getAssemblyId(){return assemblyId;} public UUID getAssemblyEstimateId(){return assemblyEstimateId;} public BigDecimal getQuantity(){return quantity;} public BigDecimal getUnitCost(){return unitCost;} public BigDecimal getLineTotal(){return lineTotal;}
+}

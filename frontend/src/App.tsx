@@ -1,3 +1,5 @@
+import { HelpCenterPage } from './pages/HelpCenterPage';
+import PlatformConfigPage from './pages/PlatformConfigPage';
 import { Navigate, Route, Routes } from 'react-router-dom'
 import { AppShell } from './app/AppShell'
 import { PermissionRoute } from './auth/PermissionRoute'
@@ -8,6 +10,19 @@ import { CasesPage } from './pages/CasesPage'
 import { LoginPage } from './pages/LoginPage'
 import { RegisterPage } from './pages/RegisterPage'
 import { UsersPage } from './pages/UsersPage'
+import { PreferencesPage } from './pages/PreferencesPage'
+import { AiManagementPage } from './pages/AiManagementPage'
+import { OperationsPage } from './pages/OperationsPage'
+import { QualityCenterPage } from './pages/QualityCenterPage'
+import { SimulationCenterPage } from './pages/SimulationCenterPage'
+import { EngineeringHubPage } from './pages/EngineeringHubPage'
+import { KnowledgeAdminPage } from './pages/KnowledgeAdminPage'
+import { KnowledgeImportPage } from './pages/KnowledgeImportPage'
+
+import { Phase517MarketPage } from './pages/Phase517MarketPage'
+import { Phase517BuildersPage } from './pages/Phase517BuildersPage'
+import { Phase517EventsPage } from './pages/Phase517EventsPage'
+import { Phase517AgentsPage } from './pages/Phase517AgentsPage'
 
 export default function App() {
   return (
@@ -18,19 +33,49 @@ export default function App() {
       <Route element={<ProtectedRoute />}>
         <Route element={<AppShell />}>
           <Route path="/account" element={<AccountPage />} />
+          <Route element={<PermissionRoute permission="USER_MANAGE" />}> 
+            <Route path="/admin/config" element={<PlatformConfigPage />} />
+          </Route>
+<Route path="/settings" element={<PreferencesPage />} />
+          <Route path="/help" element={<HelpCenterPage />} />
 
           <Route element={<PermissionRoute permission="CASE_READ" />}>
             <Route path="/cases" element={<CasesPage />} />
             <Route path="/cases/:id" element={<CaseDetailPage />} />
+            <Route path="/market" element={<Phase517MarketPage />} />
           </Route>
 
           <Route element={<PermissionRoute permission="USER_MANAGE" />}>
             <Route path="/admin/users" element={<UsersPage />} />
+            <Route path="/admin/builders" element={<Phase517BuildersPage />} />
+            <Route path="/admin/events" element={<Phase517EventsPage />} />
+          </Route>
+          <Route element={<PermissionRoute permission="AGENT_USE" />}>
+            <Route path="/intelligence" element={<Phase517AgentsPage />} />
+          </Route>
+          <Route element={<PermissionRoute permission="AI_MANAGE" />}>
+            <Route path="/admin/ai" element={<AiManagementPage />} />
+          </Route>
+          <Route element={<PermissionRoute permission="USER_MANAGE" />}>
+            <Route path="/admin/engineering" element={<EngineeringHubPage />} />
+          </Route>
+          <Route element={<PermissionRoute permission="OPERATIONS_READ" />}>
+            <Route path="/admin/operations" element={<OperationsPage />} />
+          </Route>
+          <Route element={<PermissionRoute permission="QUALITY_VIEW" />}>
+            <Route path="/admin/quality" element={<QualityCenterPage />} />
+          </Route>
+          <Route element={<PermissionRoute permission="USER_MANAGE" />}>
+            <Route path="/admin/simulations" element={<SimulationCenterPage />} />
+          </Route>
+          <Route element={<PermissionRoute permission="USER_MANAGE" />}>
+            <Route path="/admin/knowledge" element={<KnowledgeAdminPage />} />
+            <Route path="/admin/knowledge/import" element={<KnowledgeImportPage />} />
           </Route>
         </Route>
       </Route>
 
       <Route path="*" element={<Navigate to="/cases" replace />} />
-    </Routes>
+</Routes>
   )
 }

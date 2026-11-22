@@ -1,0 +1,71 @@
+package com.sakhtyar.knowledge.api;
+
+import com.sakhtyar.knowledge.application.KnowledgeAiImportService;
+import org.springframework.http.MediaType;
+import org.springframework.security.access.AccessDeniedException;
+import org.springframework.security.core.Authentication;
+import org.springframework.web.bind.annotation.*;
+import org.springframework.web.multipart.MultipartFile;
+import java.util.*;
+
+@RestController
+@RequestMapping("/api/v1/knowledge/admin/ai-import")
+public class KnowledgeAiImportController {
+    private final KnowledgeAiImportService service;
+    public KnowledgeAiImportController(KnowledgeAiImportService service) { this.service=service; }
+    private String admin(Authentication auth) {
+        if(auth==null || !auth.isAuthenticated() ||
+            auth.getAuthorities().stream().noneMatch(a -> "USER_MANAGE".equals(a.getAuthority())))
+            throw new AccessDeniedException("USER_MANAGE required");
+        return auth.getName();
+    }
+    @GetMapping("/instructions")
+    public Map<String,Object> instructions(@RequestParam(defaultValue="ChatGPT") String provider,
+                                             @RequestParam(defaultValue="LAW") String mode, Authentication auth) {
+        admin(auth); return service.instructions(provider,mode);
+    }
+    @PostMapping(value="/packages",consumes=MediaType.MULTIPART_FORM_DATA_VALUE)
+    public Map<String,Object> upload(@RequestParam("file") MultipartFile file,Authentication auth) {
+        return service.upload(file,admin(auth));
+    }
+    public record HashesRequest(List<String> hashes) {}
+    @PostMapping("/packages/known-hashes")
+    public Map<String,Object> knownHashes(@RequestBody HashesRequest request, Authentication auth) {
+        admin(auth); return service.knownHashes(request.hashes());
+    }
+    @GetMapping("/educational-items")
+    public List<Map<String,Object>> educationalItems(Authentication auth) {
+        admin(auth);return service.educationalItems();
+    }
+    @GetMapping("/packages")
+    public List<Map<String,Object>> packages(Authentication auth) { admin(auth);return service.batches(); }
+    @GetMapping("/packages/{id}/documents")
+    public List<Map<String,Object>> documents(@PathVariable UUID id,Authentication auth) {
+        admin(auth);return service.documents(id);
+    }
+    @GetMapping("/packages/{id}/items")
+    public List<Map<String,Object>> items(@PathVariable UUID id,@RequestParam(defaultValue="RULE") String type,Authentication auth) {
+        admin(auth);return service.items(id,type);
+    }
+    public record ReviewRequest(String decision,String notes) {}
+    @PostMapping("/packages/{id}/items/{itemId}/review")
+    public Map<String,Object> review(@PathVariable UUID id,@PathVariable UUID itemId,
+                                     @RequestBody ReviewRequest request,Authentication auth) {
+        return service.review(id,itemId,request.decision(),request.notes(),admin(auth));
+    }
+    public record BulkReviewRequest(String scope, List<UUID> itemIds, String decision,
+                                    String notes, Boolean acknowledged, Integer expectedCount) {}
+    @PostMapping("/packages/{id}/items/bulk-review")
+    public Map<String,Object> bulkReview(@PathVariable UUID id,
+                                         @RequestBody BulkReviewRequest request,
+                                         Authentication auth) {
+        String actor=admin(auth);
+        return service.bulkReview(id, request.scope(), request.itemIds(), request.decision(),
+            request.notes(), request.acknowledged(), request.expectedCount(), actor);
+    }
+    @GetMapping("/packages/{id}/items/{itemId}/history")
+    public List<Map<String,Object>> history(@PathVariable UUID id,@PathVariable UUID itemId,Authentication auth) {
+        admin(auth);return service.reviewEvents(id,itemId);
+    }
+
+}

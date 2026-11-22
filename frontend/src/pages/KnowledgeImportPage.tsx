@@ -1,0 +1,494 @@
+import { useMemo, useState } from 'react'
+import {
+  Alert, App, Button, Card, Checkbox, Col, Descriptions, Input, Modal, Row,
+  Select, Space, Statistic, Table, Tabs, Tag, Typography, Upload
+} from 'antd'
+import {
+  CloudUploadOutlined, CopyOutlined, FileTextOutlined,
+  ReloadOutlined, SafetyCertificateOutlined, ThunderboltOutlined
+} from '@ant-design/icons'
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
+import { api } from '../api/client'
+import { KnowledgeArchiveFolderImport } from './KnowledgeArchiveFolderImport'
+import { KnowledgeLifecyclePanel } from './KnowledgeLifecyclePanel' // SAKHTYAR_V533_LIFECYCLE
+import { KnowledgeReviewWorkspace, KnowledgePackageScopePicker, KnowledgeScopeSummary } from './KnowledgeReviewWorkspace' // SAKHTYAR_V534_WORKSPACE
+import type { WorkspaceMode } from './KnowledgeReviewWorkspace'
+import { KnowledgePublicationPanel } from './KnowledgeCurationPanels'
+import '../styles/knowledge-import-v53.css'
+
+type Batch = {
+  id: string; archive_name: string; archive_format: string; source_ai: string;
+  status: string; created_at: string; documents: number; rules: number; segments: number
+}
+type Doc = {
+  id: string; doc_key: string; title: string; category: string;
+  source_reference: string; authority?: string; source_sha256?: string
+}
+type Item = {
+  id: string; item_key: string; record_type: 'RULE' | 'SEGMENT'; segment_type: string;
+  article_label?: string; full_text: string; evidence_quote: string;
+  page_from: number; page_to: number; content_sha256: string;
+  review_status: string; review_notes?: string; reviewed_by?: string;
+  document_title: string; doc_key: string; category: string; source_reference: string
+}
+type ReviewEvent = {id: string; decision: string; notes?: string; reviewer: string; created_at: string}
+type Instruction = {prompt: string; schemaVersion: string; provider: string}
+type Uploaded = {id: string; documents: number; rules: number; segments: number; status: string}
+const root = '/api/v1/knowledge/admin/ai-import'
+const cat: Record<string,string> = {
+  LAW: 'قوانین و ضوابط', EDUCATION: 'آموزشی', TECHNICAL: 'فنی و مهندسی',
+  REFERENCE: 'مرجع', OTHER: 'سایر', UNCLASSIFIED: 'دسته‌بندی‌نشده'
+}
+const kind: Record<string,string> = {
+  ARTICLE:'ماده', NOTE:'تبصره', CLAUSE:'بند', PASSAGE:'متن نیازمند بررسی'
+}
+const statusLabel: Record<string,string> = {
+  PENDING_REVIEW:'در انتظار بازبینی', APPROVED:'بازبینی و تأیید شد',
+  REJECTED:'رد شد', AWAITING_REVIEW:'منتظر بازبینی'
+}
+
+export function KnowledgeImportPage() {
+  const {message} = App.useApp()
+  const qc = useQueryClient()
+  const [activeTab,setActiveTab] = useState('upload')
+  const [provider,setProvider] = useState('ChatGPT')
+  const [promptMode,setPromptMode] = useState<'LAW'|'EDUCATION'>('LAW')
+  const [categoryFilter,setCategoryFilter] = useState('ALL')
+  const [prompt,setPrompt] = useState('')
+  const [showPrompt,setShowPrompt] = useState(false)
+  const [archive,setArchive] = useState<File | null>(null)
+  const [batchId,setBatchId] = useState<string>()
+  const [knowledgeScope,setKnowledgeScope] = useState<string[]>(['ALL'])
+  const [pageHelp,setPageHelp] = useState(false)
+  const [focused,setFocused] = useState<Item | null>(null)
+  const [decision,setDecision] = useState('APPROVED')
+  const [reviewNotes,setReviewNotes] = useState('')
+  const [selectedRuleKeys,setSelectedRuleKeys] = useState<string[]>([])
+  const [selectedReviewKeys,setSelectedReviewKeys] = useState<string[]>([])
+  const [reviewTypeFilter,setReviewTypeFilter] = useState<'ALL'|'RULE'|'SEGMENT'>('ALL')
+  const [reviewDocumentFilter,setReviewDocumentFilter] = useState<string[]>([])
+  const [reviewQueueIds,setReviewQueueIds] = useState<string[]>([])
+  const [autoNext,setAutoNext] = useState(true)
+  const [ruleStatusFilter,setRuleStatusFilter] = useState('PENDING_REVIEW')
+  const [documentFilter,setDocumentFilter] = useState<string[]>([])
+  const [bulkOpen,setBulkOpen] = useState(false)
+  const [bulkScope,setBulkScope] = useState<'SELECTED'|'ALL_PENDING_RULES'|'SELECTED_ITEMS'|'ALL_PENDING_ITEMS'>('SELECTED')
+  const [bulkDecision,setBulkDecision] = useState<'APPROVED'|'REJECTED'>('APPROVED')
+  const [bulkNotes,setBulkNotes] = useState('')
+  const [bulkAcknowledged,setBulkAcknowledged] = useState(false)
+  const [search,setSearch] = useState('')
+  const batches = useQuery({queryKey:['ai-import-batches'],queryFn:()=>api<Batch[]>(`${root}/packages`)})
+  const selectedId = batchId ?? batches.data?.[0]?.id
+  const batch = batches.data?.find(b=>b.id===selectedId)
+  const docs = useQuery({queryKey:['ai-import-docs',selectedId],enabled:!!selectedId,
+    queryFn:()=>api<Doc[]>(`${root}/packages/${selectedId}/documents`)})
+  const rules = useQuery({queryKey:['ai-import-rules',selectedId],enabled:!!selectedId,
+    queryFn:()=>api<Item[]>(`${root}/packages/${selectedId}/items?type=RULE`)})
+  const segments = useQuery({queryKey:['ai-import-segments',selectedId],enabled:!!selectedId,
+    queryFn:()=>api<Item[]>(`${root}/packages/${selectedId}/items?type=SEGMENT`)})
+  const all = useMemo(()=>[...(rules.data??[]),...(segments.data??[])],[rules.data,segments.data])
+  const pending = useMemo(()=>all.filter(x=>x.review_status==='PENDING_REVIEW'),[all])
+  const pendingLawRules = useMemo(()=>(rules.data??[]).filter(r=>r.review_status==='PENDING_REVIEW'&&r.category==='LAW'),[rules.data])
+  const ruleRows = useMemo(()=>(rules.data??[]).filter(r=>(!search||[r.document_title,r.item_key,r.article_label,r.full_text].join(' ').includes(search))&&
+    (ruleStatusFilter==='ALL'||r.review_status===ruleStatusFilter)&&
+    (!documentFilter.length||documentFilter.includes(r.doc_key))),[rules.data,search,ruleStatusFilter,documentFilter])
+  // Preserve source order for a predictable, uninterrupted review queue.
+  const reviewRows = useMemo(()=>pending.filter(r=>
+    (reviewTypeFilter==='ALL'||r.record_type===reviewTypeFilter) &&
+    (!reviewDocumentFilter.length||reviewDocumentFilter.includes(r.doc_key)) &&
+    (!search||[r.document_title,r.item_key,r.article_label,r.full_text].join(' ').includes(search))
+  ),[pending,reviewTypeFilter,reviewDocumentFilter,search])
+  const pendingLawItems = useMemo(()=>pending.filter(r=>r.category==='LAW'),[pending])
+  const selectedReviewItems = useMemo(()=>selectedReviewKeys.map(id=>pending.find(r=>r.id===id))
+    .filter((r):r is Item=>!!r),[selectedReviewKeys,pending])
+  const selectedReviewHasNonLaw = selectedReviewItems.some(r=>r.category!=='LAW')
+  const bulkCount = bulkScope==='SELECTED' ? selectedRuleKeys.length :
+    bulkScope==='ALL_PENDING_RULES' ? pendingLawRules.length :
+    bulkScope==='SELECTED_ITEMS' ? selectedReviewKeys.length :
+    bulkDecision==='APPROVED' ? pendingLawItems.length : pending.length
+  const queuePosition = focused ? reviewQueueIds.indexOf(focused.id) : -1
+  const moveInQueue = (step:number) => {
+    const target=reviewQueueIds[queuePosition+step]
+    const row=all.find(r=>r.id===target)
+    if (!row) return
+    setFocused(row)
+    setDecision(row.review_status==='REJECTED'?'REJECTED':'APPROVED')
+    setReviewNotes(row.review_notes??'')
+  }
+  const history = useQuery({queryKey:['ai-import-history',selectedId,focused?.id],enabled:!!selectedId&&!!focused,
+    queryFn:()=>api<ReviewEvent[]>(`${root}/packages/${selectedId}/items/${focused!.id}/history`)})
+  const showError = (err:unknown) => message.error(err instanceof Error ? err.message : 'عملیات انجام نشد')
+  const createPrompt = async () => {
+    try {
+      const r=await api<Instruction>(`${root}/instructions?provider=${encodeURIComponent(provider)}&mode=${promptMode}`)
+      setPrompt(r.prompt)
+      setShowPrompt(true)
+    } catch(e) {showError(e)}
+  }
+  const upload = useMutation({
+    mutationFn:async()=>{
+      if(!archive) throw new Error('ابتدا فایل بسته دانش را انتخاب کن.')
+      if(archive.size>24*1024*1024) throw new Error('اندازه فایل نباید بیش از ۲۴ مگابایت باشد.')
+      const body=new FormData();body.append('file',archive)
+      return api<Uploaded>(`${root}/packages`,{method:'POST',body})
+    },
+    onSuccess: x=>{
+      message.success('بسته دانش دریافت و به مرحله بازبینی منتقل شد')
+      setBatchId(x.id)
+      setKnowledgeScope([promptMode==='EDUCATION'?'EDU:'+x.id:'LAW:'+x.id])
+      setSelectedRuleKeys([]);setSelectedReviewKeys([]);setReviewQueueIds([]);setFocused(null)
+      setArchive(null)
+      setActiveTab(x.rules>0?'rules':'segments')
+      void qc.invalidateQueries({queryKey:['ai-import-batches']})
+      void qc.invalidateQueries({queryKey:['ai-import-docs']})
+      void qc.invalidateQueries({queryKey:['ai-import-rules']})
+      void qc.invalidateQueries({queryKey:['ai-import-segments']})
+    },onError:showError
+  })
+  const bulkReview = useMutation({
+    mutationFn: async () => {
+      if (!selectedId) throw new Error('ابتدا بسته دانش را انتخاب کن.')
+      if (!bulkAcknowledged) throw new Error('ابتدا تأیید آگاهی از ماهیت بازبینی گروهی را علامت بزن.')
+      if (bulkCount===0) throw new Error('هیچ مورد قابل بررسی انتخاب نشده است.')
+      if (bulkDecision==='APPROVED' && bulkNotes.trim().length<12)
+        throw new Error('برای تأیید، توضیح بررسی منبع باید حداقل ۱۲ نویسه باشد.')
+      if (bulkScope==='SELECTED_ITEMS' && bulkDecision==='APPROVED' && selectedReviewHasNonLaw)
+        throw new Error('برای تأیید گروهی، فقط موارد اسناد طبقه «قانون» را انتخاب کن.')
+      const selectedIds=bulkScope==='SELECTED' ? selectedRuleKeys :
+        bulkScope==='SELECTED_ITEMS' ? selectedReviewKeys : []
+      return api<{updated:number;publication:string}>(`${root}/packages/${selectedId}/items/bulk-review`,{
+        method:'POST',body:JSON.stringify({
+          scope:bulkScope, itemIds:selectedIds,
+          decision:bulkDecision, notes:bulkNotes, acknowledged:true, expectedCount:bulkCount
+        })
+      })
+    },
+    onSuccess: data => {
+      message.success(`تصمیم گروهی برای ${data.updated.toLocaleString('fa-IR')} مورد ثبت شد؛ انتشار خودکار انجام نشد.`)
+      setBulkOpen(false);setSelectedRuleKeys([]);setSelectedReviewKeys([])
+      setBulkNotes('');setBulkAcknowledged(false)
+      void qc.invalidateQueries({queryKey:['ai-import-rules',selectedId]})
+      void qc.invalidateQueries({queryKey:['ai-import-segments',selectedId]})
+      void qc.invalidateQueries({queryKey:['ai-import-batches']})
+      void qc.invalidateQueries({queryKey:['ai-import-history']})
+    },onError:showError
+  })
+  const openBulk=(scope:'SELECTED'|'ALL_PENDING_RULES'|'SELECTED_ITEMS'|'ALL_PENDING_ITEMS',next:'APPROVED'|'REJECTED')=>{
+    setBulkScope(scope);setBulkDecision(next);setBulkNotes('');setBulkAcknowledged(false);setBulkOpen(true)
+  }
+  const review = useMutation({
+    mutationFn:async (request:{itemId:string;decision:string;notes:string})=>{
+      if(!selectedId) throw new Error('ابتدا بسته دانش را انتخاب کن.')
+      if(request.decision==='APPROVED' && request.notes.trim().length<12)
+        throw new Error('برای تأیید، توضیح بررسی منبع باید حداقل ۱۲ نویسه داشته باشد.')
+      return api(`${root}/packages/${selectedId}/items/${request.itemId}/review`,{
+        method:'POST',body:JSON.stringify({decision:request.decision,notes:request.notes})
+      })
+    },
+    onSuccess:(_result,request)=>{
+      setSelectedRuleKeys(keys=>keys.filter(id=>id!==request.itemId))
+      setSelectedReviewKeys(keys=>keys.filter(id=>id!==request.itemId))
+      const pos=reviewQueueIds.indexOf(request.itemId)
+      const candidateIds=pos<0 ? [] : [...reviewQueueIds.slice(pos+1),...reviewQueueIds.slice(0,pos)]
+      const next=autoNext ? candidateIds.map(id=>all.find(r=>r.id===id))
+        .find((r):r is Item=>!!r && r.id!==request.itemId && r.review_status==='PENDING_REVIEW') : undefined
+      if(next){
+        setFocused(next)
+        setDecision('APPROVED')
+        setReviewNotes('') // Never reuse one item's source-verification note for another item.
+        message.success('تصمیم ثبت شد؛ مورد بعدی برای بازبینی باز شد.')
+      }else{
+        setFocused(null);setReviewQueueIds([]);setReviewNotes('')
+        message.success('تصمیم ثبت شد؛ مورد دیگری در صف فعلی باقی نمانده است.')
+      }
+      void qc.invalidateQueries({queryKey:['ai-import-rules',selectedId]})
+      void qc.invalidateQueries({queryKey:['ai-import-segments',selectedId]})
+      void qc.invalidateQueries({queryKey:['ai-import-history']})
+      void qc.invalidateQueries({queryKey:['ai-import-batches']})
+    },onError:showError
+  })
+  const view=(r:Item)=>{
+    const candidates=activeTab==='review' ? reviewRows :
+      activeTab==='rules' ? ruleRows : activeTab==='segments' ? filtered(segments.data??[]) : pending
+    const queue=candidates.filter(x=>x.review_status==='PENDING_REVIEW').map(x=>x.id)
+    if(!queue.includes(r.id)) queue.unshift(r.id)
+    setReviewQueueIds(queue)
+    setFocused(r)
+    setDecision(r.review_status==='REJECTED'?'REJECTED':'APPROVED')
+    setReviewNotes(r.review_notes??'')
+  }
+  const itemColumns = [
+    {title:'سند',dataIndex:'document_title',key:'document_title',width:200,ellipsis:true},
+    {title:'نوع',dataIndex:'segment_type',key:'segment_type',width:100,render:(v:string)=><Tag>{kind[v]??v}</Tag>},
+    {title:'شناسه/عنوان',key:'idlabel',width:135,render:(_:unknown,r:Item)=><span>{r.article_label||r.item_key}</span>},
+    {title:'صفحه',key:'pages',width:90,render:(_:unknown,r:Item)=>r.page_from===r.page_to?r.page_from:`${r.page_from} تا ${r.page_to}`},
+    {title:'متن',dataIndex:'full_text',key:'full_text',width:310,ellipsis:true},
+    {title:'وضعیت',dataIndex:'review_status',key:'review_status',width:175,render:(v:string)=><Tag color={v==='APPROVED'?'green':v==='REJECTED'?'red':'gold'}>{statusLabel[v]??v}</Tag>},
+    {title:'جزئیات',key:'action',width:135,render:(_:unknown,r:Item)=><Button onClick={()=>view(r)}>مشاهده و بازبینی</Button>}
+  ]
+  const filtered=(rows:Item[])=>rows.filter(r=>!search ||
+    [r.document_title,r.item_key,r.article_label,r.full_text].join(' ').includes(search))
+  const tabs=[
+    {key:'lifecycle',label:'مدیریت جامع دانش',children:<KnowledgeLifecyclePanel/>},
+    {key:'upload',label:'۱. ساخت دستور و بارگذاری',children:<Space direction="vertical" size="large" style={{width:'100%'}}>
+      <Row gutter={[16,16]}>
+        <Col xs={24} xl={12}><Card className="sakhtyar-import-step" title={<><ThunderboltOutlined/> ساخت دستور استخراج برای هوش مصنوعی</>}>
+          <Typography.Paragraph>نوع منبع را جداگانه انتخاب کن. خروجی قوانین و جزوه‌های آموزشی از هم تفکیک شده و هیچ مطلب آموزشی به‌صورت خودکار حکم قانونی نمی‌شود.</Typography.Paragraph>
+          <Select style={{width:'100%',marginBottom:12}} value={promptMode} onChange={setPromptMode}
+            options={[{value:'LAW',label:'استخراج قوانین و مقررات'},{value:'EDUCATION',label:'استخراج مطالب آموزشی و فنی'}]}/>
+          <Space wrap><Select value={provider} style={{minWidth:190}} onChange={setProvider} options={[
+            {value:'ChatGPT',label:'چت‌جی‌پی‌تی'},{value:'Claude',label:'کلود'},
+            {value:'Gemini',label:'جمینای'},{value:'Other',label:'سایر مدل‌ها'}]}/>
+          <Button type="primary" icon={<CopyOutlined/>} onClick={()=>void createPrompt()}>
+            {promptMode==='LAW'?'تولید پرامپت قوانین':'تولید پرامپت فایل‌های آموزشی'}
+          </Button></Space>
+        </Card></Col>
+        <Col xs={24} xl={12}><Card className="sakhtyar-import-step" title={<><CloudUploadOutlined/> بارگذاری بسته دانش</>}>
+          <Alert type="info" showIcon message="بسته ورودی باید چهار فایل مشخص JSON/JSONL داشته باشد؛ تمام اطلاعات نامزد بررسی هستند." style={{marginBottom:16}} />
+          <Upload.Dragger accept=".zip,.rar" maxCount={1} multiple={false}
+            fileList={archive?[{uid:'ai-archive',name:archive.name,status:'done'}]:[]}
+            beforeUpload={file=>{setArchive(file);return false}}
+            onRemove={()=>{setArchive(null);return true}}>
+            <p className="ant-upload-drag-icon"><CloudUploadOutlined/></p>
+            <p>فایل ZIP یا RAR را انتخاب یا اینجا رها کن</p>
+            <Typography.Text type="secondary">حداکثر ۲۴ مگابایت؛ برای RAR وجود 7-Zip روی سرور لازم است</Typography.Text>
+          </Upload.Dragger>
+          <Button type="primary" style={{marginTop:14}} loading={upload.isPending} disabled={!archive}
+            onClick={()=>upload.mutate()}>بررسی ساختار و ورود به مرحله بازبینی</Button>
+          <KnowledgeArchiveFolderImport onImported={newId=>{
+            setBatchId(newId);setKnowledgeScope(['ALL']);setActiveTab('categories')
+            void qc.invalidateQueries({queryKey:['ai-import-batches']})
+            void qc.invalidateQueries({queryKey:['ai-import-docs']})
+            void qc.invalidateQueries({queryKey:['ai-import-rules']})
+            void qc.invalidateQueries({queryKey:['ai-import-segments']})
+          }}/>
+        </Card></Col>
+      </Row>
+      <Alert showIcon type="warning" message="ورود امن و بدون انتشار خودکار"
+        description="استنادهای تولیدشده با AI پیش‌فرض معتبر نیستند. در این مرحله داده‌ها فقط وارد جداول موقتِ بازبینی می‌شوند و در قوانین قطعی و موتور تصمیم‌گیری فعال نمی‌شوند." />
+    </Space>},
+    {key:'rules',label:'۲. قوانین استخراج‌شده',children:<Card title="قوانین واردشده (نیازمند بررسی)">
+      <Alert type="info" showIcon style={{marginBottom:12}}
+        message="بازبینی گروهی تنها برای قوانینِ اسناد طبقه‌بندی‌شده به‌عنوان «قانون» فعال است."
+        description="ابتدا چند نمونه را با «مشاهده و بازبینی» بررسی کن؛ سپس می‌توانی ردیف‌های دلخواه، همه نتایج فیلترشده یا همه قوانین در انتظارِ این بسته را انتخاب کنی. تأیید گروهی تنها وضعیت بازبینی را ثبت می‌کند و هیچ قانونی را خودکار منتشر نمی‌کند."/>
+      <Space wrap style={{marginBottom:12}}>
+        <Select value={ruleStatusFilter} style={{minWidth:180}} onChange={v=>{setRuleStatusFilter(v);setSelectedRuleKeys([])}}
+          options={[{value:'PENDING_REVIEW',label:'در انتظار بازبینی'}, {value:'ALL',label:'همه وضعیت‌ها'},
+            {value:'APPROVED',label:'تأییدشده'}, {value:'REJECTED',label:'ردشده'}]}/>
+        <Select mode="multiple" allowClear showSearch optionFilterProp="label" value={documentFilter}
+          onChange={v=>{setDocumentFilter(v);setSelectedRuleKeys([])}}
+          style={{minWidth:300,maxWidth:460}} maxTagCount="responsive" placeholder="انتخاب اسناد برای فیلتر قوانین"
+          options={(docs.data??[]).map(d=>({value:d.doc_key,label:d.title}))}/>
+        <Button onClick={()=>setSelectedRuleKeys(ruleRows.filter(r=>r.review_status==='PENDING_REVIEW'&&r.category==='LAW').map(r=>r.id))}>
+          انتخاب همه نتایج فیلترشده
+        </Button>
+        <Button onClick={()=>setSelectedRuleKeys([])} disabled={!selectedRuleKeys.length}>لغو انتخاب</Button>
+        <Tag>انتخاب‌شده: {selectedRuleKeys.length.toLocaleString('fa-IR')}</Tag>
+        <Button type="primary" disabled={!selectedRuleKeys.length} onClick={()=>openBulk('SELECTED','APPROVED')}>
+          تأیید انتخاب‌شده‌ها
+        </Button>
+        <Button danger disabled={!selectedRuleKeys.length} onClick={()=>openBulk('SELECTED','REJECTED')}>
+          رد انتخاب‌شده‌ها
+        </Button>
+        <Button disabled={!pendingLawRules.length} onClick={()=>openBulk('ALL_PENDING_RULES','APPROVED')}>
+          تأیید همه قوانین در انتظار این بسته ({pendingLawRules.length.toLocaleString('fa-IR')})
+        </Button>
+      </Space>
+      <Table<Item> rowKey="id" dataSource={ruleRows} loading={rules.isLoading}
+        rowSelection={{selectedRowKeys:selectedRuleKeys,onChange:(keys)=>setSelectedRuleKeys(keys.map(String)),
+          getCheckboxProps:(r:Item)=>({disabled:r.review_status!=='PENDING_REVIEW'||r.category!=='LAW'})}}
+        scroll={{x:1250}} pagination={{pageSize:12,showSizeChanger:true,pageSizeOptions:[12,25,50]}} columns={itemColumns}/>
+    </Card>},
+    {key:'education',label:'۳. مطالب آموزشی استخراج‌شده',children:<Card title="بخش‌های آموزشی و فنی (نیازمند بررسی)">
+      <Alert type="info" showIcon style={{marginBottom:12}} message="این مطالب الزام قانونی ایجاد نمی‌کنند."
+        description="تمام متون آموزشی و فنی به‌عنوان قطعه دانش پیشنهادی ثبت شده‌اند؛ صحت آنها باید با جزوه یا سند اصلی بررسی شود."/>
+      <Table<Item> rowKey="id" dataSource={filtered(segments.data??[]).filter(r=>r.category==='EDUCATION'||r.category==='TECHNICAL')}
+        loading={segments.isLoading} scroll={{x:1130}} pagination={{pageSize:12}} columns={itemColumns}/>
+    </Card>},
+    {key:'categories',label:'۴. دسته‌بندی اسناد',children:<Card title="منابع و دسته‌بندی پیشنهادی">
+      <Alert type="warning" showIcon style={{marginBottom:12}} message="دسته‌بندی پیشنهادی، جایگزین تأیید اصالت سند نیست." />
+      <Space wrap style={{marginBottom:12}}><Typography.Text>نوع سند:</Typography.Text>
+        <Select value={categoryFilter} onChange={setCategoryFilter} style={{minWidth:240}}
+          options={[{value:'ALL',label:'همه انواع اسناد'},...Object.entries(cat).map(([value,label])=>({value,label}))]}/>
+        <Tag>قانون: {(docs.data??[]).filter(d=>d.category==='LAW').length}</Tag>
+        <Tag>آموزشی: {(docs.data??[]).filter(d=>d.category==='EDUCATION').length}</Tag>
+      </Space>
+      <Table<Doc> rowKey="id" loading={docs.isLoading}
+        dataSource={(docs.data??[]).filter(d=>categoryFilter==='ALL'||d.category===categoryFilter)} pagination={{pageSize:12}}
+        scroll={{x:950}} columns={[
+          {title:'عنوان سند',dataIndex:'title',width:240},
+          {title:'دسته',dataIndex:'category',width:170,render:(v:string)=><Tag>{cat[v]??v}</Tag>},
+          {title:'مرجع منبع',dataIndex:'source_reference',width:300},
+          {title:'مرجع صادرکننده',dataIndex:'authority',width:170,render:(v?:string)=>v||'نامشخص'},
+          {title:'شناسه',dataIndex:'doc_key',width:120}
+        ]}/>
+    </Card>},
+    {key:'segments',label:'۵. کتابخانه مواد و بندها',children:<Card title="مواد، تبصره‌ها و بندها">
+      <Table<Item> rowKey="id" dataSource={filtered(segments.data??[])} loading={segments.isLoading}
+        scroll={{x:1130}} pagination={{pageSize:12}} columns={itemColumns}/>
+    </Card>},
+    {key:'review',label:'۶. میز کار بازبینی گروهی',children:<Space direction="vertical" size="middle" style={{width:'100%'}}>
+      <Alert type="info" showIcon message="ثبت تصمیم کارشناسی" description="تأیید این صفحه صرفاً یک تصمیم مستند روی نسخه واردشده است؛ انتقال به قوانین اجرایی و انتشار، مرحله مجزا و نیازمند طراحی کنترل‌های حقوقی خواهد بود." />
+      <Row gutter={[12,12]}>
+        <Col xs={12} md={8}><Card><Statistic title="منتظر بررسی" value={pending.length}/></Card></Col>
+        <Col xs={12} md={8}><Card><Statistic title="تأییدشده برای مرحله بعد" value={all.filter(i=>i.review_status==='APPROVED').length}/></Card></Col>
+        <Col xs={24} md={8}><Card><Statistic title="ردشده" value={all.filter(i=>i.review_status==='REJECTED').length}/></Card></Col>
+      </Row>
+      <Card title="صف بازبینی پیوسته و گروهی" extra={<Tag>نمایش: {reviewRows.length.toLocaleString('fa-IR')} مورد</Tag>}>
+        <Alert style={{marginBottom:12}} type="info" showIcon
+          message="بازبینی بدون بستن پنجره"
+          description="یک مورد را باز کن. پس از ثبت تأیید یا رد، مورد بعدیِ در انتظار خودکار نمایش داده می‌شود. برای بررسی گروهی، ردیف‌ها را تیک بزن؛ تأیید گروهی تنها برای اسناد دسته قانون مجاز است."/>
+        <Space wrap style={{marginBottom:12}}>
+          <Select value={reviewTypeFilter} style={{minWidth:175}} onChange={v=>{setReviewTypeFilter(v);setSelectedReviewKeys([])}}
+            options={[{value:'ALL',label:'تمام انواع'},{value:'RULE',label:'فقط قوانین'},{value:'SEGMENT',label:'فقط مواد و بندها'}]}/>
+          <Select mode="multiple" allowClear showSearch optionFilterProp="label" value={reviewDocumentFilter}
+            onChange={v=>{setReviewDocumentFilter(v);setSelectedReviewKeys([])}}
+            style={{minWidth:280,maxWidth:440}} maxTagCount="responsive" placeholder="فیلتر بر اساس سند"
+            options={(docs.data??[]).map(d=>({value:d.doc_key,label:d.title}))}/>
+          <Button onClick={()=>setSelectedReviewKeys(reviewRows.map(r=>r.id))}>انتخاب همه نتایج فیلترشده</Button>
+          <Button disabled={!selectedReviewKeys.length} onClick={()=>setSelectedReviewKeys([])}>لغو انتخاب</Button>
+          <Tag>انتخاب‌شده: {selectedReviewKeys.length.toLocaleString('fa-IR')}</Tag>
+        </Space>
+        <Space wrap style={{marginBottom:15}}>
+          <Button type="primary" disabled={!selectedReviewKeys.length||selectedReviewHasNonLaw}
+            onClick={()=>openBulk('SELECTED_ITEMS','APPROVED')}>تأیید انتخاب‌شده‌ها</Button>
+          <Button danger disabled={!selectedReviewKeys.length}
+            onClick={()=>openBulk('SELECTED_ITEMS','REJECTED')}>رد انتخاب‌شده‌ها</Button>
+          <Button disabled={!pendingLawItems.length}
+            onClick={()=>openBulk('ALL_PENDING_ITEMS','APPROVED')}>
+            تأیید همه موارد قانونی این بسته ({pendingLawItems.length.toLocaleString('fa-IR')})
+          </Button>
+          <Button danger disabled={!pending.length}
+            onClick={()=>openBulk('ALL_PENDING_ITEMS','REJECTED')}>
+            رد همه موارد در انتظار این بسته ({pending.length.toLocaleString('fa-IR')})
+          </Button>
+        </Space>
+        {selectedReviewHasNonLaw && <Alert style={{marginBottom:10}} type="warning" showIcon
+          message="در انتخاب فعلی، مورد مربوط به سند غیرقانونی وجود دارد؛ تأیید گروهی غیرفعال است. رد گروهی همچنان امکان دارد."/>}
+        <Table<Item> rowKey="id" dataSource={reviewRows} loading={rules.isFetching||segments.isFetching}
+          rowSelection={{preserveSelectedRowKeys:false,selectedRowKeys:selectedReviewKeys,
+            onChange:keys=>setSelectedReviewKeys(keys.map(String))}}
+          pagination={{pageSize:12,showSizeChanger:true,pageSizeOptions:[12,25,50]}}
+          scroll={{x:1180}} columns={itemColumns}/>
+      </Card>
+    </Space>},
+    {key:'publish',label:'۷. انتشار دانش',children:<KnowledgePublicationPanel/>}
+  ]
+
+  return <div className="sakhtyar-import-page sakhtyar-page-stack" dir="rtl">
+    <Card className="sakhtyar-import-hero">
+      <Space align="start" wrap>
+        <FileTextOutlined style={{fontSize:28}}/>
+        <div><Typography.Title level={2} style={{margin:0}}>ورود دانش</Typography.Title>
+          <Typography.Paragraph style={{margin:'8px 0 0'}}>تولید دستور برای هوش مصنوعی، دریافت بسته ساختاریافته، بررسی مدارک و ثبت تصمیم کارشناسی</Typography.Paragraph></div>
+      </Space>
+    </Card>
+    <Card size="small" className="sakhtyar-import-toolbar">
+      <div className="sakhtyar-package-toolbar">
+        <div className="sakhtyar-package-toolbar__selector"><Typography.Text strong>انتخاب بسته‌ها:</Typography.Text>
+          <KnowledgePackageScopePicker value={knowledgeScope} onChange={setKnowledgeScope}/>
+        </div>
+        <Button icon={<ReloadOutlined/>} loading={batches.isFetching} onClick={()=>{void batches.refetch();void docs.refetch();void rules.refetch();void segments.refetch()}}>تازه‌سازی</Button>
+      </div>
+      <KnowledgeScopeSummary value={knowledgeScope}/>
+    </Card>
+    {batches.isError && <Alert type="error" showIcon message="دریافت بسته‌ها ناموفق بود؛ راه‌اندازی Backend و اجرای Migration V51 را بررسی کن."/>}
+    <Card className="sakhtyar-import-content">
+
+      <Space wrap style={{marginBottom:10}}><Button size="small" onClick={()=>setPageHelp(v=>!v)}>
+        راهنمای تب {activeTab==='upload'?'ساخت دستور و بارگذاری':activeTab==='lifecycle'?'مدیریت جامع دانش':'بازبینی محتوا'}
+      </Button></Space>
+      {pageHelp&&<Alert style={{marginBottom:12}} type="info" showIcon closable onClose={()=>setPageHelp(false)}
+        message="راهنمای استفاده" description={activeTab==='upload'?'از دو پرامپت قانونی و آموزشیِ موجود استفاده کن و بسته‌های ZIP/RAR را وارد کن. خطاها گزارش می‌شوند و اسناد بدون بررسی رسمی منتشر نمی‌شوند.':activeTab==='lifecycle'?'آمار کل، جست‌وجو، آرشیو قابل‌بازیابی، شناسنامه نسخه‌ها و گزارش تکراری‌ها در این تب است. هر زیرتب راهنمای اختصاصی دارد.':'بسته‌ها را از بالای صفحه به صورت همه، قوانین، آموزشی یا چندتایی انتخاب کن. در بازبینی سریع یکی از سه تصمیم را بزن تا مورد بعدی نشان داده شود.'}/>}
+      <Tabs className="sakhtyar-knowledge-tabs" activeKey={activeTab} onChange={k=>{setActiveTab(k);setPageHelp(false)}}
+        items={tabs.map(t=>['rules','education','categories','segments','review'].includes(t.key)
+          ? {...t,children:<KnowledgeReviewWorkspace mode={t.key as WorkspaceMode} scope={knowledgeScope}/>} : t)} />
+    </Card>
+    <Modal title="دستور استخراج ساختاریافته" open={showPrompt} width={950} onCancel={()=>setShowPrompt(false)}
+      footer={<Space><Button onClick={()=>setShowPrompt(false)}>بستن</Button>
+        <Button type="primary" icon={<CopyOutlined/>} onClick={()=>{
+          void navigator.clipboard.writeText(prompt).then(()=>message.success('دستور کپی شد')).catch(()=>message.error('دسترسی کپی وجود ندارد؛ متن را دستی انتخاب کن'))
+        }}>کپی دستور</Button></Space>}>
+      <Alert style={{marginBottom:12}} type="info" showIcon message="این دستور را همراه اسناد اصلی به هوش مصنوعی بده و ZIP یا RAR تولیدشده را اینجا بارگذاری کن."/>
+      <Input.TextArea dir="rtl" readOnly rows={21} value={prompt} style={{lineHeight:2,fontFamily:'inherit'}} />
+    </Modal>
+    <Modal title="ثبت تصمیم گروهی موارد واردشده" width={760} open={bulkOpen}
+      onCancel={()=>!bulkReview.isPending&&setBulkOpen(false)} okText={bulkDecision==='APPROVED'?'تأیید گروهی و ثبت تاریخچه':'رد گروهی و ثبت تاریخچه'}
+      okButtonProps={{loading:bulkReview.isPending,disabled:!bulkAcknowledged||bulkCount===0||
+        (bulkDecision==='APPROVED'&&bulkNotes.trim().length<12)}}
+      onOk={()=>bulkReview.mutate()}>
+      <Space direction="vertical" size="middle" style={{width:'100%'}}>
+        <Alert type="warning" showIcon message={`تعداد موارد این عملیات: ${bulkCount.toLocaleString('fa-IR')}`}
+          description={bulkScope==='ALL_PENDING_RULES'
+            ? 'همه قوانین در انتظار اسناد دسته قانونِ بسته فعلی؛ بدون اعمال فیلتر صفحه.'
+            : bulkScope==='ALL_PENDING_ITEMS'
+              ? (bulkDecision==='APPROVED'
+                ? 'همه موارد در انتظارِ اسناد دسته قانون، شامل قوانین و مواد/بندها؛ بدون اعمال فیلتر صفحه.'
+                : 'همه قوانین و مواد/بندهای در انتظار این بسته، فارغ از دسته‌بندی سند؛ بدون اعمال فیلتر صفحه.')
+              : 'فقط ردیف‌های تیک‌خورده؛ پیش از اقدام گروهی، متن و استنادها را با اسناد اصلی مقایسه کن.'}/>
+        <Select style={{width:'100%'}} value={bulkDecision} onChange={setBulkDecision}
+          options={[{value:'APPROVED',label:'تأیید کارشناسی برای مرحله بعد'},
+            {value:'REJECTED',label:'رد قوانین انتخاب‌شده'}]}/>
+        <Input.TextArea rows={4} maxLength={2000} showCount value={bulkNotes} onChange={e=>setBulkNotes(e.target.value)}
+          placeholder="روش نمونه‌برداری، اسناد و صفحات کنترل‌شده یا دلیل رد را با دقت بنویس (برای تأیید حداقل ۱۲ نویسه)."/>
+        <Checkbox checked={bulkAcknowledged} onChange={e=>setBulkAcknowledged(e.target.checked)}>
+          تأیید می‌کنم که مسئولیت این تصمیم گروهی با بازبین است، موارد لازم را بررسی کرده‌ام و این اقدام به‌معنای انتشار یا تأیید قانونی خودکار نیست.
+        </Checkbox>
+        <Typography.Text type="secondary">تاریخچه مستقل برای هر مورد ثبت می‌شود. هر خطای اعتبارسنجی، کل عملیات گروهی را برگشت می‌دهد.</Typography.Text>
+      </Space>
+    </Modal>
+    <Modal title={focused?.article_label||'بازبینی مستندات واردشده'} width={980} open={!!focused}
+      styles={{body:{maxHeight:'66vh',overflowY:'auto'}}}
+      onCancel={()=>{if(!review.isPending){setFocused(null);setReviewQueueIds([])}}}
+      cancelText="بستن بازبینی"
+      okText={autoNext?'ثبت تصمیم و نمایش بعدی':'ثبت تصمیم'} okButtonProps={{
+        loading:review.isPending,disabled:decision==='APPROVED'&&reviewNotes.trim().length<12}}
+      onOk={()=>focused&&review.mutate({itemId:focused.id,decision,notes:reviewNotes})}>
+      {focused && <Space direction="vertical" size="middle" style={{width:'100%'}}>
+        <Card size="small" style={{background:'#f7faff'}}>
+          <Space wrap style={{width:'100%',justifyContent:'space-between'}}>
+            <Space wrap>
+              <Tag color="blue">مورد {(queuePosition+1).toLocaleString('fa-IR')} از {reviewQueueIds.length.toLocaleString('fa-IR')}</Tag>
+              <Typography.Text type="secondary">{focused.record_type==='RULE'?'قانون':'ماده / بند'} — {focused.review_status==='PENDING_REVIEW'?'منتظر تصمیم':statusLabel[focused.review_status]??focused.review_status}</Typography.Text>
+              <Checkbox checked={autoNext} onChange={e=>setAutoNext(e.target.checked)}>نمایش خودکار مورد بعدی پس از ثبت</Checkbox>
+            </Space>
+            <Space>
+              <Button disabled={review.isPending||queuePosition<=0} onClick={()=>moveInQueue(-1)}>قبلی</Button>
+              <Button disabled={review.isPending||queuePosition<0||queuePosition>=reviewQueueIds.length-1}
+                onClick={()=>moveInQueue(1)}>بعدی</Button>
+            </Space>
+          </Space>
+        </Card>
+        <Descriptions bordered size="small" column={{xs:1,md:2}} items={[
+          {key:'title',label:'سند',children:focused.document_title,span:2},
+          {key:'type',label:'نوع',children:kind[focused.segment_type]??focused.segment_type},
+          {key:'page',label:'صفحه',children:`${focused.page_from} تا ${focused.page_to}`},
+          {key:'source',label:'مرجع',children:focused.source_reference,span:2},
+          {key:'sha',label:'اثر انگشت متن',children:<Typography.Text copyable>{focused.content_sha256}</Typography.Text>,span:2}
+        ]}/>
+        <Typography.Text strong>متن کامل پیشنهادی هوش مصنوعی</Typography.Text>
+        <Card size="small" className="sakhtyar-import-source-text">{focused.full_text}</Card>
+        <Alert showIcon type="warning" message="شاهدی که AI معرفی کرده" description={focused.evidence_quote}/>
+        <Select style={{width:'100%'}} value={decision} onChange={setDecision} options={[
+          {value:'APPROVED',label:'تأیید کارشناسی برای مرحله بعد'},
+          {value:'REJECTED',label:'رد به‌دلیل کیفیت یا استناد نامعتبر'},
+          {value:'PENDING_REVIEW',label:'بازگرداندن به صف بازبینی'}
+        ]}/>
+        <Input.TextArea rows={3} maxLength={2000} showCount value={reviewNotes} onChange={e=>setReviewNotes(e.target.value)}
+          placeholder="مثال: صفحه ۵ سند اصلی بررسی شد و متن بند با نسخه مرجع مطابقت دارد."/>
+        {decision==='APPROVED' && <Alert type={reviewNotes.trim().length>=12?'success':'warning'} showIcon
+          message={reviewNotes.trim().length>=12?'توضیح بازبینی برای ثبت کافی است.':'برای تأیید حداقل ۱۲ نویسه توضیح واقعی درباره بررسی منبع بنویس.'}/>}
+
+        <Alert type="info" icon={<SafetyCertificateOutlined/>} showIcon message="تأیید، قانون را خودکار در موتور مقررات منتشر نمی‌کند."/>
+        {(history.data??[]).length>0 && <Card size="small" title="تاریخچه تصمیم‌های کارشناسی">
+          <Table<ReviewEvent> rowKey="id" size="small" pagination={{pageSize:5}} dataSource={history.data??[]}
+            columns={[{title:'تصمیم',dataIndex:'decision',render:(v:string)=>statusLabel[v]??v},
+              {title:'بازبین',dataIndex:'reviewer'},
+              {title:'تاریخ',dataIndex:'created_at',render:(v:string)=>new Date(v).toLocaleString('fa-IR')},
+              {title:'یادداشت',dataIndex:'notes'}]}/>
+        </Card>}
+      </Space>}
+    </Modal>
+  </div>
+}
+// SAKHTYAR_V55_CURATION

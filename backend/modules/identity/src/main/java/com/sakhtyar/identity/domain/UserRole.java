@@ -41,6 +41,8 @@ public enum UserRole {
             Permission.AGENT_USE
     ),
 
+    TESTER(false, Permission.QUALITY_VIEW, Permission.QUALITY_RUN_SAFE),
+
     READ_ONLY(
             false,
             Permission.CASE_READ,

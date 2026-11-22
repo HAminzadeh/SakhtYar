@@ -57,6 +57,7 @@ public class OllamaAiModelProvider implements AiModelProvider {
 
     @Override
     public boolean available() {
+        if (isTesterRequest()) return false;
         try {
             String body = client.get()
                     .uri("/api/tags")
@@ -87,6 +88,9 @@ public class OllamaAiModelProvider implements AiModelProvider {
 
     @Override
     public AiModelResponse generate(AiModelRequest request) {
+        if (isTesterRequest()) {
+            throw new SecurityException("TESTER AI model calls require offline mock provider");
+        }
         Instant startedAt = Instant.now();
         try {
             LinkedHashMap<String, Object> body = new LinkedHashMap<>();
@@ -142,8 +146,6 @@ public class OllamaAiModelProvider implements AiModelProvider {
         } catch (RestClientResponseException ex) {
             throw new IllegalStateException(
                     "OLLAMA_HTTP_ERROR: status=" + ex.getStatusCode().value()
-                            + ", body=" + truncate(ex.getResponseBodyAsString(), 800),
-                    ex
             );
         } catch (ResourceAccessException ex) {
             String message = ex.getMessage() == null ? "" : ex.getMessage();
@@ -152,18 +154,21 @@ public class OllamaAiModelProvider implements AiModelProvider {
                     ? "OLLAMA_TIMEOUT"
                     : "OLLAMA_CONNECTION_FAILED";
             throw new IllegalStateException(
-                    code + ": " + properties.getBaseUrl() + " - " + message,
-                    ex
+                    code
             );
         } catch (RestClientException ex) {
             throw new IllegalStateException(
-                    "OLLAMA_CONNECTION_FAILED: " + properties.getBaseUrl()
-                            + " - " + safeMessage(ex),
-                    ex
+                    "OLLAMA_CONNECTION_FAILED"
             );
         } catch (JacksonException ex) {
-            throw new IllegalStateException("OLLAMA_INVALID_JSON: " + safeMessage(ex), ex);
+            throw new IllegalStateException("OLLAMA_INVALID_JSON");
         }
+    }
+
+    private static boolean isTesterRequest() {
+        var auth = org.springframework.security.core.context.SecurityContextHolder.getContext().getAuthentication();
+        return auth != null && auth.getAuthorities() != null && auth.getAuthorities().stream()
+                .anyMatch(a -> "ROLE_TESTER".equals(a.getAuthority()));
     }
 
     private Map<String, Object> requestOptions() {

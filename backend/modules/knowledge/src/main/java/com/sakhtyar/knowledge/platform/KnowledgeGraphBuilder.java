@@ -1,0 +1,11 @@
+package com.sakhtyar.knowledge.platform;
+import org.springframework.jdbc.core.JdbcTemplate; import org.springframework.stereotype.Service; import org.springframework.transaction.annotation.Transactional; import java.util.*;
+@Service public class KnowledgeGraphBuilder {
+ private final JdbcTemplate jdbc; public KnowledgeGraphBuilder(JdbcTemplate jdbc){this.jdbc=jdbc;}
+ @Transactional public int buildRuleEdges(UUID graphVersionId, UUID knowledgeVersionId){
+   int nodes=jdbc.update("insert into knowledge_graph_node(id,graph_version_id,node_type,entity_type,entity_id,stable_key) select gen_random_uuid(),?,'RULE','RULE',r.id,r.stable_key from knowledge_rule r where r.knowledge_version_id=? and not exists(select 1 from knowledge_graph_node n where n.graph_version_id=? and n.entity_type='RULE' and n.entity_id=r.id)",graphVersionId,knowledgeVersionId,graphVersionId);
+   jdbc.update("insert into knowledge_graph_node(id,graph_version_id,node_type,entity_type,entity_id,stable_key) select gen_random_uuid(),?,'CONCEPT','CONCEPT',c.id,c.stable_key from construction_concept c where exists(select 1 from knowledge_rule r where r.knowledge_version_id=? and (r.subject_concept_id=c.id or r.unit_concept_id=c.id)) and not exists(select 1 from knowledge_graph_node n where n.graph_version_id=? and n.entity_type='CONCEPT' and n.entity_id=c.id)",graphVersionId,knowledgeVersionId,graphVersionId);
+   jdbc.update("insert into knowledge_graph_edge(id,graph_version_id,from_node_id,relation_type,to_node_id,confidence,source_node_id) select gen_random_uuid(),?,rn.id,'CONSTRAINS',cn.id,r.confidence,r.source_node_id from knowledge_rule r join knowledge_graph_node rn on rn.graph_version_id=? and rn.entity_type='RULE' and rn.entity_id=r.id join knowledge_graph_node cn on cn.graph_version_id=? and cn.entity_type='CONCEPT' and cn.entity_id=r.subject_concept_id where r.knowledge_version_id=? and not exists(select 1 from knowledge_graph_edge e where e.graph_version_id=? and e.from_node_id=rn.id and e.relation_type='CONSTRAINS' and e.to_node_id=cn.id)",graphVersionId,graphVersionId,graphVersionId,knowledgeVersionId,graphVersionId);
+   return nodes;
+ }
+}

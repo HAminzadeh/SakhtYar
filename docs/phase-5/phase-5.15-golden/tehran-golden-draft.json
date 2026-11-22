@@ -1,0 +1,20 @@
+{
+  "schemaVersion": "1.0",
+  "status": "DRAFT_NOT_EXPERT_VERIFIED",
+  "sourcePath": "DocumentationOfLawsAndRegulations/DetailedPlan/tarh-tafsili-tehran-1.pdf",
+  "notice": "These are real evaluation questions, not validated legal answers. Expert-provided page, source hash, ground truth, and status are mandatory before scoring.",
+  "cases": [
+    {"id":"THR-G-001","question":"حداکثر سطح اشغال برای پلاک مشخص با پهنه معلوم چند درصد است؟","category":"coverage"},
+    {"id":"THR-G-002","question":"در پهنه و منطقه مشخص حداکثر تعداد طبقات مجاز چقدر است؟","category":"floors"},
+    {"id":"THR-G-003","question":"اگر عرض گذر نامعلوم باشد آیا می‌توان تعداد طبقات را قطعی اعلام کرد؟","category":"abstention"},
+    {"id":"THR-G-004","question":"چه ضوابطی برای حداقل عرض گذر در شرایط تعیین‌شده اعمال می‌شوند؟","category":"passage"},
+    {"id":"THR-G-005","question":"چه زمانی عقب‌نشینی یا اصلاحی مانع محاسبه دقیق سطح قابل ساخت می‌شود؟","category":"setback"},
+    {"id":"THR-G-006","question":"آیا ضابطه یک پهنه تهران را می‌توان برای پهنه‌ای دیگر استفاده کرد؟","category":"jurisdiction"},
+    {"id":"THR-G-007","question":"چه شرایطی برای تأمین پارکینگ پلاک بررسی می‌شوند؟","category":"parking"},
+    {"id":"THR-G-008","question":"وقتی سال اعتبار ضابطه مشخص نیست، آیا نتیجه باید نیازمند استعلام باشد؟","category":"effective_date"},
+    {"id":"THR-G-009","question":"تفاوت زیربنای ناخالص و مفید در برآورد ساخت چیست؟","category":"concept"},
+    {"id":"THR-G-010","question":"اگر دو ضابطه رسمی با هم تعارض داشته باشند سیستم چه باید بکند؟","category":"conflict"},
+    {"id":"THR-G-011","question":"آیا منبعی که فقط قیمت مصالح دارد مرجع قانون تراکم است؟","category":"source_type"},
+    {"id":"THR-G-012","question":"اگر صفحه منبع خوانا نباشد آیا عدد استخراج‌شده قابل استناد است؟","category":"ocr"}
+  ]
+}

@@ -1,108 +1,63 @@
 package com.sakhtyar.agents.agent;
-
-import com.sakhtyar.agents.core.AgentExecutionContext;
-import com.sakhtyar.agents.core.AgentRequest;
-import com.sakhtyar.agents.core.AgentResult;
-import com.sakhtyar.agents.core.AgentStatus;
-import com.sakhtyar.agents.core.AgentType;
-import com.sakhtyar.agents.core.SakhtyarAgent;
+import com.sakhtyar.agents.core.*;
 import com.sakhtyar.agents.support.AgentValues;
 import java.time.Instant;
-import java.util.ArrayList;
-import java.util.LinkedHashMap;
-import java.util.List;
-import java.util.Locale;
-import java.util.Map;
+import java.util.*;
 import org.springframework.stereotype.Component;
 
 @Component
 public class ResearchAgent implements SakhtyarAgent {
+  public AgentType type(){return AgentType.RESEARCH;}
+  public String displayName(){return "عامل تحقیق";}
 
-    @Override
-    public AgentType type() {
-        return AgentType.RESEARCH;
+  public AgentResult execute(AgentRequest request,AgentExecutionContext context){
+    List<String> domains=AgentValues.stringList(request.parameters().get("researchDomains"));
+    if(domains.isEmpty())domains=List.of("PROPERTY","MUNICIPALITY","VALUATION");
+
+    Map<String,Object> collected=new LinkedHashMap<>();
+    List<String>warnings=new ArrayList<>();
+    boolean partial=false;
+
+    for(String d:domains){
+      AgentType t=toType(d);
+      if(t==null||t==AgentType.RESEARCH||t==AgentType.PERSIAN){
+        warnings.add("دامنه ناشناخته: "+d);partial=true;continue;
+      }
+      AgentResult r=context.resultOf(t).orElseGet(()->context.call(t,request));
+      collected.put(t.name(),Map.of(
+        "status",r.status().name(),
+        "data",r.data(),
+        "warnings",r.warnings(),
+        "missingFields",r.missingFields()
+      ));
+      if(r.status()!=AgentStatus.SUCCESS)partial=true;
     }
 
-    @Override
-    public String displayName() {
-        return "عامل تحقیق";
+    Map<String,Object> data=new LinkedHashMap<>();
+    data.put("requestedDomains",domains);
+    data.put("collected",collected);
+    data.put("sourcePolicy","BACKEND_SERVICES_ONLY");
+
+    return new AgentResult(type(),partial?AgentStatus.PARTIAL:AgentStatus.SUCCESS,
+      "نتایج از Agentهای تخصصی متصل به سرویس‌های Backend تجمیع شد.",
+      data,warnings,List.of(),partial?0.75:0.92,Instant.now());
+  }
+
+  private AgentType toType(String d){
+    if(d==null)return null;
+    try{return AgentType.valueOf(d.trim().toUpperCase(Locale.ROOT));}
+    catch(Exception e){
+      return switch(d.trim().toLowerCase(Locale.ROOT)){
+        case "ملک"->AgentType.PROPERTY;
+        case "شهرداری","ضوابط"->AgentType.MUNICIPALITY;
+        case "قیمت","ارزش"->AgentType.VALUATION;
+        case "ساخت"->AgentType.CONSTRUCTION;
+        case "مالی"->AgentType.FINANCIAL;
+        case "قرارداد"->AgentType.CONTRACT;
+        case "حقوقی"->AgentType.LEGAL;
+        case "سازنده","تطبیق"->AgentType.MATCHING;
+        default->null;
+      };
     }
-
-    @Override
-    public AgentResult execute(AgentRequest request, AgentExecutionContext context) {
-        List<String> requestedDomains = AgentValues.stringList(
-                request.parameters().get("researchDomains")
-        );
-        if (requestedDomains.isEmpty()) {
-            requestedDomains = List.of("PROPERTY", "MUNICIPALITY", "VALUATION");
-        }
-
-        LinkedHashMap<String, Object> collected = new LinkedHashMap<>();
-        ArrayList<String> warnings = new ArrayList<>();
-        boolean partial = false;
-
-        for (String domain : requestedDomains) {
-            AgentType target = toAgentType(domain);
-            if (target == null || target == AgentType.RESEARCH || target == AgentType.PERSIAN) {
-                warnings.add("دامنه تحقیق ناشناخته یا غیرقابل فراخوانی: " + domain);
-                partial = true;
-                continue;
-            }
-            AgentResult result = context.resultOf(target)
-                    .orElseGet(() -> context.call(target, request));
-            collected.put(target.name(), Map.of(
-                    "status", result.status().name(),
-                    "data", result.data(),
-                    "warnings", result.warnings(),
-                    "missingFields", result.missingFields()
-            ));
-            if (result.status() != AgentStatus.SUCCESS) {
-                partial = true;
-            }
-        }
-
-        Object externalSources = request.parameters().get("externalSources");
-        if (externalSources != null) {
-            collected.put("externalSources", externalSources);
-        } else {
-            warnings.add("منبع تحقیق بیرونی به Backend متصل نشده است؛ این Agent فعلاً Agentهای داخلی را تجمیع می‌کند.");
-            partial = true;
-        }
-
-        LinkedHashMap<String, Object> data = new LinkedHashMap<>();
-        data.put("requestedDomains", requestedDomains);
-        data.put("collected", collected);
-
-        return new AgentResult(
-                type(),
-                partial ? AgentStatus.PARTIAL : AgentStatus.SUCCESS,
-                "نتایج Agentهای تخصصی برای تحقیق تجمیع شد.",
-                data,
-                warnings,
-                List.of(),
-                externalSources == null ? 0.65d : 0.85d,
-                Instant.now()
-        );
-    }
-
-    private AgentType toAgentType(String domain) {
-        if (domain == null) {
-            return null;
-        }
-        try {
-            return AgentType.valueOf(domain.trim().toUpperCase(Locale.ROOT));
-        } catch (IllegalArgumentException ignored) {
-            return switch (domain.trim().toLowerCase(Locale.ROOT)) {
-                case "ملک" -> AgentType.PROPERTY;
-                case "شهرداری", "ضوابط" -> AgentType.MUNICIPALITY;
-                case "قیمت", "ارزش" -> AgentType.VALUATION;
-                case "ساخت" -> AgentType.CONSTRUCTION;
-                case "مالی" -> AgentType.FINANCIAL;
-                case "قرارداد" -> AgentType.CONTRACT;
-                case "حقوقی" -> AgentType.LEGAL;
-                case "سازنده", "تطبیق" -> AgentType.MATCHING;
-                default -> null;
-            };
-        }
-    }
+  }
 }

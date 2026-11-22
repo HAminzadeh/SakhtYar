@@ -1,0 +1,133 @@
+{
+  "schemaVersion": 1,
+  "phase": "05",
+  "baseline": {
+    "branch": "v2",
+    "head": "831a54ec612166f825cc8fc87159d67d3b2b9247",
+    "githubActions": [
+      {
+        "name": "CI",
+        "conclusion": "success",
+        "basis": "pre-patch HEAD"
+      },
+      {
+        "name": "Phase 06 offline contracts and strict release evidence gate",
+        "conclusion": "success",
+        "basis": "pre-patch HEAD"
+      }
+    ],
+    "lastMigration": "V66__simulation_fixture_ledger_test_scope.sql"
+  },
+  "executedInArtifactEnvironment": [
+    {
+      "name": "Python independent Decimal Golden Oracle v2",
+      "status": "PASS",
+      "result": "Finance 60/40, ROI, margin, value/cost conservation, sensitivity shocks, assembly waste, FAR; Golden mutation rejected",
+      "sourceOnly": true
+    },
+    {
+      "name": "Java 21 isolated Phase05NumericSnapshot + Phase05SyntheticFixtureManifest harness",
+      "status": "PASS",
+      "assertions": 24,
+      "notes": "Includes the existing Phase02FixtureKeys source in an isolated JDK harness; does not use Maven, Spring, database or network."
+    },
+    {
+      "name": "Patched real GitHub FinancialCalculator Java21 smoke",
+      "status": "PASS",
+      "assertions": 17,
+      "basis": "Reconstructed exact original Git Blob SHA1 and compiled patched implementation with Java21; includes negative inputs, shuffled participant ordering and rounding conservation; Maven NOT_RUN"
+    },
+    {
+      "name": "Patched real GitHub PriceAnomalyDetector Java21 smoke",
+      "status": "PASS",
+      "assertions": 8,
+      "basis": "Exact original GitHub source files, compiled patched detector with minimal annotation stubs; invalid history/candidate checks; Maven NOT_RUN"
+    },
+    {
+      "name": "Isolated JUnit-shaped Java21 test harness",
+      "status": "PASS",
+      "methods": 17,
+      "basis": "Executed tests via local stub JUnit assertions; NOT Maven/JUnit; 8 Mockito ACL cases remain NOT_RUN"
+    },
+    {
+      "name": "Patch edit forward/reverse synthetic anchor round-trip",
+      "status": "PASS",
+      "files": 4,
+      "operations": 21,
+      "notes": "Anchor-roundtrip validation, not execution against the complete local Git working tree."
+    },
+    {
+      "name": "ZIP manifest SHA256 and safe path verification",
+      "status": "PASS",
+      "notes": "Revalidate against the final ZIP checksum recorded by the launcher."
+    },
+    {
+      "name": "Exact original 21 edit anchors verified against GitHub v2 HEAD",
+      "status": "PASS",
+      "files": 4,
+      "operations": 21,
+      "notes": "Compared complete old-anchor substring lengths and CRC32 values to the connector-retrieved source files; all 21 exact matches unique."
+    },
+    {
+      "name": "Legacy financial allocation regression compatibility",
+      "status": "PASS",
+      "basis": "Deterministic share/key ordering preserves last-residual behavior of three-way 33.3333/33.3333/33.3334 existing JUnit; Java assertion checked in isolated test harness"
+    }
+  ],
+  "notExecuted": [
+    {
+      "name": "Windows PowerShell 5.1 actual execution",
+      "status": "NOT_RUN",
+      "reason": "Windows runtime unavailable in artifact environment"
+    },
+    {
+      "name": "Maven/JUnit selected Phase05 tests",
+      "status": "NOT_RUN",
+      "reason": "Maven not installed in artifact environment"
+    },
+    {
+      "name": "33 module Maven package",
+      "status": "NOT_RUN",
+      "reason": "Maven not installed in artifact environment"
+    },
+    {
+      "name": "Frontend production build",
+      "status": "NOT_RUN",
+      "reason": "Complete frontend source/dependencies not present locally"
+    },
+    {
+      "name": "PostgreSQL REAL/TEST physical principal and RLS",
+      "status": "BLOCKED",
+      "reason": "No live database access; no clones or SQL changes permitted by user"
+    },
+    {
+      "name": "Workspace/case HTTP ACL/IDOR runtime",
+      "status": "BLOCKED",
+      "reason": "Needs authenticated synthetic two-case runtime test"
+    },
+    {
+      "name": "Fixture seed/cleanup or immutable DB snapshot collision/restart",
+      "status": "BLOCKED",
+      "reason": "Requires verified restricted TEST principal before data writes"
+    },
+    {
+      "name": "E2E-15..20 full business executor",
+      "status": "BLOCKED",
+      "reason": "Deliberately not implemented in Phase05"
+    },
+    {
+      "name": "24/24 Business E2E",
+      "status": "BLOCKED",
+      "reason": "Separate Business E2E delivery"
+    }
+  ],
+  "dataSafety": {
+    "liveDatabaseContacted": false,
+    "dbCloneCreated": false,
+    "roleOrRlsChanged": false,
+    "migrationAdded": false,
+    "realDataModified": false,
+    "outboundNetworkCalledByTests": false,
+    "fixtureWrites": false
+  }
+}

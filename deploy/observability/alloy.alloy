@@ -7,7 +7,7 @@ discovery.relabel "containers" {
   // Keep only SakhtYar containers. Docker container names include a leading "/".
   rule {
     source_labels = ["__meta_docker_container_name"]
-    regex = "/sakhtyar-.*"
+    regex = "/sakhtyar-(api|worker|collector|agent)"
     action = "keep"
   }
 
@@ -21,8 +21,22 @@ discovery.relabel "containers" {
 loki.source.docker "containers" {
   host = "unix:///var/run/docker.sock"
   targets = discovery.relabel.containers.output
-  forward_to = [loki.write.local.receiver]
+  forward_to = [loki.process.sanitize.receiver]
 }
 loki.write "local" {
   endpoint { url = "http://loki:3100/loki/api/v1/push" }
+}
+
+// Defense in depth only: sanitize common credential-like values BEFORE forwarding.
+// Source applications must avoid logging secrets/PII in the first place.
+loki.process "sanitize" {
+  forward_to = [loki.write.local.receiver]
+  stage.replace {
+    expression = "(?i)(?:bearer[ ]+)([A-Za-z0-9._~-]+)"
+    replace = "[REDACTED]"
+  }
+  stage.replace {
+    expression = "(?i)(?:password|secret|token|api[_-]?key)[ ]*[:=][ ]*[\"']?([A-Za-z0-9._~-]{6,})"
+    replace = "[REDACTED]"
+  }
 }

@@ -1,0 +1,10 @@
+<component name="ProjectRunConfigurationManager">
+  <configuration default="false" name="SakhtYar Backend - Production" type="SpringBootApplicationConfigurationType" factoryName="Spring Boot">
+    <option name="SPRING_BOOT_MAIN_CLASS" value="com.sakhtyar.SakhtYarApplication" />
+    <option name="ACTIVE_PROFILES" value="production" />
+    <option name="PROGRAM_PARAMETERS" value="--spring.profiles.active=production" />
+    <option name="WORKING_DIRECTORY" value="$PROJECT_DIR$" />
+    <module name="sakhtyar-app" />
+    <method v="2" />
+  </configuration>
+</component>

@@ -1,0 +1,31 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://sakhtyar.local/schemas/agent-response-v2.schema.json",
+  "title": "SakhtYar Canonical Agent Response",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schemaVersion",
+    "requestId",
+    "correlationId",
+    "status",
+    "data",
+    "warnings",
+    "missingFields",
+    "confidence",
+    "metadata",
+    "completedAt"
+  ],
+  "properties": {
+    "schemaVersion": { "const": "2.0" },
+    "requestId": { "type": ["string", "null"], "format": "uuid" },
+    "correlationId": { "type": ["string", "null"], "format": "uuid" },
+    "status": { "type": "string", "minLength": 1 },
+    "data": { "type": "object" },
+    "warnings": { "type": "array", "items": { "type": "string" } },
+    "missingFields": { "type": "array", "items": { "type": "string" } },
+    "confidence": { "type": "number", "minimum": 0, "maximum": 1 },
+    "metadata": { "type": "object" },
+    "completedAt": { "type": "string", "format": "date-time" }
+  }
+}

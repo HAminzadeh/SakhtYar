@@ -664,11 +664,19 @@ public class PropertyService {
     }
 
     private CaseEntity requireCase(UUID caseId) {
-        return caseRepository.findById(caseId)
+        var auth = org.springframework.security.core.context.SecurityContextHolder.getContext().getAuthentication();
+        if (auth != null && auth.getAuthorities() != null && auth.getAuthorities().stream()
+                .anyMatch(a -> "ROLE_TESTER".equals(a.getAuthority()))) {
+            throw new ResponseStatusException(HttpStatus.FORBIDDEN,
+                "TESTER must use an isolated TEST property executor");
+        }
+        CaseEntity result = caseRepository.findById(caseId)
                 .orElseThrow(() -> new ResponseStatusException(
-                        HttpStatus.NOT_FOUND,
-                        "Case not found."
-                ));
+                        HttpStatus.NOT_FOUND, "Case not found."));
+        if (!"REAL".equals(result.getDataScope())) {
+            throw new ResponseStatusException(HttpStatus.NOT_FOUND, "Case not found.");
+        }
+        return result;
     }
 
     private String clean(String value) {

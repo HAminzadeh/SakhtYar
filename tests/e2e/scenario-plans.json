@@ -1,0 +1,576 @@
+[
+  {
+    "id": "E2E-01",
+    "phase": "S02",
+    "title": "مدیریت هویت و نشست",
+    "description": "بررسی وجود ساختار هویت، مسیر ورود و شرایط لازم برای آزمون ورود، انقضا و ابطال نشست",
+    "dependencies": [],
+    "requiredTables": [
+      "app_user",
+      "auth_session"
+    ],
+    "requiredRoutes": [
+      "POST /api/v1/auth/login"
+    ],
+    "businessSteps": "ورود آزمایشی، ایجاد نشست، خروج، ابطال و بررسی دسترسی بعد از خروج",
+    "businessStatus": "NOT_IMPLEMENTED_FULL_E2E",
+    "preflightSteps": [
+      "اتصال واقعی PostgreSQL و بررسی محیط",
+      "بررسی جدول‌های مختص سناریو",
+      "بررسی ثبت مسیر API در Spring MVC",
+      "کنترل محافظ REAL/TEST و مجوز اجرای تجاری"
+    ]
+  },
+  {
+    "id": "E2E-02",
+    "phase": "S02",
+    "title": "مالکیت پرونده و عضویت",
+    "description": "اثبات کنترل دسترسی هر کاربر به پرونده و منع خواندن/تغییر پرونده سایر مالکان",
+    "dependencies": [
+      "E2E-01"
+    ],
+    "requiredTables": [
+      "construction_case",
+      "construction_case_access"
+    ],
+    "requiredRoutes": [
+      "GET /api/v1/cases/{id}"
+    ],
+    "businessSteps": "ساخت کاربران و پرونده TEST، اعطای دسترسی و آزمون عدم دسترسی کاربر غیرعضو",
+    "businessStatus": "NOT_IMPLEMENTED_FULL_E2E",
+    "preflightSteps": [
+      "اتصال واقعی PostgreSQL و بررسی محیط",
+      "بررسی جدول‌های مختص سناریو",
+      "بررسی ثبت مسیر API در Spring MVC",
+      "کنترل محافظ REAL/TEST و مجوز اجرای تجاری"
+    ]
+  },
+  {
+    "id": "E2E-03",
+    "phase": "S02",
+    "title": "مجوزهای مدیریت دانش",
+    "description": "ارزیابی کنترل دسترسی مدیر دانش و جلوگیری از عملیات انتشار بدون مجوز",
+    "dependencies": [
+      "E2E-01"
+    ],
+    "requiredTables": [
+      "knowledge_dataset_package"
+    ],
+    "requiredRoutes": [
+      "GET /api/v1/knowledge/admin/dataset-packages"
+    ],
+    "businessSteps": "ارسال درخواست مدیر و غیرمدیر، بررسی 403، ردیابی وقایع تغییر",
+    "businessStatus": "NOT_IMPLEMENTED_FULL_E2E",
+    "preflightSteps": [
+      "اتصال واقعی PostgreSQL و بررسی محیط",
+      "بررسی جدول‌های مختص سناریو",
+      "بررسی ثبت مسیر API در Spring MVC",
+      "کنترل محافظ REAL/TEST و مجوز اجرای تجاری"
+    ]
+  },
+  {
+    "id": "E2E-04",
+    "phase": "S02",
+    "title": "ویرایش ضوابط شهری",
+    "description": "کنترل صحت منابع ضوابط و انتشار نسخه، منع تغییر غیرمجاز",
+    "dependencies": [
+      "E2E-01"
+    ],
+    "requiredTables": [
+      "urban_rule"
+    ],
+    "requiredRoutes": [
+      "POST /api/v1/regulations/rules"
+    ],
+    "businessSteps": "ایجاد نسخه TEST، بازبینی/رد، کنترل منبع و جلوگیری از نشر واقعی",
+    "businessStatus": "NOT_IMPLEMENTED_FULL_E2E",
+    "preflightSteps": [
+      "اتصال واقعی PostgreSQL و بررسی محیط",
+      "بررسی جدول‌های مختص سناریو",
+      "بررسی ثبت مسیر API در Spring MVC",
+      "کنترل محافظ REAL/TEST و مجوز اجرای تجاری"
+    ]
+  },
+  {
+    "id": "E2E-05",
+    "phase": "S02",
+    "title": "مهاجرت دیتابیس و بازیابی",
+    "description": "بررسی سلامت تاریخچه Flyway و سلامت ساختارهای پایگاه داده",
+    "dependencies": [],
+    "requiredTables": [
+      "flyway_schema_history"
+    ],
+    "requiredRoutes": [
+      "GET /api/v1/admin/quality/overview"
+    ],
+    "businessSteps": "کنترل وضعیت migration، تهیه پشتیبان، تمرین بازیابی در دیتابیس جداگانه",
+    "businessStatus": "NOT_IMPLEMENTED_FULL_E2E",
+    "preflightSteps": [
+      "اتصال واقعی PostgreSQL و بررسی محیط",
+      "بررسی جدول‌های مختص سناریو",
+      "بررسی ثبت مسیر API در Spring MVC",
+      "کنترل محافظ REAL/TEST و مجوز اجرای تجاری"
+    ]
+  },
+  {
+    "id": "E2E-06",
+    "phase": "S02",
+    "title": "امنیت API و CSRF",
+    "description": "کنترل ثبت مسیر CSRF و رد درخواست‌های بدون احراز هویت",
+    "dependencies": [
+      "E2E-01"
+    ],
+    "requiredTables": [
+      "auth_session"
+    ],
+    "requiredRoutes": [
+      "GET /api/v1/auth/csrf"
+    ],
+    "businessSteps": "درخواست بدون کوکی، بدون CSRF و با CSRF جعلی؛ اثبات پاسخ صحیح",
+    "businessStatus": "NOT_IMPLEMENTED_FULL_E2E",
+    "preflightSteps": [
+      "اتصال واقعی PostgreSQL و بررسی محیط",
+      "بررسی جدول‌های مختص سناریو",
+      "بررسی ثبت مسیر API در Spring MVC",
+      "کنترل محافظ REAL/TEST و مجوز اجرای تجاری"
+    ]
+  },
+  {
+    "id": "E2E-07",
+    "phase": "S03",
+    "title": "ورود بسته دانش",
+    "description": "بررسی زمینه واردسازی بسته و اعتبارسنجی آرشیو با داده نمونه",
+    "dependencies": [
+      "E2E-03"
+    ],
+    "requiredTables": [
+      "knowledge_dataset_package",
+      "knowledge_document"
+    ],
+    "requiredRoutes": [
+      "POST /api/v1/knowledge/admin/dataset-packages"
+    ],
+    "businessSteps": "ورود ZIP ساختگی، اعتبارسنجی فایل خراب و تکراری و شواهد پایگاه",
+    "businessStatus": "NOT_IMPLEMENTED_FULL_E2E",
+    "preflightSteps": [
+      "اتصال واقعی PostgreSQL و بررسی محیط",
+      "بررسی جدول‌های مختص سناریو",
+      "بررسی ثبت مسیر API در Spring MVC",
+      "کنترل محافظ REAL/TEST و مجوز اجرای تجاری"
+    ]
+  },
+  {
+    "id": "E2E-08",
+    "phase": "S03",
+    "title": "موتور استخراج دانش",
+    "description": "بررسی زنجیره استخراج و مدیریت checkpointهای پردازش",
+    "dependencies": [
+      "E2E-07"
+    ],
+    "requiredTables": [
+      "knowledge_pipeline_run",
+      "knowledge_pipeline_checkpoint"
+    ],
+    "requiredRoutes": [
+      "POST /api/v1/knowledge/admin/pipeline/start"
+    ],
+    "businessSteps": "شروع پردازش TEST، توقف/ازسرگیری و قیاس خروجی قطعی",
+    "businessStatus": "NOT_IMPLEMENTED_FULL_E2E",
+    "preflightSteps": [
+      "اتصال واقعی PostgreSQL و بررسی محیط",
+      "بررسی جدول‌های مختص سناریو",
+      "بررسی ثبت مسیر API در Spring MVC",
+      "کنترل محافظ REAL/TEST و مجوز اجرای تجاری"
+    ]
+  },
+  {
+    "id": "E2E-09",
+    "phase": "S03",
+    "title": "اسناد حقوقی و OCR",
+    "description": "بررسی منشأ صفحه، متن استخراج‌شده و کنترل عدم اختراع ارجاع",
+    "dependencies": [
+      "E2E-08"
+    ],
+    "requiredTables": [
+      "knowledge_legal_segment",
+      "knowledge_ocr_page_review"
+    ],
+    "requiredRoutes": [
+      "GET /api/v1/knowledge/admin/ai-lifecycle/documents"
+    ],
+    "businessSteps": "استفاده از PDF نمونه، کنترل متن/صفحه/کیفیت و خروجی OCR",
+    "businessStatus": "NOT_IMPLEMENTED_FULL_E2E",
+    "preflightSteps": [
+      "اتصال واقعی PostgreSQL و بررسی محیط",
+      "بررسی جدول‌های مختص سناریو",
+      "بررسی ثبت مسیر API در Spring MVC",
+      "کنترل محافظ REAL/TEST و مجوز اجرای تجاری"
+    ]
+  },
+  {
+    "id": "E2E-10",
+    "phase": "S03",
+    "title": "بازبینی انسانی",
+    "description": "بررسی تأیید، رد، ویرایش و تاریخچه بازبینی",
+    "dependencies": [
+      "E2E-09"
+    ],
+    "requiredTables": [
+      "knowledge_ai_import_item",
+      "knowledge_ai_import_review_event"
+    ],
+    "requiredRoutes": [
+      "POST /api/v1/knowledge/admin/ai-import/packages/{id}/items/{itemId}/review"
+    ],
+    "businessSteps": "ثبت تأیید/رد TEST، آزمون گردش‌کار گروهی و نسخه متن",
+    "businessStatus": "NOT_IMPLEMENTED_FULL_E2E",
+    "preflightSteps": [
+      "اتصال واقعی PostgreSQL و بررسی محیط",
+      "بررسی جدول‌های مختص سناریو",
+      "بررسی ثبت مسیر API در Spring MVC",
+      "کنترل محافظ REAL/TEST و مجوز اجرای تجاری"
+    ]
+  },
+  {
+    "id": "E2E-11",
+    "phase": "S03",
+    "title": "حاکمیت و انتشار",
+    "description": "کنترل انتشار نسخه‌های بازبینی‌شده و جلوگیری از انتشار متن تأییدنشده",
+    "dependencies": [
+      "E2E-10"
+    ],
+    "requiredTables": [
+      "knowledge_rule_review",
+      "knowledge_rule_review_event"
+    ],
+    "requiredRoutes": [
+      "GET /api/v1/knowledge/admin/governance/pending"
+    ],
+    "businessSteps": "ساخت نسخه TEST، رد قانون بدون شاهد و کنترل رویداد انتشار",
+    "businessStatus": "NOT_IMPLEMENTED_FULL_E2E",
+    "preflightSteps": [
+      "اتصال واقعی PostgreSQL و بررسی محیط",
+      "بررسی جدول‌های مختص سناریو",
+      "بررسی ثبت مسیر API در Spring MVC",
+      "کنترل محافظ REAL/TEST و مجوز اجرای تجاری"
+    ]
+  },
+  {
+    "id": "E2E-12",
+    "phase": "S03",
+    "title": "کاتالوگ و بازیابی",
+    "description": "بررسی بازیابی همراه با شاهد و صحت مرزبندی داده",
+    "dependencies": [
+      "E2E-11"
+    ],
+    "requiredTables": [
+      "knowledge_term",
+      "knowledge_relation"
+    ],
+    "requiredRoutes": [
+      "GET /api/v1/knowledge/admin/ai-lifecycle/overview"
+    ],
+    "businessSteps": "ایندکس نمونه، پرس‌وجوی بازیابی، اعتبارسنجی شاهد و فیلتر نسخه",
+    "businessStatus": "NOT_IMPLEMENTED_FULL_E2E",
+    "preflightSteps": [
+      "اتصال واقعی PostgreSQL و بررسی محیط",
+      "بررسی جدول‌های مختص سناریو",
+      "بررسی ثبت مسیر API در Spring MVC",
+      "کنترل محافظ REAL/TEST و مجوز اجرای تجاری"
+    ]
+  },
+  {
+    "id": "E2E-13",
+    "phase": "S03",
+    "title": "خزشگر منابع",
+    "description": "کنترل شروع خزش آزمایشی و نبود تماس ناخواسته با سایت‌های حقیقی",
+    "dependencies": [
+      "E2E-07"
+    ],
+    "requiredTables": [
+      "crawl_source",
+      "crawl_job",
+      "crawled_document"
+    ],
+    "requiredRoutes": [
+      "POST /api/v1/crawler/sources/{id}/run"
+    ],
+    "businessSteps": "خزش سرور محلی mock، حذف تکراری و بررسی محافظ خروجی",
+    "businessStatus": "NOT_IMPLEMENTED_FULL_E2E",
+    "preflightSteps": [
+      "اتصال واقعی PostgreSQL و بررسی محیط",
+      "بررسی جدول‌های مختص سناریو",
+      "بررسی ثبت مسیر API در Spring MVC",
+      "کنترل محافظ REAL/TEST و مجوز اجرای تجاری"
+    ]
+  },
+  {
+    "id": "E2E-14",
+    "phase": "S04",
+    "title": "پرونده و ملک و مالک",
+    "description": "ثبت و بازیابی واقعی پرونده مصنوعی، ملک و مالکان زیر سیاست RLS",
+    "dependencies": [
+      "E2E-02",
+      "E2E-05"
+    ],
+    "requiredTables": [
+      "construction_case",
+      "property",
+      "property_owner",
+      "case_document"
+    ],
+    "requiredRoutes": [
+      "POST /api/v1/cases"
+    ],
+    "businessSteps": "بررسی نقش محدود DB، ایجاد پرونده و ملک ۳۰۰ متری، دو مالک ۶۰/۴۰، خواندن TEST و منع خواندن REAL",
+    "businessStatus": "LIMITED_CORE_FIXTURE",
+    "preflightSteps": [
+      "اتصال واقعی PostgreSQL و بررسی محیط",
+      "بررسی جدول‌های مختص سناریو",
+      "بررسی ثبت مسیر API در Spring MVC",
+      "کنترل محافظ REAL/TEST و مجوز اجرای تجاری"
+    ]
+  },
+  {
+    "id": "E2E-15",
+    "phase": "S04",
+    "title": "سازندگان و پیشنهادها",
+    "description": "کنترل فهرست سازنده، تطبیق با پرونده و پیشنهادهای مستقل",
+    "dependencies": [
+      "E2E-14"
+    ],
+    "requiredTables": [
+      "builder_profile",
+      "project_builder"
+    ],
+    "requiredRoutes": [
+      "POST /api/v1/builders/cases/{caseId}/matches"
+    ],
+    "businessSteps": "ثبت سازنده TEST و تطبیق پیشنهاد و کنترل مجوزهای پرونده",
+    "businessStatus": "NOT_IMPLEMENTED_FULL_E2E",
+    "preflightSteps": [
+      "اتصال واقعی PostgreSQL و بررسی محیط",
+      "بررسی جدول‌های مختص سناریو",
+      "بررسی ثبت مسیر API در Spring MVC",
+      "کنترل محافظ REAL/TEST و مجوز اجرای تجاری"
+    ]
+  },
+  {
+    "id": "E2E-16",
+    "phase": "S04",
+    "title": "مصالح و برآورد هزینه",
+    "description": "بررسی نرخ مصالح، محاسبه هزینه و ثبت snapshot معتبر",
+    "dependencies": [
+      "E2E-14"
+    ],
+    "requiredTables": [
+      "material_price_observation",
+      "cost_estimate"
+    ],
+    "requiredRoutes": [
+      "POST /api/v1/assemblies/{id}/calculate"
+    ],
+    "businessSteps": "ثبت نرخ‌های مصنوعی، محاسبه جمع و مقایسه با انتظار عددی",
+    "businessStatus": "NOT_IMPLEMENTED_FULL_E2E",
+    "preflightSteps": [
+      "اتصال واقعی PostgreSQL و بررسی محیط",
+      "بررسی جدول‌های مختص سناریو",
+      "بررسی ثبت مسیر API در Spring MVC",
+      "کنترل محافظ REAL/TEST و مجوز اجرای تجاری"
+    ]
+  },
+  {
+    "id": "E2E-17",
+    "phase": "S04",
+    "title": "سناریوهای ساخت",
+    "description": "بررسی محاسبات گزینه‌های ساخت و سازگاری با برآورد هزینه",
+    "dependencies": [
+      "E2E-16"
+    ],
+    "requiredTables": [
+      "construction_scenario",
+      "scenario_cost_snapshot"
+    ],
+    "requiredRoutes": [
+      "POST /api/v1/scenarios/{id}/calculate"
+    ],
+    "businessSteps": "ساخت سناریوی نمونه، ذخیره محاسبات و مقایسه صورت‌هزینه‌ها",
+    "businessStatus": "NOT_IMPLEMENTED_FULL_E2E",
+    "preflightSteps": [
+      "اتصال واقعی PostgreSQL و بررسی محیط",
+      "بررسی جدول‌های مختص سناریو",
+      "بررسی ثبت مسیر API در Spring MVC",
+      "کنترل محافظ REAL/TEST و مجوز اجرای تجاری"
+    ]
+  },
+  {
+    "id": "E2E-18",
+    "phase": "S04",
+    "title": "ضوابط و امکان‌سنجی",
+    "description": "تطبیق گزینه‌های ساخت با ضوابط و کنترل منشأ مقررات",
+    "dependencies": [
+      "E2E-04",
+      "E2E-17"
+    ],
+    "requiredTables": [
+      "urban_evaluation",
+      "feasibility_assessment"
+    ],
+    "requiredRoutes": [
+      "POST /api/v1/feasibility/assessments"
+    ],
+    "businessSteps": "بررسی امکان‌سنجی برای ملک مصنوعی با قواعد نسخه‌دار TEST",
+    "businessStatus": "NOT_IMPLEMENTED_FULL_E2E",
+    "preflightSteps": [
+      "اتصال واقعی PostgreSQL و بررسی محیط",
+      "بررسی جدول‌های مختص سناریو",
+      "بررسی ثبت مسیر API در Spring MVC",
+      "کنترل محافظ REAL/TEST و مجوز اجرای تجاری"
+    ]
+  },
+  {
+    "id": "E2E-19",
+    "phase": "S04",
+    "title": "مالی مشارکت",
+    "description": "کنترل سهم مالک و سازنده، هزینه و جریان نقدی مشارکت",
+    "dependencies": [
+      "E2E-15",
+      "E2E-18"
+    ],
+    "requiredTables": [
+      "financial_analysis",
+      "financial_participation_allocation"
+    ],
+    "requiredRoutes": [
+      "POST /api/v1/finance/analyses"
+    ],
+    "businessSteps": "محاسبه سناریوی مالی TEST و اعتبارسنجی جمع سهم‌ها و خروجی‌ها",
+    "businessStatus": "NOT_IMPLEMENTED_FULL_E2E",
+    "preflightSteps": [
+      "اتصال واقعی PostgreSQL و بررسی محیط",
+      "بررسی جدول‌های مختص سناریو",
+      "بررسی ثبت مسیر API در Spring MVC",
+      "کنترل محافظ REAL/TEST و مجوز اجرای تجاری"
+    ]
+  },
+  {
+    "id": "E2E-20",
+    "phase": "S04",
+    "title": "حساسیت و ردیابی نتایج",
+    "description": "اعتبارسنجی تغییر مفروضات، بازتولید و lineage",
+    "dependencies": [
+      "E2E-19"
+    ],
+    "requiredTables": [
+      "sensitivity_analysis",
+      "analysis_snapshot"
+    ],
+    "requiredRoutes": [
+      "POST /api/v1/sensitivity/analyses"
+    ],
+    "businessSteps": "تغییر هزینه و قیمت، بازاجرای تحلیل و قیاس snapshot",
+    "businessStatus": "NOT_IMPLEMENTED_FULL_E2E",
+    "preflightSteps": [
+      "اتصال واقعی PostgreSQL و بررسی محیط",
+      "بررسی جدول‌های مختص سناریو",
+      "بررسی ثبت مسیر API در Spring MVC",
+      "کنترل محافظ REAL/TEST و مجوز اجرای تجاری"
+    ]
+  },
+  {
+    "id": "E2E-21",
+    "phase": "S05",
+    "title": "عامل‌های هوشمند",
+    "description": "کنترل مجوز، ثبت اجرای Agent و جلوگیری از خروج داده TEST",
+    "dependencies": [
+      "E2E-11",
+      "E2E-20"
+    ],
+    "requiredTables": [
+      "intelligence_workflow_execution"
+    ],
+    "requiredRoutes": [
+      "POST /api/v1/intelligence/workflows/execute"
+    ],
+    "businessSteps": "Agent mock آفلاین، کنترل tool-call و مجوز خروجی",
+    "businessStatus": "NOT_IMPLEMENTED_FULL_E2E",
+    "preflightSteps": [
+      "اتصال واقعی PostgreSQL و بررسی محیط",
+      "بررسی جدول‌های مختص سناریو",
+      "بررسی ثبت مسیر API در Spring MVC",
+      "کنترل محافظ REAL/TEST و مجوز اجرای تجاری"
+    ]
+  },
+  {
+    "id": "E2E-22",
+    "phase": "S05",
+    "title": "رابط کاربری و BFF",
+    "description": "آزمون مسیر نمایش پرونده و کنترل هدرها و دسترسی رابط",
+    "dependencies": [
+      "E2E-14"
+    ],
+    "requiredTables": [
+      "construction_case"
+    ],
+    "requiredRoutes": [
+      "GET /api/v1/cases"
+    ],
+    "businessSteps": "Playwright روی حساب TEST، بررسی گردش‌کار و خطای 403",
+    "businessStatus": "NOT_IMPLEMENTED_FULL_E2E",
+    "preflightSteps": [
+      "اتصال واقعی PostgreSQL و بررسی محیط",
+      "بررسی جدول‌های مختص سناریو",
+      "بررسی ثبت مسیر API در Spring MVC",
+      "کنترل محافظ REAL/TEST و مجوز اجرای تجاری"
+    ]
+  },
+  {
+    "id": "E2E-23",
+    "phase": "S05",
+    "title": "مانیتورینگ و اعلان",
+    "description": "بررسی رخدادها و جلوگیری از ارسال پیام TEST به گیرنده واقعی",
+    "dependencies": [
+      "E2E-21"
+    ],
+    "requiredTables": [
+      "monitoring_event",
+      "notification_outbox"
+    ],
+    "requiredRoutes": [
+      "POST /api/v1/monitoring/evaluate"
+    ],
+    "businessSteps": "ساخت رخداد TEST، بررسی عدم ارسال واقعی و ثبت وضعیت outbox",
+    "businessStatus": "NOT_IMPLEMENTED_FULL_E2E",
+    "preflightSteps": [
+      "اتصال واقعی PostgreSQL و بررسی محیط",
+      "بررسی جدول‌های مختص سناریو",
+      "بررسی ثبت مسیر API در Spring MVC",
+      "کنترل محافظ REAL/TEST و مجوز اجرای تجاری"
+    ]
+  },
+  {
+    "id": "E2E-24",
+    "phase": "S05",
+    "title": "تنظیمات و بازیابی",
+    "description": "اعتبارسنجی نسخه تنظیمات، ثبت audit و recovery",
+    "dependencies": [
+      "E2E-05",
+      "E2E-23"
+    ],
+    "requiredTables": [
+      "platform_config_version",
+      "platform_config_audit"
+    ],
+    "requiredRoutes": [
+      "GET /api/v1/admin/config"
+    ],
+    "businessSteps": "تغییر تنظیمات در محیط ایزوله، بررسی Audit و بازگشت نسخه",
+    "businessStatus": "NOT_IMPLEMENTED_FULL_E2E",
+    "preflightSteps": [
+      "اتصال واقعی PostgreSQL و بررسی محیط",
+      "بررسی جدول‌های مختص سناریو",
+      "بررسی ثبت مسیر API در Spring MVC",
+      "کنترل محافظ REAL/TEST و مجوز اجرای تجاری"
+    ]
+  }
+]

@@ -17,6 +17,9 @@ public class CaseEntity {
     @Id
     private UUID id;
 
+    @Column(name = "project_code", nullable = false, unique = true, length = 40, updatable = false)
+    private String projectCode;
+
     @Column(nullable = false, length = 250)
     private String title;
 
@@ -39,6 +42,9 @@ public class CaseEntity {
     @Column(name = "land_area_m2", precision = 12, scale = 2)
     private BigDecimal landAreaM2;
 
+    @Column(name = "cover_image_url", length = 1000)
+    private String coverImageUrl;
+
     @Column(name = "created_by", nullable = false, length = 100)
     private String createdBy;
 
@@ -48,11 +54,15 @@ public class CaseEntity {
     @Column(name = "updated_at", nullable = false)
     private Instant updatedAt;
 
+    @Column(name = "data_scope", nullable = false, insertable = false, updatable = false, length = 8)
+    private String dataScope;
+
     protected CaseEntity() {
     }
 
     public CaseEntity(
             UUID id,
+            String projectCode,
             String title,
             CaseStatus status,
             String description,
@@ -60,11 +70,13 @@ public class CaseEntity {
             String district,
             String address,
             BigDecimal landAreaM2,
+            String coverImageUrl,
             String createdBy,
             Instant createdAt,
             Instant updatedAt
     ) {
         this.id = id;
+        this.projectCode = projectCode;
         this.title = title;
         this.status = status;
         this.description = description;
@@ -72,6 +84,7 @@ public class CaseEntity {
         this.district = district;
         this.address = address;
         this.landAreaM2 = landAreaM2;
+        this.coverImageUrl = coverImageUrl;
         this.createdBy = createdBy;
         this.createdAt = createdAt;
         this.updatedAt = updatedAt;
@@ -84,7 +97,8 @@ public class CaseEntity {
             String city,
             String district,
             String address,
-            BigDecimal landAreaM2
+            BigDecimal landAreaM2,
+            String coverImageUrl
     ) {
         this.title = title;
         this.status = status;
@@ -93,6 +107,7 @@ public class CaseEntity {
         this.district = district;
         this.address = address;
         this.landAreaM2 = landAreaM2;
+        this.coverImageUrl = coverImageUrl;
         this.updatedAt = Instant.now();
     }
 
@@ -110,6 +125,7 @@ public class CaseEntity {
     }
 
     public UUID getId() { return id; }
+    public String getProjectCode() { return projectCode; }
     public String getTitle() { return title; }
     public CaseStatus getStatus() { return status; }
     public String getDescription() { return description; }
@@ -117,7 +133,9 @@ public class CaseEntity {
     public String getDistrict() { return district; }
     public String getAddress() { return address; }
     public BigDecimal getLandAreaM2() { return landAreaM2; }
+    public String getCoverImageUrl() { return coverImageUrl; }
     public String getCreatedBy() { return createdBy; }
     public Instant getCreatedAt() { return createdAt; }
     public Instant getUpdatedAt() { return updatedAt; }
+    public String getDataScope() { return dataScope; }
 }

@@ -1,130 +1,40 @@
 package com.sakhtyar.agents.agent;
-
-import com.sakhtyar.agents.core.AgentExecutionContext;
-import com.sakhtyar.agents.core.AgentRequest;
-import com.sakhtyar.agents.core.AgentResult;
-import com.sakhtyar.agents.core.AgentStatus;
-import com.sakhtyar.agents.core.AgentType;
-import com.sakhtyar.agents.core.SakhtyarAgent;
-import com.sakhtyar.agents.support.AgentNumbers;
-import com.sakhtyar.agents.support.AgentValues;
-import java.math.BigDecimal;
+import com.sakhtyar.agents.core.*;
+import com.sakhtyar.agents.tools.MarketValuationTool;
 import java.time.Instant;
-import java.util.ArrayList;
-import java.util.Comparator;
-import java.util.LinkedHashMap;
-import java.util.List;
-import java.util.Map;
+import java.util.*;
 import org.springframework.stereotype.Component;
 
 @Component
 public class ValuationAgent implements SakhtyarAgent {
+  private final MarketValuationTool tool;
+  public ValuationAgent(MarketValuationTool tool){this.tool=tool;}
+  public AgentType type(){return AgentType.VALUATION;}
+  public String displayName(){return "عامل قیمت‌گذاری";}
 
-    @Override
-    public AgentType type() {
-        return AgentType.VALUATION;
+  public AgentResult execute(AgentRequest request,AgentExecutionContext context){
+    if(request.caseId()==null)
+      return AgentResult.needsInput(type(),"برای قیمت‌گذاری مبتنی بر بازار، شناسه پرونده لازم است.",Map.of(),List.of("caseId"));
+
+    try{
+      Map<String,Object> data=tool.execute(request.caseId());
+      long count=((Number)data.getOrDefault("sampleCount",0)).longValue();
+
+      if(count<1||data.get("medianPricePerM2")==null)
+        return new AgentResult(type(),AgentStatus.NEEDS_INPUT,
+          "داده بازار کافی برای قیمت‌گذاری این ملک وجود ندارد.",data,
+          List.of("Agent قیمت بازار را بدون مشاهده Backend حدس نمی‌زند."),
+          List.of("market observations / comparables"),0.0,Instant.now());
+
+      boolean value=data.get("estimatedLandValue")!=null;
+      return new AgentResult(type(),value?AgentStatus.SUCCESS:AgentStatus.PARTIAL,
+        "قیمت‌گذاری از Market Intelligence Backend و املاک مقایسه‌ای انجام شد.",data,
+        List.of("این خروجی برآورد تحلیلی است و جایگزین ارزیابی رسمی کارشناس نیست."),
+        value?List.of():List.of("landAreaM2"),
+        Math.min(0.95,0.55+Math.min(count,20)*0.02),Instant.now());
+    }catch(RuntimeException ex){
+      return AgentResult.needsInput(type(),"Market Intelligence برای این پرونده داده قابل استفاده ندارد.",
+        Map.of(),List.of(ex.getMessage()==null?"market data":ex.getMessage()));
     }
-
-    @Override
-    public String displayName() {
-        return "عامل قیمت‌گذاری";
-    }
-
-    @Override
-    public AgentResult execute(AgentRequest request, AgentExecutionContext context) {
-        AgentResult property = context.resultOf(AgentType.PROPERTY)
-                .orElseGet(() -> context.call(AgentType.PROPERTY, request));
-
-        BigDecimal landArea = first(
-                AgentValues.decimal(request.parameters(), "landAreaM2"),
-                AgentValues.decimal(property.data(), "landAreaM2")
-        );
-        BigDecimal pricePerM2 = AgentValues.decimal(
-                request.parameters(),
-                "landPricePerM2",
-                "pricePerM2"
-        );
-        String source = "USER_INPUT";
-        double confidence = 0.95d;
-
-        List<Map<String, Object>> comparables = AgentValues.mapList(
-                request.parameters().get("comparables")
-        );
-        if (pricePerM2 == null) {
-            List<BigDecimal> prices = new ArrayList<>();
-            for (Map<String, Object> comparable : comparables) {
-                BigDecimal price = AgentValues.decimal(
-                        comparable,
-                        "landPricePerM2",
-                        "pricePerM2"
-                );
-                if (price != null && price.signum() > 0) {
-                    prices.add(price);
-                }
-            }
-            if (!prices.isEmpty()) {
-                pricePerM2 = median(prices);
-                source = "COMPARABLE_MEDIAN";
-                confidence = Math.min(0.85d, 0.45d + (prices.size() * 0.08d));
-            }
-        }
-
-        LinkedHashMap<String, Object> data = new LinkedHashMap<>();
-        if (pricePerM2 != null) {
-            data.put("landPricePerM2", AgentNumbers.money(pricePerM2));
-            data.put("valuationSource", source);
-            data.put("comparableCount", comparables.size());
-        }
-        if (landArea != null) {
-            data.put("landAreaM2", landArea);
-        }
-        if (pricePerM2 != null && landArea != null) {
-            data.put(
-                    "estimatedLandValue",
-                    AgentNumbers.money(pricePerM2.multiply(landArea))
-            );
-        }
-
-        if (pricePerM2 == null) {
-            return new AgentResult(
-                    type(),
-                    AgentStatus.NEEDS_INPUT,
-                    "برای قیمت‌گذاری باید قیمت هر متر زمین یا املاک مشابه معتبر ارائه شود.",
-                    data,
-                    List.of("Agent قیمت بازار را بدون منبع داده حدس نمی‌زند."),
-                    List.of("landPricePerM2 یا comparables"),
-                    0.0d,
-                    Instant.now()
-            );
-        }
-
-        AgentStatus status = landArea == null ? AgentStatus.PARTIAL : AgentStatus.SUCCESS;
-        return new AgentResult(
-                type(),
-                status,
-                "قیمت‌گذاری بر اساس داده ورودی و محاسبه آماری انجام شد.",
-                data,
-                List.of(),
-                landArea == null ? List.of("landAreaM2") : List.of(),
-                confidence,
-                Instant.now()
-        );
-    }
-
-    private BigDecimal median(List<BigDecimal> values) {
-        List<BigDecimal> sorted = values.stream()
-                .sorted(Comparator.naturalOrder())
-                .toList();
-        int middle = sorted.size() / 2;
-        if (sorted.size() % 2 == 1) {
-            return sorted.get(middle);
-        }
-        return sorted.get(middle - 1)
-                .add(sorted.get(middle))
-                .divide(BigDecimal.valueOf(2));
-    }
-
-    private BigDecimal first(BigDecimal first, BigDecimal second) {
-        return first != null ? first : second;
-    }
+  }
 }

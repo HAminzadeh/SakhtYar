@@ -8,8 +8,8 @@ spring:
 
   datasource:
     url: jdbc:postgresql://localhost:5432/${POSTGRES_DB:sakhtyar}
-    username: ${POSTGRES_USER:sakhtyar}
-    password: ${POSTGRES_PASSWORD:change-me-postgres}
+    username: ${SAKHTYAR_RUNTIME_DB_USER:${POSTGRES_USER:sakhtyar}}
+    password: ${SAKHTYAR_RUNTIME_DB_PASSWORD:${POSTGRES_PASSWORD:change-me-postgres}}
 
   data:
     redis:
@@ -24,9 +24,16 @@ management:
         otlp:
           endpoint: http://localhost:4318/v1/traces
 
+  metrics:
+    distribution:
+      percentiles-histogram:
+        http.server.requests: true
+      slo:
+        http.server.requests: 50ms,100ms,250ms,500ms,1s,2s,5s
+
 app:
   storage:
-    endpoint: http://localhost:9000
+    endpoint: http://localhost:19000
     access-key: ${MINIO_ROOT_USER:sakhtyar}
     secret-key: ${MINIO_ROOT_PASSWORD:change-me-minio}
     bucket: ${MINIO_BUCKET:sakhtyar-documents}
@@ -37,4 +44,6 @@ app:
       service-api-key: ${NESHAN_SERVICE_API_KEY:}
 
   bootstrap-admin:
-    reset-password-on-startup: ${APP_BOOTSTRAP_ADMIN_RESET_PASSWORD_ON_STARTUP:true}
+    reset-password-on-startup: ${APP_BOOTSTRAP_ADMIN_RESET_PASSWORD_ON_STARTUP:false}
+  dev-seed:
+    enabled: ${APP_DEV_SEED_ENABLED:false}

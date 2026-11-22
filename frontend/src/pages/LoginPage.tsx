@@ -1,126 +1,74 @@
-import { ConstructionRoundedIcon } from '../ui/antdIcons'
-import { zodResolver } from '@hookform/resolvers/zod'
-
-import {
-  Alert,
-  Box,
-  Button,
-  Card,
-  CardContent,
-  Stack,
-  TextField,
-  Typography,
-} from '../ui/antdCompat'
+import { ArrowLeftOutlined, LockOutlined, UserAddOutlined, UserOutlined } from '@ant-design/icons'
+import { Alert, Button, Card, Form, Input, Space, Typography } from 'antd'
 import { useState } from 'react'
-import { useForm } from 'react-hook-form'
 import { Link, Navigate, useNavigate } from 'react-router-dom'
-import { z } from 'zod'
 import { useAuth } from '../auth/AuthProvider'
+import { useI18n } from '../i18n/LanguageProvider'
+import { LanguageSwitcher } from '../ui/LanguageSwitcher'
 
-const schema = z.object({
-  username: z.string().min(1, 'نام کاربری الزامی است'),
-  password: z.string().min(1, 'رمز عبور الزامی است'),
-})
-
-type FormValues = z.infer<typeof schema>
+type LoginValues = { username: string; password: string }
 
 export function LoginPage() {
   const { user, login } = useAuth()
+  const { t } = useI18n()
   const navigate = useNavigate()
   const [error, setError] = useState<string | null>(null)
-
-  const {
-    register,
-    handleSubmit,
-    formState: { errors, isSubmitting },
-  } = useForm<FormValues>({ resolver: zodResolver(schema) })
+  const [submitting, setSubmitting] = useState(false)
 
   if (user) return <Navigate to="/cases" replace />
 
-  const submit = async (values: FormValues) => {
-    setError(null)
+  const submit = async (values: LoginValues) => {
+    setError(null); setSubmitting(true)
     try {
-      await login(values.username, values.password)
-      navigate('/cases')
+      await login(values.username.trim(), values.password)
+      navigate('/cases', { replace: true })
     } catch (err) {
-      setError(
-        err instanceof Error ? err.message : 'نام کاربری یا رمز عبور صحیح نیست.',
-      )
-    }
+      setError(err instanceof Error ? err.message : t('invalidLogin'))
+    } finally { setSubmitting(false) }
   }
 
   return (
-    <Box
-      minHeight="100vh"
-      display="grid"
-      sx={{
-        placeItems: 'center',
-        p: { xs: 1.5, sm: 3 },
-        background:
-          'radial-gradient(circle at 80% 0%, #DBEAFE 0%, transparent 34%), #F6F8FC',
-      }}
-    >
-      <Card sx={{ width: '100%', maxWidth: 440, borderRadius: 4 }}>
-        <CardContent sx={{ p: { xs: 2.5, sm: 4 } }}>
-          <Stack spacing={3}>
-            <Stack direction="row" spacing={1.5} alignItems="center">
-              <Box
-                sx={{
-                  width: 48,
-                  height: 48,
-                  borderRadius: 3,
-                  bgcolor: 'primary.main',
-                  color: 'primary.contrastText',
-                  display: 'grid',
-                  placeItems: 'center',
-                }}
-              >
-                <ConstructionRoundedIcon />
-              </Box>
-              <Box>
-                <Typography variant="h5">ساخت‌یار</Typography>
-                <Typography variant="body2" color="text.secondary">
-                  سامانه هوشمند مشارکت در ساخت
-                </Typography>
-              </Box>
-            </Stack>
-
-            {error && <Alert severity="error">{error}</Alert>}
-
-            <Stack component="form" spacing={2} onSubmit={handleSubmit(submit)}>
-              <TextField
-                fullWidth
-                label="نام کاربری"
-                autoComplete="username"
-                error={Boolean(errors.username)}
-                helperText={errors.username?.message}
-                {...register('username')}
-              />
-              <TextField
-                fullWidth
-                label="رمز عبور"
-                type="password"
-                autoComplete="current-password"
-                error={Boolean(errors.password)}
-                helperText={errors.password?.message}
-                {...register('password')}
-              />
-              <Button
-                variant="contained"
-                size="large"
-                type="submit"
-                disabled={isSubmitting}
-                sx={{ minHeight: 48 }}
-              >
-                ورود به ساخت‌یار
-              </Button>
-              <Button component={Link} to="/register">
-                ایجاد حساب جدید
-              </Button>
-            </Stack>
-          </Stack>
-        </CardContent>
-      </Card>
-    </Box>
+    <div className="sakhtyar-login-v56">
+      <section className="sakhtyar-login-v56__hero">
+        <div className="sakhtyar-login-v56__shade" />
+        <div className="sakhtyar-login-v56__brand">
+          <div className="sakhtyar-login-v56__brandline">
+            <img src="/assets/sakhtyar/brand/sakhtyar-mark.svg" alt="" className="sakhtyar-login-v56__mark" />
+            <div>
+              <div className="sakhtyar-login-v56__wordmark">{t('appName')}</div>
+              <div className="sakhtyar-login-v56__subbrand">{t('appSubtitle')}</div>
+            </div>
+          </div>
+        </div>
+      </section>
+      <section className="sakhtyar-login-v56__panel">
+        <Card className="sakhtyar-login-v56__card" bordered={false}>
+          <Space style={{ width: '100%', justifyContent: 'flex-end', marginBottom: 12 }}>
+            <LanguageSwitcher />
+          </Space>
+          <div className="sakhtyar-login-v56__cardhead">
+            <img src="/assets/sakhtyar/brand/sakhtyar-mark.svg" alt="" className="sakhtyar-login-v56__cardmark" />
+            <div className="sakhtyar-login-v56__cardword">{t('appName')}</div>
+            <Typography.Title level={2}>{t('loginTitle')}</Typography.Title>
+            <Typography.Text type="secondary">{t('loginHint')}</Typography.Text>
+          </div>
+          {error ? <Alert type="error" showIcon message={error} style={{ marginBottom: 14 }} /> : null}
+          <Form<LoginValues> layout="vertical" onFinish={submit} requiredMark={false} autoComplete="on" initialValues={{ username: 'admin' }}>
+            <Form.Item label={t('username')} name="username" rules={[{ required: true, whitespace: true }]}>
+              <Input size="large" prefix={<UserOutlined />} autoComplete="username" disabled={submitting} placeholder={t('username')} />
+            </Form.Item>
+            <Form.Item label={t('password')} name="password" rules={[{ required: true }]}>
+              <Input.Password size="large" prefix={<LockOutlined />} autoComplete="current-password" disabled={submitting} placeholder={t('password')} />
+            </Form.Item>
+            <Button type="primary" htmlType="submit" size="large" block loading={submitting} icon={<ArrowLeftOutlined />}>
+              {t('login')}
+            </Button>
+            <Link to="/register">
+              <Button size="large" block icon={<UserAddOutlined />} style={{ marginTop: 12 }}>{t('register')}</Button>
+            </Link>
+          </Form>
+        </Card>
+      </section>
+    </div>
   )
 }

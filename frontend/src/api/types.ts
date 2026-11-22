@@ -10,6 +10,10 @@ export type Permission =
   | 'AGENT_USE'
   | 'GLOSSARY_MANAGE'
   | 'USER_MANAGE'
+  | 'AI_MANAGE'
+  | 'OPERATIONS_READ'
+  | 'QUALITY_VIEW'
+  | 'QUALITY_RUN_SAFE'
   | 'AUDIT_READ'
 
 export type UserRole =
@@ -17,6 +21,7 @@ export type UserRole =
   | 'PROJECT_MANAGER'
   | 'ANALYST'
   | 'LEGAL_EXPERT'
+  | 'TESTER'
   | 'READ_ONLY'
 
 export type UserStatus = 'PENDING' | 'ACTIVE' | 'SUSPENDED'
@@ -71,7 +76,15 @@ export type RegistrationResponse = {
   message: string
 }
 
-export type CaseStatus = 'DRAFT' | 'ACTIVE' | 'ARCHIVED'
+export type CaseStatus =
+  | 'DRAFT'
+  | 'NEGOTIATION'
+  | 'CONTRACT'
+  | 'CONSTRUCTION'
+  | 'ACTIVE'
+  | 'COMPLETED'
+  | 'ON_HOLD'
+  | 'ARCHIVED'
 
 export type CaseItem = {
   id: string
@@ -82,6 +95,7 @@ export type CaseItem = {
   district?: string | null
   address?: string | null
   landAreaM2?: number | null
+  coverImageUrl?: string | null
   createdBy: string
   createdAt: string
   updatedAt: string
@@ -107,6 +121,7 @@ export type PropertyItem = {
   neighborhood?: string | null
   address?: string | null
   landAreaM2?: number | null
+  coverImageUrl?: string | null
   frontageM?: number | null
   passageWidthM?: number | null
   buildingAreaM2?: number | null

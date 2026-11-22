@@ -1,0 +1,5 @@
+﻿Project: D:\ChatGPT_Projects\SakhtYar\source
+Time: 2026-10-25T14:37:05.7364814+03:30
+ProxyCandidate: http://127.0.0.1:10808
+ClaudeInstalled: True
+v2rayNRunning: True

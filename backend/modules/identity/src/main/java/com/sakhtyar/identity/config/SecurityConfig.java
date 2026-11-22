@@ -1,13 +1,19 @@
 package com.sakhtyar.identity.config;
 
+import jakarta.servlet.http.HttpServletResponse;
+
 import com.sakhtyar.identity.application.DatabaseUserDetailsService;
+import com.sakhtyar.identity.domain.AuthSessionRepository;
 import com.sakhtyar.identity.security.JwtCookieAuthenticationFilter;
+import com.sakhtyar.identity.security.JwtService;
+import com.sakhtyar.identity.security.SecurityDiagnosticsFilter;
 import java.util.Arrays;
 import java.util.List;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.http.HttpMethod;
+import org.springframework.http.MediaType;
 import org.springframework.security.authentication.dao.DaoAuthenticationProvider;
 import org.springframework.security.config.Customizer;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
@@ -15,8 +21,9 @@ import org.springframework.security.config.http.SessionCreationPolicy;
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.security.web.SecurityFilterChain;
-import org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter;
-import org.springframework.security.web.csrf.CookieCsrfTokenRepository;
+import org.springframework.security.web.csrf.CsrfFilter;
+import org.springframework.security.web.csrf.InvalidCsrfTokenException;
+import org.springframework.security.web.csrf.MissingCsrfTokenException;
 import org.springframework.web.cors.CorsConfiguration;
 import org.springframework.web.cors.CorsConfigurationSource;
 import org.springframework.web.cors.UrlBasedCorsConfigurationSource;
@@ -45,12 +52,9 @@ public class SecurityConfig {
             @Value("${app.cors.allowed-origins}") String allowedOrigins
     ) {
         CorsConfiguration config = new CorsConfiguration();
-        config.setAllowedOrigins(
-                Arrays.stream(allowedOrigins.split(","))
-                        .map(String::trim)
-                        .filter(value -> !value.isBlank())
-                        .toList()
-        );
+        // Exact origins only: never enable wildcard, embedded credentials, or
+        // non-loopback cleartext HTTP with browser credentials.
+        config.setAllowedOrigins(Phase03AllowedOrigins.parse(allowedOrigins));
         config.setAllowedMethods(
                 List.of(
                         "GET",
@@ -82,32 +86,114 @@ public class SecurityConfig {
     @Bean
     SecurityFilterChain securityFilterChain(
             HttpSecurity http,
-            JwtCookieAuthenticationFilter jwtFilter,
+            DatabaseUserDetailsService userDetailsService,
+            AuthSessionRepository sessionRepository,
+            JwtService jwtService,
             DaoAuthenticationProvider authenticationProvider
     ) throws Exception {
 
-        CookieCsrfTokenRepository csrfRepository =
-                CookieCsrfTokenRepository.withHttpOnlyFalse();
-        csrfRepository.setCookiePath("/");
+        JwtCookieAuthenticationFilter jwtFilter =
+                new JwtCookieAuthenticationFilter(
+                        jwtService,
+                        userDetailsService,
+                        sessionRepository
+                );
 
-        http
+        SecurityDiagnosticsFilter diagnosticsFilter =
+                new SecurityDiagnosticsFilter();
+http
                 .cors(Customizer.withDefaults())
-                .csrf(csrf -> csrf
-                        .csrfTokenRepository(csrfRepository)
+                .exceptionHandling(exceptions -> exceptions
+                        .authenticationEntryPoint((request,response,exception) -> {
+                            Object raw = request.getAttribute(
+                                    JwtCookieAuthenticationFilter.AUTH_FAILURE_ATTRIBUTE
+                            );
+
+                            String reason = raw == null
+                                    ? "AUTHENTICATION_REQUIRED"
+                                    : raw.toString();
+
+                            response.setStatus(HttpServletResponse.SC_UNAUTHORIZED);
+                            response.setCharacterEncoding("UTF-8");
+                            response.setContentType(MediaType.APPLICATION_JSON_VALUE);
+                            response.getWriter().write(
+                                    "{\"status\":401,\"code\":\"AUTH_REQUIRED\",\"message\":\"Authentication failed: "
+                                    + reason
+                                    + "\",\"reason\":\""
+                                    + reason
+                                    + "\"}"
+                            );
+                        })
+                        .accessDeniedHandler((request,response,exception) -> {
+                            String code;
+                            String message;
+
+                            if (exception instanceof MissingCsrfTokenException) {
+                                code = "CSRF_MISSING";
+                                message = "CSRF token is missing.";
+                            } else if (exception instanceof InvalidCsrfTokenException) {
+                                code = "CSRF_INVALID";
+                                message = "CSRF token is invalid.";
+                            } else {
+                                code = "ACCESS_DENIED";
+                                message = "Access denied.";
+                            }
+
+                            response.setStatus(HttpServletResponse.SC_FORBIDDEN);
+                            response.setCharacterEncoding("UTF-8");
+                            response.setContentType(MediaType.APPLICATION_JSON_VALUE);
+                            response.getWriter().write(
+                                    "{\"status\":403,\"code\":\""
+                                    + code
+                                    + "\",\"message\":\""
+                                    + message
+                                    + "\"}"
+                            );
+                        })
+                )                .csrf(csrf -> csrf
+                        .spa()
                         .ignoringRequestMatchers(
                                 "/api/v1/auth/login",
                                 "/api/v1/auth/register",
                                 "/api/v1/auth/mobile/**"
                         )
-                )
-                .sessionManagement(session ->
+                )                .sessionManagement(session ->
                         session.sessionCreationPolicy(
                                 SessionCreationPolicy.STATELESS
                         )
                 )
                 .authenticationProvider(authenticationProvider)
                 .authorizeHttpRequests(auth -> auth
+                        .requestMatchers(HttpMethod.GET, "/api/web/v1/public/**").permitAll()
+                        .requestMatchers(HttpMethod.GET, "/api/web/v1/market/**").hasAuthority("CASE_READ")
+                        .requestMatchers(HttpMethod.GET, "/api/web/v1/cases/**").hasAuthority("CASE_READ")
+
+                        .requestMatchers(HttpMethod.POST, "/api/v1/market/observations").hasAuthority("USER_MANAGE")
+                        .requestMatchers(HttpMethod.POST, "/api/v1/market/snapshots").hasAuthority("USER_MANAGE")
+                        .requestMatchers(HttpMethod.GET, "/api/v1/market/**").hasAuthority("CASE_READ")
+
+                        .requestMatchers(HttpMethod.GET, "/api/v1/builders/**").hasAuthority("CASE_READ")
+                        .requestMatchers(HttpMethod.POST, "/api/v1/builders/cases/*/matches").hasAuthority("CASE_READ")
+                        .requestMatchers(HttpMethod.POST, "/api/v1/builders/**").hasAuthority("USER_MANAGE")
+                        .requestMatchers(HttpMethod.PUT, "/api/v1/builders/**").hasAuthority("USER_MANAGE")
+
+                        .requestMatchers(HttpMethod.GET, "/api/v1/contracts/**").hasAuthority("CASE_READ")
+                        .requestMatchers(HttpMethod.POST, "/api/v1/contracts/**").hasAuthority("CASE_WRITE")
+                        .requestMatchers(HttpMethod.PUT, "/api/v1/contracts/**").hasAuthority("CASE_WRITE")
+
+                        .requestMatchers("/api/v1/monitoring/**").hasAuthority("USER_MANAGE")
+                        .requestMatchers("/api/v1/crawler/**").hasAuthority("USER_MANAGE")
+                        .requestMatchers("/api/v1/notifications/**").hasAuthority("USER_MANAGE")
+                        .requestMatchers("/api/v1/intelligence/**").hasAuthority("AGENT_USE")
+                        .requestMatchers("/api/v1/knowledge/admin/governance/**").hasAuthority("USER_MANAGE")
+                        .requestMatchers("/api/v1/knowledge/admin/**").hasAuthority("USER_MANAGE")
+                        .requestMatchers("/api/v1/regulations/admin/**").hasAuthority("USER_MANAGE")
+                        .requestMatchers(HttpMethod.POST, "/api/v1/regulations/rules").hasAuthority("USER_MANAGE")
+                        .requestMatchers(HttpMethod.PUT, "/api/v1/regulations/rules/*").hasAuthority("USER_MANAGE")
+                        .requestMatchers(HttpMethod.GET,"/api/v1/regulations/cases/*/verified-evidence").hasAuthority("CASE_READ")
+
                         .requestMatchers(
+                                "/error",
                                 "/api/v1/health",
                                 "/actuator/health",
                                 "/actuator/health/**",
@@ -122,6 +208,29 @@ public class SecurityConfig {
                                 "/api/v1/auth/csrf",
                                 "/api/v1/auth/mobile/**"
                         ).permitAll()
+
+                        .requestMatchers(
+                                HttpMethod.GET,
+                                "/api/v1/global/catalog/**"
+                        ).permitAll()
+
+                        .requestMatchers(
+                                "/api/v1/global/master-data/**",
+                                "/api/v1/global/fx-rates"
+                        ).hasAuthority("USER_MANAGE")
+
+                        .requestMatchers(
+                                "/api/v1/admin/ai/**"
+                        ).hasAuthority("AI_MANAGE")
+
+                        .requestMatchers("/api/v1/admin/simulations/**").hasAuthority("USER_MANAGE")
+                        .requestMatchers(HttpMethod.GET, "/api/v1/admin/quality/**").hasAuthority("QUALITY_VIEW")
+                        .requestMatchers(HttpMethod.POST, "/api/v1/admin/quality/runs").hasAuthority("QUALITY_RUN_SAFE")
+                        .requestMatchers("/api/v1/admin/quality/**").denyAll()
+
+                        .requestMatchers(
+                                "/api/v1/admin/operations/**"
+                        ).hasAuthority("OPERATIONS_READ")
 
                         .requestMatchers(
                                 "/api/v1/admin/users/**"
@@ -226,7 +335,11 @@ public class SecurityConfig {
                 )
                 .addFilterBefore(
                         jwtFilter,
-                        UsernamePasswordAuthenticationFilter.class
+                        CsrfFilter.class
+                )
+                .addFilterAfter(
+                        diagnosticsFilter,
+                        JwtCookieAuthenticationFilter.class
                 );
 
         return http.build();

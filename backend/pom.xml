@@ -1,4 +1,4 @@
-﻿<?xml version="1.0" encoding="UTF-8"?>
+<?xml version="1.0" encoding="UTF-8"?>
 <project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="              http://maven.apache.org/POM/4.0.0              https://maven.apache.org/xsd/maven-4.0.0.xsd">
   <modelVersion>4.0.0</modelVersion>
   <parent>
@@ -14,9 +14,12 @@
   <name>SakhtYar Backend</name>
   <description>Modular monolith backend for SakhtYar</description>
   <modules>
-    <module>modules/shared-kernel</module>
+        <module>modules/config</module>
+    <module>modules/automation</module>
+<module>modules/shared-kernel</module>
     <module>modules/audit</module>
     <module>modules/identity</module>
+    <module>modules/globalization</module>
     <module>modules/casefile</module>
     <module>modules/property</module>
     <module>modules/owner</module>
@@ -24,6 +27,24 @@
     <module>modules/geo</module>
     <module>modules/integration-neshan</module>
     <module>modules/agents</module>
+    <module>modules/builder</module>
+    <module>modules/contract</module>
+    <module>modules/persian-intelligence</module>
+    <module>modules/intelligence</module>
+    <module>modules/knowledge</module>
+    <module>modules/crawler</module>
+    <module>modules/material</module>
+    <module>modules/assembly</module>
+    <module>modules/scenario</module>
+    <module>modules/regulation</module>
+    <module>modules/finance</module>
+    <module>modules/sensitivity</module>
+    <module>modules/analysis</module>
+        <module>modules/market-intelligence</module>
+        <module>modules/notification</module>
+        <module>modules/monitoring</module>
+        <module>modules/web-bff</module>
+    <module>modules/quality</module>
     <module>app</module>
   </modules>
   <properties>
@@ -50,6 +71,11 @@
       <dependency>
         <groupId>com.sakhtyar</groupId>
         <artifactId>sakhtyar-identity</artifactId>
+        <version>${project.version}</version>
+      </dependency>
+      <dependency>
+        <groupId>com.sakhtyar</groupId>
+        <artifactId>sakhtyar-globalization</artifactId>
         <version>${project.version}</version>
       </dependency>
       <dependency>
@@ -85,6 +111,91 @@
       <dependency>
         <groupId>com.sakhtyar</groupId>
         <artifactId>sakhtyar-agents</artifactId>
+        <version>${project.version}</version>
+      </dependency>
+      <dependency>
+        <groupId>com.sakhtyar</groupId>
+        <artifactId>sakhtyar-builder</artifactId>
+        <version>${project.version}</version>
+      </dependency>
+      <dependency>
+        <groupId>com.sakhtyar</groupId>
+        <artifactId>sakhtyar-contract</artifactId>
+        <version>${project.version}</version>
+      </dependency>
+      <dependency>
+        <groupId>com.sakhtyar</groupId>
+        <artifactId>sakhtyar-persian-intelligence</artifactId>
+        <version>${project.version}</version>
+      </dependency>
+      <dependency>
+        <groupId>com.sakhtyar</groupId>
+        <artifactId>sakhtyar-knowledge</artifactId>
+        <version>${project.version}</version>
+      </dependency>
+      <dependency>
+        <groupId>com.sakhtyar</groupId>
+        <artifactId>sakhtyar-crawler</artifactId>
+        <version>${project.version}</version>
+      </dependency>
+      <dependency>
+        <groupId>com.sakhtyar</groupId>
+        <artifactId>sakhtyar-material</artifactId>
+        <version>${project.version}</version>
+      </dependency>
+      <dependency>
+        <groupId>com.sakhtyar</groupId>
+        <artifactId>sakhtyar-assembly</artifactId>
+        <version>${project.version}</version>
+      </dependency>
+      <dependency>
+        <groupId>com.sakhtyar</groupId>
+        <artifactId>sakhtyar-scenario</artifactId>
+        <version>${project.version}</version>
+      </dependency>
+      <dependency>
+        <groupId>com.sakhtyar</groupId>
+        <artifactId>sakhtyar-regulation</artifactId>
+        <version>${project.version}</version>
+      </dependency>
+      <dependency>
+        <groupId>com.sakhtyar</groupId>
+        <artifactId>sakhtyar-finance</artifactId>
+        <version>${project.version}</version>
+      </dependency>
+      <dependency>
+        <groupId>com.sakhtyar</groupId>
+        <artifactId>sakhtyar-sensitivity</artifactId>
+        <version>${project.version}</version>
+      </dependency>
+      <dependency>
+        <groupId>com.sakhtyar</groupId>
+        <artifactId>sakhtyar-analysis</artifactId>
+        <version>${project.version}</version>
+      </dependency>
+      <dependency>
+        <groupId>com.sakhtyar</groupId>
+        <artifactId>sakhtyar-intelligence</artifactId>
+        <version>${project.version}</version>
+      </dependency>
+      <dependency>
+        <groupId>com.sakhtyar</groupId>
+        <artifactId>sakhtyar-market-intelligence</artifactId>
+        <version>${project.version}</version>
+      </dependency>
+      <dependency>
+        <groupId>com.sakhtyar</groupId>
+        <artifactId>sakhtyar-notification</artifactId>
+        <version>${project.version}</version>
+      </dependency>
+      <dependency>
+        <groupId>com.sakhtyar</groupId>
+        <artifactId>sakhtyar-monitoring</artifactId>
+        <version>${project.version}</version>
+      </dependency>
+      <dependency>
+        <groupId>com.sakhtyar</groupId>
+        <artifactId>sakhtyar-web-bff</artifactId>
         <version>${project.version}</version>
       </dependency>
       <dependency>
