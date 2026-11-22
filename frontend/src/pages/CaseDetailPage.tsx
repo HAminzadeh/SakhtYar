@@ -221,7 +221,7 @@ const item = caseQuery.data
       label: 'مالکین',
       icon: <TeamOutlined />,
       children: (
-        <OwnersPanel caseId={id} />
+        <OwnersPanel caseId={id} createdBy={item.createdBy} archived={item.status === 'ARCHIVED'} />
       ),
     },
     {

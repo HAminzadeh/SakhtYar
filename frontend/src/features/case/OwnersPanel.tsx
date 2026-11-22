@@ -39,6 +39,7 @@ import {
 } from '../../api/client'
 import type { OwnerItem } from '../../api/types'
 import { useI18n } from '../../i18n/LanguageProvider'
+import { useAuth } from '../../auth/AuthProvider'
 
 type OwnerForm = {
   firstName: string
@@ -68,12 +69,21 @@ function faPercent(value: number) {
 
 export function OwnersPanel({
   caseId,
+  createdBy,
+  archived,
 }: {
   caseId: string
+  createdBy: string
+  archived: boolean
 }) {
   const queryClient =
     useQueryClient()
   const { message } = AntdApp.useApp()
+  const { user, hasPermission } = useAuth()
+  const isCaseManager = user?.role === 'ADMIN' ||
+    Boolean(user?.username && user.username.toLowerCase() === createdBy.toLowerCase())
+  const canWrite = !archived && isCaseManager &&
+    hasPermission('OWNER_WRITE') && hasPermission('CASE_WRITE')
   const { language } = useI18n()
   const [ownerError, setOwnerError] =
     useState<string | null>(null)
@@ -168,6 +178,7 @@ export function OwnersPanel({
   }
 
   const handleOwnerSubmit = (values: OwnerForm) => {
+    if (!canWrite) return
     const error = shareError(
       values.ownershipNumerator,
       values.ownershipDenominator,
@@ -279,6 +290,7 @@ export function OwnersPanel({
     })
 
   const openCreate = () => {
+    if (!canWrite) return
     if (totalPercent >= 99.999999) {
       message.warning(language === 'fa' ? 'مجموع سهم مالکین ۱۰۰٪ است و سهم خالی برای مالک جدید وجود ندارد.' : 'Ownership already totals 100%; there is no remaining share for a new owner.')
       return
@@ -300,6 +312,7 @@ export function OwnersPanel({
   const openEdit = (
     owner: OwnerItem,
   ) => {
+    if (!canWrite) return
     setOwnerError(null)
     setEditing(owner)
     form.setFieldsValue({
@@ -390,7 +403,7 @@ export function OwnersPanel({
       render: (
         _: unknown,
         owner: OwnerItem,
-      ) => (
+      ) => canWrite ? (
         <Space>
           <Button
             size="small"
@@ -416,7 +429,7 @@ export function OwnersPanel({
             }}
           />
         </Space>
-      ),
+      ) : null,
     },
   ]
 
@@ -439,7 +452,7 @@ export function OwnersPanel({
           className="sakhtyar-animated-primary"
           onClick={openCreate}
           disabled={
-            ownersQuery.data === null ||
+            !canWrite || ownersQuery.data === null ||
             totalPercent >= 99.999999
           }
         >

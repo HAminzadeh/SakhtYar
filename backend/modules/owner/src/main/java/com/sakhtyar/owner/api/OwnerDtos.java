@@ -37,13 +37,18 @@ public final class OwnerDtos {
             Instant updatedAt
     ) {
         public static OwnerResponse from(OwnerEntity entity) {
+            return from(entity, true);
+        }
+
+        /** Keep the response fields stable while hiding sensitive values from read-only members. */
+        public static OwnerResponse from(OwnerEntity entity, boolean includePrivate) {
             return new OwnerResponse(
                     entity.getId(),
                     entity.getPropertyId(),
                     entity.getFirstName(),
                     entity.getLastName(),
-                    entity.getNationalId(),
-                    entity.getMobile(),
+                    includePrivate ? entity.getNationalId() : null,
+                    includePrivate ? entity.getMobile() : null,
                     entity.getOwnershipNumerator(),
                     entity.getOwnershipDenominator(),
                     entity.isPrimaryContact(),
