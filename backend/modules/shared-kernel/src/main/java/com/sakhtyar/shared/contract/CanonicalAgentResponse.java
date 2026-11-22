@@ -27,6 +27,10 @@ public record CanonicalAgentResponse(
         data = immutable(data);
         warnings = warnings == null ? List.of() : List.copyOf(warnings);
         missingFields = missingFields == null ? List.of() : List.copyOf(missingFields);
+        // NaN silently survives min/max and cannot be represented in standards-compliant JSON.
+        if (!Double.isFinite(confidence)) {
+            throw new IllegalArgumentException("Confidence must be finite.");
+        }
         confidence = Math.max(0.0d, Math.min(1.0d, confidence));
         metadata = immutable(metadata);
         completedAt = completedAt == null ? Instant.now() : completedAt;
