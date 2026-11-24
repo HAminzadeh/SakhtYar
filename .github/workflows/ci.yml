@@ -76,6 +76,8 @@ jobs:
         run: docker compose -f docker-compose.yml config --quiet
       - name: Validate Flyway naming and ordering
         run: python scripts/validate_migrations.py
+      - name: Test database migration lifecycle safety contracts
+        run: python -B -m unittest discover -s tests/database -p test_migration_lifecycle.py -v
       - name: Check Phase03 DevOps offline security contracts
         run: python scripts/devops/phase03_infra_contracts.py --root . --report .phase03-reports/infra-source-gate.json
       - name: Publish sanitized infrastructure policy evidence only
@@ -111,12 +113,8 @@ jobs:
             flyway/flyway:11.15.0 \
             -url=jdbc:postgresql://127.0.0.1:5432/sakhtyar \
             -user=sakhtyar -password=ci-postgres-only -connectRetries=30 migrate
-      - name: Verify all 66 migrations succeeded on disposable CI database
-        run: |
-          docker exec sakhtyar-ci-db psql -U sakhtyar -d sakhtyar -tAc \
-            "select count(*) from flyway_schema_history where version='66' and success=true" | grep -q '^1$'
-          docker exec sakhtyar-ci-db psql -U sakhtyar -d sakhtyar -tAc \
-            "select count(*) from flyway_schema_history where success=true" | grep -q '^66$'
+      - name: Verify every source migration succeeded on disposable CI database
+        run: python3 -B scripts/database/verify_ci_migration_history.py --container sakhtyar-ci-db
       - name: Database logs on failure
         if: failure()
         run: docker logs sakhtyar-ci-db || true

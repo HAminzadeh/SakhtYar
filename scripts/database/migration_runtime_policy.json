@@ -1,0 +1,16 @@
+{
+  "68": {
+    "review": "Phase13 workflow: operator-reviewed source requirements. Future migrations need explicit policy, including an empty tables map for migrations that add no runtime tables.",
+    "tables": {
+      "builder_account_binding": {"privileges": ["SELECT", "INSERT", "UPDATE"], "forbidden": ["TRUNCATE"]},
+      "builder_verification_event": {"privileges": ["SELECT", "INSERT"], "forbidden": ["TRUNCATE"], "triggers": ["trg_builder_review_immutable"]},
+      "builder_invitation": {"privileges": ["SELECT", "INSERT", "UPDATE"], "forbidden": ["TRUNCATE"], "rls": true, "triggers": ["trg_builder_invitation_scope"], "policies": ["builder_invitation_real_scope"]},
+      "builder_proposal": {"privileges": ["SELECT", "INSERT", "UPDATE"], "forbidden": ["TRUNCATE"], "rls": true, "triggers": ["trg_builder_proposal_scope"], "policies": ["builder_proposal_real_scope"]},
+      "builder_proposal_revision": {"privileges": ["SELECT", "INSERT"], "forbidden": ["TRUNCATE"], "rls": true, "triggers": ["trg_builder_revision_guard"], "policies": ["builder_proposal_revision_real_scope"]},
+      "construction_case": {"privileges": ["SELECT"], "forbidden": ["TRUNCATE"], "rls": true, "triggers": ["trg_sakhtyar_core_scope"], "policies": ["sakhtyar_core_scope_policy"]},
+      "builder_profile": {"privileges": ["SELECT", "INSERT", "UPDATE"], "forbidden": ["TRUNCATE"]},
+      "project_builder": {"privileges": ["SELECT", "INSERT", "UPDATE"], "forbidden": ["TRUNCATE"]},
+      "app_user": {"privileges": ["SELECT"], "forbidden": ["TRUNCATE"]}
+    }
+  }
+}
