@@ -38,16 +38,16 @@ class LifecycleTest(unittest.TestCase):
         op=object.__new__(m.Operator); op.policy={'68':{'tables':{}}}; self.assertRaises(m.GateError,op.requirements,[69]); self.assertEqual({},op.requirements([68]))
     def test_approval_blocks_before_backup(self):
         op=object.__new__(m.Operator); op.a=MagicMock(mode='ApplyDatabase',approve='wrong'); op.entries=self.entries; op.head='abcdef123456789'; op.pending=self.entries[-1:]
-        for attr in ('source','connect','audit','image','fly','gate','backup','clone_preflight'): setattr(op,attr,MagicMock())
+        for attr in ('source','connect','audit','image','fly','gate','backup','clone_preflight','prepare_role_policy'): setattr(op,attr,MagicMock())
         op.c='x'; op.password='not-real'
         self.assertRaises(m.GateError,op.execute); op.backup.assert_not_called(); op.clone_preflight.assert_not_called()
     def test_dryrun_never_live_migrate(self):
         op=object.__new__(m.Operator); op.a=MagicMock(mode='DryRun'); op.entries=self.entries; op.head='abcdef123456789'; op.pending=self.entries[-1:]
-        for attr in ('source','connect','audit','image','fly','gate','backup','clone_preflight'): setattr(op,attr,MagicMock())
+        for attr in ('source','connect','audit','image','fly','gate','backup','clone_preflight','prepare_role_policy'): setattr(op,attr,MagicMock())
         op.c='x'; op.password='not-real'; op.execute(); op.fly.assert_called_once_with('x','not-real','validate'); op.clone_preflight.assert_called_once_with(True)
     def test_audit_no_flyway_or_backup(self):
         op=object.__new__(m.Operator); op.a=MagicMock(mode='Audit')
-        for attr in ('source','connect','audit','image','fly','gate','backup','clone_preflight'): setattr(op,attr,MagicMock())
+        for attr in ('source','connect','audit','image','fly','gate','backup','clone_preflight','prepare_role_policy'): setattr(op,attr,MagicMock())
         op.execute(); op.fly.assert_not_called(); op.backup.assert_not_called(); op.image.assert_not_called()
     def test_run_binary_stream(self):
         target=self.folder/'binary.out'; src=self.folder/'binary.in'; src.write_bytes(bytes(range(256)))

@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Local-only SakhtYar operator-controlled Flyway lifecycle. Python 3.9+; no third-party modules."""
 from __future__ import annotations
-import argparse, hashlib, json, os, re, secrets, subprocess, sys, time, uuid
+import argparse, difflib, hashlib, json, os, re, secrets, subprocess, sys, time, uuid
 from pathlib import Path
 from datetime import datetime, timezone
 from contextlib import contextmanager
@@ -82,12 +82,93 @@ def role_info(c,u,role):
 def restricted(info):
     return bool(info and all(info.get(k) is True for k in ('login','schema_usage','db_connect','history_read')) and all(info.get(k) is False for k in ('superuser','bypassrls','createrole','createdb','replication','elevated_membership','owns_public_tables','owns_database','owns_public_schema','schema_create','history_write')))
 
-def normalized_dump_sha(b):
-    # PostgreSQL emits a random \restrict key in newer releases.
-    b=b'\n'.join(x for x in b.splitlines() if not x.startswith((b'\\restrict ',b'\\unrestrict ')))
-    return hashlib.sha256(b).hexdigest()
+def normalized_dump(b):
+    # Only remove matching pg_dump outer restrict/unrestrict markers, never SQL content.
+    lines=b.splitlines(); a=[i for i,x in enumerate(lines) if x.startswith(b'\\restrict ')]; z=[i for i,x in enumerate(lines) if x.startswith(b'\\unrestrict ')]
+    if len(a)==len(z)==1 and a[0]<z[0] and lines[a[0]].split()[1:]==lines[z[0]].split()[1:] and a[0]<15 and z[0]>=len(lines)-15:
+        lines=[x for i,x in enumerate(lines) if i not in (a[0],z[0])]
+    return b'\n'.join(lines)
+def normalized_dump_sha(b): return hashlib.sha256(normalized_dump(b)).hexdigest()
+def schema_bytes(c,u):
+    return normalized_dump(docker('exec',c,'pg_dump','-w','-U',u,'-d',DB,'--schema-only',label='Schema fingerprint'))
+def schema_diagnostics(work,source,clone):
+    (work/'source-schema.private.sql').write_bytes(source)
+    (work/'clone-schema.private.sql').write_bytes(clone)
+    # Ensure a final newline for human-readable diff only; never change the compared bytes.
+    delta=b''.join(difflib.diff_bytes(difflib.unified_diff,source.splitlines(keepends=True),clone.splitlines(keepends=True),fromfile=b'source',tofile=b'clone'))
+    (work/'schema-diff.private.txt').write_bytes(delta)
+    return {'source_sha256':hashlib.sha256(source).hexdigest(),'clone_sha256':hashlib.sha256(clone).hexdigest(),'diff_bytes':len(delta),'added_lines':sum(x.startswith(b'+') and not x.startswith(b'+++') for x in delta.splitlines()),'removed_lines':sum(x.startswith(b'-') and not x.startswith(b'---') for x in delta.splitlines()),'private_diff':'schema-diff.private.txt'}
+
+# PostgreSQL can deparse a cast on a varchar literal array as a cast on each
+# element after logical restore. Only canonicalize that exact form inside
+# inline CHECK constraints in public CREATE TABLE statements. No ACL, RLS,
+# function body, index, constraint name, or other SQL is ignored.
+_SQL_TOKEN = re.compile(rb"--|/\*|\$[A-Za-z_][A-Za-z_0-9]*\$|\$\$|['\";]")
+_TABLE_START = re.compile(rb"(?:[ \t\r\n]+|--[^\n]*(?:\n|$))*CREATE TABLE public\.[a-z_][a-z_0-9]* \(\n")
+_CHECK_LINE = re.compile(rb"^    CONSTRAINT [a-z_][a-z_0-9]* CHECK \([^\r\n]*$", re.M)
+_CAST_ARRAY = re.compile(rb"(?<=ANY \()\(ARRAY\[((?:'[A-Z0-9_ .:-]*'::character varying)(?:, '[A-Z0-9_ .:-]*'::character varying)*)\]\)::text\[\]")
+
+def canonical_schema(data):
+    # Scan statement boundaries, excluding comments and quoted SQL bodies.
+    # Any unterminated lexical token returns the original bytes (fail closed).
+    i=0; start=0; protected=[]; edits=[]; size=len(data)
+    while i<size:
+        token=_SQL_TOKEN.search(data,i)
+        if token is None: break
+        a=token.start(); t=token.group(); i=token.end()
+        if t==b';':
+            stmt=data[start:i]
+            table=_TABLE_START.match(stmt)
+            if table and stmt.endswith(b'\n);'):
+                for line in _CHECK_LINE.finditer(stmt,table.end()):
+                    # No rewriting inside a quoted literal, comment, or identifier.
+                    if any(x<=start+line.start()<y for x,y in protected): continue
+                    for m in _CAST_ARRAY.finditer(line.group()):
+                        at=start+line.start()+m.start()
+                        if any(x<=at<y for x,y in protected): continue
+                        new=b'ARRAY['+b', '.join(b'('+v+b')::text' for v in m[1].split(b', '))+b']'
+                        edits.append((at,start+line.start()+m.end(),new))
+            start=i; protected=[]; continue
+        if t==b'--':
+            end=data.find(b'\n',i); i=size if end<0 else end+1
+        elif t==b'/*':
+            depth=1
+            while depth:
+                m=re.search(rb'/\*|\*/',data[i:])
+                if not m: return data,0
+                depth+=1 if m.group()==b'/*' else -1; i+=m.end()
+        elif t.startswith(b'$'):
+            end=data.find(t,i)
+            if end<0: return data,0
+            i=end+len(t)
+        else:
+            # Standard-conforming pg_dump strings; E'...' has backslash escapes.
+            escape=t==b"'" and a>0 and data[a-1:a] in (b'e',b'E') and (a<2 or not re.match(rb'[A-Za-z0-9_$]',data[a-2:a-1]))
+            while i<size:
+                if escape and data[i:i+1]==b'\\': i+=2; continue
+                if data[i:i+1]==t:
+                    if data[i+1:i+2]==t: i+=2; continue
+                    i+=1; break
+                i+=1
+            else: return data,0
+        protected.append((a,i))
+    # Only the proven transformation is applied; all other bytes stay unchanged.
+    for a,b,new in reversed(edits): data=data[:a]+new+data[b:]
+    return data,len(edits)
+
+def canonical_schema_hash(data):
+    return hashlib.sha256(canonical_schema(data)[0]).hexdigest()
+
+def compare_schema(work,source,clone):
+    raw_equal=source==clone
+    if raw_equal: return {'matches':True,'raw_equal':True,'source_casts':0,'clone_casts':0,'canonical_sha256':hashlib.sha256(source).hexdigest()}
+    a,n=canonical_schema(source); b,k=canonical_schema(clone)
+    result=schema_diagnostics(work,source,clone)
+    result.update(matches=a==b,raw_equal=False,source_casts=n,clone_casts=k,source_canonical_sha256=hashlib.sha256(a).hexdigest(),clone_canonical_sha256=hashlib.sha256(b).hexdigest(),comparison='public inline CHECK literal varchar array casts only')
+    return result
+
 def schema_hash(c,u):
-    return normalized_dump_sha(docker('exec',c,'pg_dump','-w','-U',u,'-d',DB,'--schema-only',label='Schema fingerprint'))
+    return hashlib.sha256(schema_bytes(c,u)).hexdigest()
 def roles_hash(c,u):
     return normalized_dump_sha(docker('exec',c,'pg_dumpall','-w','-U',u,'-l','postgres','--roles-only','--no-role-passwords',label='Role fingerprint'))
 def quiet(c,u):
@@ -160,7 +241,7 @@ class Operator:
             self.gate('v68_preflight',facts); require(facts=={'prerequisites':True,'duplicate_groups':0},'V68 preconditions fail')
     def backup(self):
         self.dump=self.work/'database.dump'; self.roles=self.work/'roles-no-passwords.sql'
-        self.schema_before=schema_hash(self.c,self.owner); self.roles_before=roles_hash(self.c,self.owner)
+        self.schema_before_bytes=schema_bytes(self.c,self.owner); self.schema_before=hashlib.sha256(self.schema_before_bytes).hexdigest(); self.roles_before=roles_hash(self.c,self.owner)
         docker('exec',self.c,'pg_dump','-w','-U',self.owner,'-d',DB,'-Fc','--create',target=self.dump,label='Database backup')
         docker('exec',self.c,'pg_dumpall','-w','-U',self.owner,'-l','postgres','--roles-only','--no-role-passwords',target=self.roles,label='Role metadata backup')
         require(self.dump.stat().st_size>0 and self.roles.stat().st_size>0,'Empty backup')
@@ -188,8 +269,11 @@ class Operator:
             docker('exec',clone_id,'pg_restore','-w','--exit-on-error','--create','-U',admin,'-d','postgres','/tmp/sakhtyar-lifecycle.dump',label='Restore cloned database')
             require(history(clone_id,admin)==self.before and tables(clone_id,admin)==self.before_tables,'Clone history/table inventory differs from source')
             self.gate('restore_drill','PASS (archive restored and history/table inventory matched)')
-            self.report['clone_schema_matches_source']=schema_hash(clone_id,self.owner)==self.schema_before
-            require(self.report['clone_schema_matches_source'],'Restored schema fingerprint differs; review restore or dump variance before proceeding')
+            clone_schema=schema_bytes(clone_id,self.owner)
+            comparison=compare_schema(self.work,self.schema_before_bytes,clone_schema)
+            self.report['clone_schema_matches_source']=comparison['matches']
+            self.gate('schema_comparison',comparison)
+            require(comparison['matches'],'Restored schema fingerprint differs beyond verified CHECK cast equivalence; review private schema-diff.private.txt (gate retained)')
             cpw=secrets.token_hex(24)
             psql(clone_id,admin,f'ALTER ROLE {ident(self.user)} PASSWORD {lit(cpw)};',readonly=False)
             yield clone_id,admin,cpw
@@ -239,6 +323,14 @@ class Operator:
                 self.gate('v68_negative_test_insert','PASS (rolled-back disposable clone only)')
             self.gate('physical_clone_runtime','PASS (login, grants and limited scope probes; not full E2E)')
         self.gate('runtime_policy','PASS')
+    def prepare_role_policy(self):
+        import role_lifecycle as r
+        require(self.role==r.ROLE,'Use dedicated sakhtyar_runtime and reviewed role policy')
+        policy=r.read_policy(self.root); objects=r.catalog(self.c,self.owner)
+        require(policy.get('pending_versions')==[x['version'] for x in self.pending],'Reviewed policy pending versions differ')
+        r.validate(policy,objects,self.requirements([x['version'] for x in self.pending]),allow_future=True)
+        r.verify(self.c,self.owner,objects,policy); self.role_policy_digest=r.digest(policy)
+        self.gate('reviewed_role_policy','PASS')
     def clone_preflight(self, migrate):
         with self.clone() as (c,u,pw):
             self.fly(c,pw,'validate')
@@ -248,8 +340,13 @@ class Operator:
                 require(not history_gate(history(c,u),self.entries),'Clone still has pending migrations')
                 new=set(tables(c,u))-set(self.before_tables); self.report['new_tables']=sorted(new)
                 versions=[e['version'] for e in self.pending]
+                import role_lifecycle as r
+                r.apply_pending(self,c,u,versions,new)
                 self.check_runtime(c,u,versions,True,new)
-                self.report['clone_migrated_schema_sha256']=schema_hash(c,self.owner)
+                migrated_schema=schema_bytes(c,self.owner)
+                self.report['clone_migrated_schema_sha256']=hashlib.sha256(migrated_schema).hexdigest()
+                self.report['clone_migrated_canonical_sha256']=canonical_schema_hash(migrated_schema)
+                (self.work/'clone-migrated-schema.private.sql').write_bytes(migrated_schema)
                 self.gate('clone_migration','PASS')
     def execute(self):
         self.source(); self.connect(); self.audit()
@@ -261,6 +358,9 @@ class Operator:
             print('[Migration] Approval token (not a password): '+self.report['approval_token']); return
         if mode=='Verify':
             require(not self.pending,'Pending migrations remain')
+            import role_lifecycle as r
+            require(self.role==r.ROLE,'Use dedicated sakhtyar_runtime')
+            rp=r.read_policy(self.root); objs=r.catalog(self.c,self.owner); r.validate(rp,objs,{}); r.verify(self.c,self.owner,objs,rp)
             self.check_runtime(self.c,self.owner,[int(v) for v in self.policy if int(v)<=self.entries[-1]['version']]); self.gate('schema_history','CURRENT')
             if self.a.check_backend:
                 with build_opener(ProxyHandler({})).open('http://127.0.0.1:8080/actuator/health/readiness',timeout=10) as response:
@@ -271,6 +371,7 @@ class Operator:
             require(self.a.approve==f'{DB}:V{self.entries[-1]["version"]}:{self.head[:12]}','Explicit approval token required for current target and Git HEAD')
             require(bool(self.pending),'No pending migrations; use Verify')
             quiet(self.c,self.owner)
+        if mode in ('DryRun','ApplyDatabase'): self.prepare_role_policy()
         self.backup(); self.clone_preflight(mode!='Clone')
         if mode in ('Clone','DryRun'): return
         require(mode=='ApplyDatabase','Unknown execution mode')
@@ -279,11 +380,19 @@ class Operator:
         require(inspect(SOURCE)['Id']==self.c,'Target container changed')
         require(history(self.c,self.owner)==self.before and schema_hash(self.c,self.owner)==self.schema_before and roles_hash(self.c,self.owner)==self.roles_before,'Live schema/history/role drift since backup')
         quiet(self.c,self.owner)
+        import role_lifecycle as r
+        require(r.digest(r.read_policy(self.root))==self.role_policy_digest,'Reviewed role policy changed during preflight')
         self.gate('live_apply','STARTED; failure requires DBA review, never automatic restore')
         self.fly(self.c,self.password,'migrate',self.entries[-1]['version']); self.fly(self.c,self.password,'validate')
         require(not history_gate(history(self.c,self.owner),self.entries),'Live migration history incomplete')
         require(set(tables(self.c,self.owner))-set(self.before_tables)==set(self.report['new_tables']),'Live new table inventory differs from clone')
-        require(schema_hash(self.c,self.owner)==self.report['clone_migrated_schema_sha256'],'Live schema fingerprint differs from migrated clone; do not rerun automatically')
+        import role_lifecycle as r
+        r.apply_pending(self,self.c,self.owner,[e['version'] for e in self.pending],self.report['new_tables'])
+        live_schema=schema_bytes(self.c,self.owner)
+        post_dir=self.work/'post-migration-schema'; post_dir.mkdir(exist_ok=True)
+        comparison=compare_schema(post_dir,(self.work/'clone-migrated-schema.private.sql').read_bytes(),live_schema)
+        self.gate('post_migration_schema_comparison',comparison)
+        require(comparison['matches'],'Live schema fingerprint differs from migrated clone; do not rerun automatically')
         self.check_runtime(self.c,self.owner,[e['version'] for e in self.pending],False,self.report['new_tables']); self.gate('live_apply','PASS; backend restart and UI tests still required')
 
 def main():
