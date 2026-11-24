@@ -27,8 +27,9 @@ class Phase14NeshanMockHttpTest {
                 new NeshanProperties(true, "https://api.neshan.org", OFFLINE_KEY, 10), new ObjectMapper());
         var results = adapter.geocode("Tehran");
         assertEquals(1, results.size());
-        assertEquals(new BigDecimal("35.6892"), results.get(0).latitude());
-        assertEquals(new BigDecimal("51.3890"), results.get(0).longitude());
+        // Coordinates are numeric WGS84 values: trailing zero scale is not meaningful.
+        assertEquals(0, new BigDecimal("35.6892").compareTo(results.get(0).latitude()));
+        assertEquals(0, new BigDecimal("51.3890").compareTo(results.get(0).longitude()));
         server.verify();
     }
 
