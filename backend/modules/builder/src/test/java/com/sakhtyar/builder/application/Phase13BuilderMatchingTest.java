@@ -40,7 +40,8 @@ class Phase13BuilderMatchingTest {
    login("CASE_READ");var a=profile(UUID.fromString("00000000-0000-0000-0000-000000000001"),Map.of("available",true,
       "districts",List.of("District 2"),"maxProjectAreaM2",400,"capitalCapacity",1000,"experienceYears",7));
    var b=profile(UUID.fromString("00000000-0000-0000-0000-000000000002"),Map.of("available",false,"experienceYears",1));
-   when(properties.findByCaseId(caseId)).thenReturn(Optional.of(property()));
+   PropertyEntity propertySnapshot=property();
+   when(properties.findByCaseId(caseId)).thenReturn(Optional.of(propertySnapshot));
    when(builders.findByVerifiedTrue(any(Pageable.class))).thenReturn(new PageImpl<>(List.of(b,a)));
    var result=service.match(caseId,new BigDecimal("500"),10);
    assertEquals(1,result.candidateCount()); // unavailable builder is excluded, not boosted
@@ -50,14 +51,16 @@ class Phase13BuilderMatchingTest {
  }
  @Test void unknownAvailabilityGetsNoBonus(){
    login("CASE_READ");var a=profile(UUID.randomUUID(),Map.of());
-   when(properties.findByCaseId(caseId)).thenReturn(Optional.of(property()));
+   PropertyEntity propertySnapshot=property();
+   when(properties.findByCaseId(caseId)).thenReturn(Optional.of(propertySnapshot));
    when(builders.findByVerifiedTrue(any(Pageable.class))).thenReturn(new PageImpl<>(List.of(a)));
    assertEquals(20,service.match(caseId,null,10).matches().get(0).score());
  }
  @Test void equalScoreHasStableUuidTieBreak(){
    login("CASE_READ");var a=profile(UUID.fromString("00000000-0000-0000-0000-000000000001"),Map.of());
    var b=profile(UUID.fromString("00000000-0000-0000-0000-000000000002"),Map.of());
-   when(properties.findByCaseId(caseId)).thenReturn(Optional.of(property()));
+   PropertyEntity propertySnapshot=property();
+   when(properties.findByCaseId(caseId)).thenReturn(Optional.of(propertySnapshot));
    when(builders.findByVerifiedTrue(any(Pageable.class))).thenReturn(new PageImpl<>(List.of(b,a)));
    assertEquals(a.getId(),service.match(caseId,null,10).matches().get(0).builderId());
  }
