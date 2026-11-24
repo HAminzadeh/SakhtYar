@@ -11,6 +11,11 @@ spring:
     username: ${SAKHTYAR_RUNTIME_DB_USER:${POSTGRES_USER:sakhtyar}}
     password: ${SAKHTYAR_RUNTIME_DB_PASSWORD:${POSTGRES_PASSWORD:change-me-postgres}}
 
+  # Phase13: do not apply V67/V68 to the user's shared database on IDE startup.
+  # Run migrations separately on an isolated clone and explicitly approve promotion.
+  flyway:
+    enabled: false
+
   data:
     redis:
       host: localhost
