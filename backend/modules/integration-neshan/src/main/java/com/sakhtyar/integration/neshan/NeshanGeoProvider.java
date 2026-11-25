@@ -7,6 +7,7 @@ import com.sakhtyar.geo.domain.ReverseGeocodeResult;
 import java.math.BigDecimal;
 import java.util.List;
 import java.util.Map;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Component;
@@ -25,16 +26,33 @@ public class NeshanGeoProvider implements GeoProvider {
     private final RestClient client;
     private final NeshanProperties properties;
     private final ObjectMapper objectMapper;
+    private final NeshanTrafficGuard traffic;
+    private static final int MAX_RESPONSE_CHARS = 65_536;
 
+    /** Legacy constructor retained for in-memory mocked transport tests. */
     public NeshanGeoProvider(RestClient neshanRestClient, NeshanProperties properties, ObjectMapper objectMapper) {
+        this(neshanRestClient, properties, objectMapper, new NeshanTrafficGuard(properties));
+    }
+
+    @Autowired
+    public NeshanGeoProvider(RestClient neshanRestClient, NeshanProperties properties,
+            ObjectMapper objectMapper, NeshanTrafficGuard traffic) {
         this.client = neshanRestClient;
         this.properties = properties;
         this.objectMapper = objectMapper;
+        this.traffic = traffic;
     }
 
     @Override
     public boolean configured() {
-        return properties != null && properties.serviceApiKey() != null && !properties.serviceApiKey().isBlank();
+        if (properties == null || !properties.enabled() || !properties.outboundEnabled() ||
+                properties.serviceApiKey() == null || properties.serviceApiKey().isBlank()) return false;
+        try {
+            NeshanDestinationPolicy.requireOfficialHttps(properties);
+            return true;
+        } catch (ResponseStatusException ex) {
+            return false;
+        }
     }
 
     @Override
@@ -44,6 +62,7 @@ public class NeshanGeoProvider implements GeoProvider {
         final String cleaned;
         try { cleaned = GeoInputPolicy.address(address); }
         catch (IllegalArgumentException ex) { throw new ResponseStatusException(HttpStatus.BAD_REQUEST, ex.getMessage()); }
+        traffic.beforeRequest();
         try {
             String payload = objectMapper.writeValueAsString(Map.of("address", cleaned));
             String body = client.get()
@@ -51,15 +70,21 @@ public class NeshanGeoProvider implements GeoProvider {
                     .header("Api-Key", properties.serviceApiKey())
                     .retrieve()
                     .body(String.class);
-            return parseGeocode(body, cleaned);
+            List<GeoSearchResult> result = parseGeocode(body, cleaned);
+            traffic.recordSuccess();
+            return result;
         } catch (RestClientResponseException ex) {
+            traffic.recordFailure();
             throw translate(ex);
         } catch (RestClientException ex) {
-            throw new ResponseStatusException(HttpStatus.BAD_GATEWAY,
-                    "Could not connect to Neshan geocoding service.", ex);
+            traffic.recordFailure();
+            throw new ResponseStatusException(HttpStatus.BAD_GATEWAY, "Neshan geocoding request failed.");
         } catch (JacksonException ex) {
-            throw new ResponseStatusException(HttpStatus.BAD_GATEWAY,
-                    "Could not read Neshan geocoding response.", ex);
+            traffic.recordFailure();
+            throw new ResponseStatusException(HttpStatus.BAD_GATEWAY, "Neshan response was invalid.");
+        } catch (ResponseStatusException ex) {
+            traffic.recordFailure();
+            throw ex;
         }
     }
 
@@ -69,6 +94,7 @@ public class NeshanGeoProvider implements GeoProvider {
         requireApiKey();
         try { GeoInputPolicy.point(latitude, longitude); }
         catch (IllegalArgumentException ex) { throw new ResponseStatusException(HttpStatus.BAD_REQUEST, ex.getMessage()); }
+        traffic.beforeRequest();
         try {
             String body = client.get()
                     .uri(uriBuilder -> uriBuilder.path("/v5/reverse")
@@ -76,20 +102,26 @@ public class NeshanGeoProvider implements GeoProvider {
                     .header("Api-Key", properties.serviceApiKey())
                     .retrieve()
                     .body(String.class);
-            return parseReverse(body);
+            ReverseGeocodeResult result = parseReverse(body);
+            traffic.recordSuccess();
+            return result;
         } catch (RestClientResponseException ex) {
+            traffic.recordFailure();
             throw translate(ex);
         } catch (RestClientException ex) {
-            throw new ResponseStatusException(HttpStatus.BAD_GATEWAY,
-                    "Could not connect to Neshan reverse-geocoding service.", ex);
+            traffic.recordFailure();
+            throw new ResponseStatusException(HttpStatus.BAD_GATEWAY, "Neshan reverse-geocoding request failed.");
         } catch (JacksonException ex) {
-            throw new ResponseStatusException(HttpStatus.BAD_GATEWAY,
-                    "Could not read Neshan reverse-geocoding response.", ex);
+            traffic.recordFailure();
+            throw new ResponseStatusException(HttpStatus.BAD_GATEWAY, "Neshan response was invalid.");
+        } catch (ResponseStatusException ex) {
+            traffic.recordFailure();
+            throw ex;
         }
     }
 
     private List<GeoSearchResult> parseGeocode(String body, String requestedAddress) throws JacksonException {
-        JsonNode root = objectMapper.readTree(body);
+        JsonNode root = responseRoot(body);
         JsonNode candidate = unwrapCandidate(root);
         BigDecimal lat = firstDecimal(candidate,
                 "location.latitude", "location.lat", "location.y", "latitude", "lat", "y");
@@ -123,8 +155,8 @@ public class NeshanGeoProvider implements GeoProvider {
     }
 
     private ReverseGeocodeResult parseReverse(String body) throws JacksonException {
-        JsonNode root = objectMapper.readTree(body);
-        return new ReverseGeocodeResult(
+        JsonNode root = responseRoot(body);
+        ReverseGeocodeResult result = new ReverseGeocodeResult(
                 firstText(root, "formatted_address", "formattedAddress", "address"),
                 firstText(root, "state", "province"),
                 firstText(root, "city"),
@@ -133,6 +165,18 @@ public class NeshanGeoProvider implements GeoProvider {
                 firstText(root, "route_name", "routeName"),
                 firstText(root, "place")
         );
+        if (result.formattedAddress() == null && result.city() == null && result.district() == null)
+            throw new ResponseStatusException(HttpStatus.BAD_GATEWAY, "Neshan reverse result is empty.");
+        return result;
+    }
+
+    private JsonNode responseRoot(String body) throws JacksonException {
+        if (body == null || body.isBlank() || body.length() > MAX_RESPONSE_CHARS)
+            throw new ResponseStatusException(HttpStatus.BAD_GATEWAY, "Neshan response size is invalid.");
+        JsonNode root = objectMapper.readTree(body);
+        if (root == null || !root.isObject())
+            throw new ResponseStatusException(HttpStatus.BAD_GATEWAY, "Neshan response object is invalid.");
+        return root;
     }
 
     private JsonNode unwrapCandidate(JsonNode root) {
@@ -158,7 +202,8 @@ public class NeshanGeoProvider implements GeoProvider {
     private void requireApiKey() {
         if (!configured())
             throw new ResponseStatusException(HttpStatus.SERVICE_UNAVAILABLE,
-                    "NESHAN_SERVICE_API_KEY is not configured.");
+                    "Neshan outbound service is disabled or credentials are unavailable.");
+        NeshanDestinationPolicy.requireOfficialHttps(properties);
     }
 
     private ResponseStatusException translate(RestClientResponseException ex) {
@@ -173,7 +218,12 @@ public class NeshanGeoProvider implements GeoProvider {
     private String firstText(JsonNode node, String... paths) {
         for (String path : paths) {
             JsonNode value = at(node, path);
-            if (value != null && !value.isNull() && !value.asText("").isBlank()) return value.asText();
+            if (value != null && !value.isNull() && !value.asText("").isBlank()) {
+                String text = value.asText().strip();
+                if (text.length() > 4000 || text.codePoints().anyMatch(Character::isISOControl))
+                    throw new ResponseStatusException(HttpStatus.BAD_GATEWAY, "Invalid Neshan response text.");
+                return text;
+            }
         }
         return null;
     }
