@@ -8,6 +8,8 @@ import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Component;
 
 @Component
+@org.springframework.boot.autoconfigure.condition.ConditionalOnProperty(
+    prefix="app.globalization.master-data", name="bootstrap-currency-on-startup", havingValue="true")
 public class CurrencyCatalogBootstrap implements ApplicationRunner {
     private final JdbcTemplate jdbc;
     public CurrencyCatalogBootstrap(JdbcTemplate jdbc){this.jdbc=jdbc;}

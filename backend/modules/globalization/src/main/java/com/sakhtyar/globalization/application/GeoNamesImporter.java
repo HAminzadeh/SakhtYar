@@ -8,6 +8,7 @@ import java.time.Duration;
 import java.util.*;
 import java.util.function.Consumer;
 import java.util.zip.ZipInputStream;
+import org.springframework.security.core.context.SecurityContextHolder;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
@@ -23,23 +24,28 @@ public class GeoNamesImporter {
     private final JdbcTemplate jdbc;
     private final HttpClient http = HttpClient.newBuilder()
             .connectTimeout(Duration.ofSeconds(20))
-            .followRedirects(HttpClient.Redirect.NORMAL)
+            .followRedirects(HttpClient.Redirect.NEVER)
             .build();
     private final boolean fullCities;
+    private final boolean outboundEnabled;
 
     public GeoNamesImporter(
             JdbcTemplate jdbc,
-            @Value("${app.globalization.master-data.full-cities:true}") boolean fullCities
+            @Value("${app.globalization.master-data.full-cities:true}") boolean fullCities,
+            @Value("${app.globalization.master-data.outbound-enabled:false}") boolean outboundEnabled
     ) {
         this.jdbc = jdbc;
         this.fullCities = fullCities;
+        this.outboundEnabled = outboundEnabled;
     }
 
     public Map<String, Long> importAll() {
+        requireImportPermission();
         return importAll(fullCities ? "full" : "quick", stage -> {});
     }
 
     public Map<String, Long> importAll(String mode, Consumer<String> stageListener) {
+        requireImportPermission();
         boolean full = "full".equalsIgnoreCase(mode);
         String cityDataset = full ? "allCountries.zip" : "cities500.zip";
 
@@ -73,6 +79,7 @@ public class GeoNamesImporter {
     }
 
     public long importCountries() {
+        requireImportPermission();
         String url = BASE + "countryInfo.txt";
         UUID run = start("geonames-countryInfo", url);
         long count = 0;
@@ -86,7 +93,7 @@ public class GeoNamesImporter {
                 )
         ) {
             String line;
-            while ((line = br.readLine()) != null) {
+            while ((line = safeReadLine(br)) != null) {
                 if (line.isBlank() || line.startsWith("#")) {
                     continue;
                 }
@@ -216,6 +223,7 @@ public class GeoNamesImporter {
     }
 
     public long importAdmin1() {
+        requireImportPermission();
         String url = BASE + "admin1CodesASCII.txt";
         UUID run = start("geonames-admin1", url);
         long count = 0;
@@ -230,7 +238,7 @@ public class GeoNamesImporter {
         ) {
             String line;
 
-            while ((line = br.readLine()) != null) {
+            while ((line = safeReadLine(br)) != null) {
                 if (line.isBlank()) {
                     continue;
                 }
@@ -294,6 +302,9 @@ public class GeoNamesImporter {
     }
 
     public long importCities(String dataset) {
+        requireImportPermission();
+        if (!"cities500.zip".equals(dataset) && !"allCountries.zip".equals(dataset))
+            throw new IllegalArgumentException("Unapproved GeoNames dataset.");
         String url = BASE + dataset;
         UUID run = start("geonames-" + dataset, url);
         long count = 0;
@@ -304,9 +315,9 @@ public class GeoNamesImporter {
                 InputStream raw = download(url);
                 ZipInputStream zip = new ZipInputStream(raw, StandardCharsets.UTF_8)
         ) {
-            if (zip.getNextEntry() == null) {
-                throw new IOException("GeoNames ZIP is empty.");
-            }
+            java.util.zip.ZipEntry entry=zip.getNextEntry();
+            if (entry == null || !entry.getName().equals(dataset.replace(".zip", ".txt")) || entry.isDirectory())
+                throw new IOException("Invalid GeoNames ZIP entry.");
 
             BufferedReader br = new BufferedReader(
                     new InputStreamReader(zip, StandardCharsets.UTF_8)
@@ -314,7 +325,7 @@ public class GeoNamesImporter {
             List<Object[]> batch = new ArrayList<>(1000);
             String line;
 
-            while ((line = br.readLine()) != null) {
+            while ((line = safeReadLine(br)) != null) {
                 String[] p = line.split("\\t", -1);
                 if (p.length < 19 || !"P".equals(p[6])) {
                     continue;
@@ -423,7 +434,30 @@ public class GeoNamesImporter {
         );
     }
 
+    /** Explicitly deny outbound traffic without an authorized interactive administrator. */
+    public void requireImportPermission() {
+        GlobalizationAccess.requireAdmin();
+        if (!outboundEnabled) throw new SecurityException("GeoNames outbound import disabled.");
+    }
+
+    private static String safeReadLine(BufferedReader br) throws IOException {
+        StringBuilder sb=new StringBuilder(256);
+        int ch;
+        while ((ch=br.read())!=-1) {
+            if (ch=='\n') break;
+            if (ch!='\r') sb.append((char)ch);
+            if (sb.length()>16384) throw new IOException("GeoNames record too large.");
+        }
+        return ch==-1 && sb.isEmpty()?null:sb.toString();
+    }
+
     private InputStream download(String url) throws Exception {
+        requireImportPermission();
+        URI uri=URI.create(url);
+        if (!"https".equals(uri.getScheme()) || !"download.geonames.org".equals(uri.getHost()) ||
+            uri.getPort() != -1 || uri.getUserInfo() != null || uri.getFragment() != null ||
+            !uri.getPath().startsWith("/export/dump/"))
+            throw new SecurityException("GeoNames endpoint not allowlisted.");
         HttpRequest request = HttpRequest.newBuilder(URI.create(url))
                 .timeout(Duration.ofMinutes(10))
                 .header("User-Agent", "SakhtYar/0.2 master-data importer")
@@ -441,7 +475,20 @@ public class GeoNamesImporter {
             );
         }
 
-        return response.body();
+        // Limit compressed bytes; data must be streamed, never entirely buffered in memory.
+        final long maxBytes = 300L * 1024L * 1024L;
+        java.io.InputStream raw=response.body();
+        return new java.io.FilterInputStream(raw) {
+            private long count;
+            @Override public int read() throws IOException {
+                int value=super.read();if(value>=0 && ++count>maxBytes)throw new IOException("GeoNames download size exceeded.");
+                return value;
+            }
+            @Override public int read(byte[] b,int off,int len) throws IOException {
+                int n=super.read(b,off,len);if(n>0 && (count+=n)>maxBytes)throw new IOException("GeoNames download size exceeded.");
+                return n;
+            }
+        };
     }
 
     private UUID start(String dataset, String url) {

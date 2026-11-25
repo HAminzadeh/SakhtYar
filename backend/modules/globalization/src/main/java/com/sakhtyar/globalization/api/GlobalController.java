@@ -2,11 +2,14 @@ package com.sakhtyar.globalization.api;
 
 import static com.sakhtyar.globalization.domain.GlobalDtos.*;
 import com.sakhtyar.globalization.application.*;
+import jakarta.validation.Valid;
 import java.math.BigDecimal;
 import java.time.Instant;
 import java.util.*;
+import org.springframework.http.HttpStatus;
 import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.*;
+import org.springframework.web.server.ResponseStatusException;
 
 @RestController
 @RequestMapping("/api/v1/global")
@@ -20,7 +23,7 @@ public class GlobalController {
 
     public GlobalController(CatalogService catalog,UserPreferenceService prefs,
         JurisdictionService jurisdiction,GeoNamesImporter importer,FxService fx,
-        MasterDataAdminService masterDataAdmin){
+        MasterDataAdminService masterDataAdmin) {
         this.catalog=catalog;this.prefs=prefs;this.jurisdiction=jurisdiction;
         this.importer=importer;this.fx=fx;this.masterDataAdmin=masterDataAdmin;
     }
@@ -36,13 +39,14 @@ public class GlobalController {
     }
 
     @GetMapping("/preferences/me") public Preference preference(Authentication a){return prefs.get(a);}
-    @PutMapping("/preferences/me") public Preference preference(Authentication a,@RequestBody PreferenceUpdate r){return prefs.update(a,r);}
+    @PutMapping("/preferences/me") public Preference preference(Authentication a,@RequestBody @Valid PreferenceUpdate r){return prefs.update(a,r);}
 
     @GetMapping("/cases/{caseId}/jurisdiction") public JurisdictionContext jurisdiction(@PathVariable UUID caseId){
         return jurisdiction.forCase(caseId);
     }
     @PutMapping("/cases/{caseId}/jurisdiction")
-    public JurisdictionContext jurisdiction(@PathVariable UUID caseId,@RequestBody LocationRequest r){
+    public JurisdictionContext jurisdiction(@PathVariable UUID caseId,@RequestBody @Valid LocationRequest r){
+        if (r == null) throw new ResponseStatusException(HttpStatus.BAD_REQUEST,"Location body required.");
         return jurisdiction.setCaseLocation(caseId,r.countryId(),r.divisionId(),r.cityId());
     }
 
@@ -53,9 +57,7 @@ public class GlobalController {
     public Map<String,Long> importGeoNames(){return importer.importAll();}
 
     @PostMapping("/master-data/import/geonames/async")
-    public Map<String,Object> importGeoNamesAsync(
-        @RequestParam(defaultValue="quick") String mode
-    ){
+    public Map<String,Object> importGeoNamesAsync(@RequestParam(defaultValue="quick") String mode){
         return masterDataAdmin.startGeoNamesImport(mode);
     }
 
@@ -63,7 +65,12 @@ public class GlobalController {
     public Map<String,Object> masterDataStatus(){return masterDataAdmin.status();}
 
     @PostMapping("/fx-rates")
-    public Map<String,UUID> addFx(@RequestBody FxRequest r){return Map.of("id",fx.add(r));}
+    public Map<String,UUID> addFx(@RequestBody @Valid FxRequest r){return Map.of("id",fx.add(r));}
+
+    @PostMapping("/fx-rates/{id}/review")
+    public Map<String,Object> reviewFx(@PathVariable UUID id,@RequestParam boolean approve){
+        fx.review(id,approve);return Map.of("id",id,"status",approve?"APPROVED":"REJECTED");
+    }
 
     @GetMapping("/fx/convert")
     public Map<String,Object> convert(@RequestParam UUID baseCurrencyId,@RequestParam UUID quoteCurrencyId,
@@ -71,5 +78,11 @@ public class GlobalController {
         return Map.of("amount",amount,"converted",fx.convert(baseCurrencyId,quoteCurrencyId,amount,at));
     }
 
-    public record LocationRequest(UUID countryId,UUID divisionId,UUID cityId){}
+    @GetMapping("/fx/quote")
+    public FxService.Quote quote(@RequestParam UUID baseCurrencyId,@RequestParam UUID quoteCurrencyId,
+        @RequestParam BigDecimal amount,@RequestParam(required=false) Instant at){
+        return fx.quote(baseCurrencyId,quoteCurrencyId,amount,at);
+    }
+
+    public record LocationRequest(UUID countryId,UUID divisionId,UUID cityId) { }
 }

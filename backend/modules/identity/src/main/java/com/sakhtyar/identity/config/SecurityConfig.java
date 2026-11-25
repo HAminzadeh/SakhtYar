@@ -216,7 +216,8 @@ http
 
                         .requestMatchers(
                                 "/api/v1/global/master-data/**",
-                                "/api/v1/global/fx-rates"
+                                "/api/v1/global/fx-rates",
+                                "/api/v1/global/fx-rates/**"
                         ).hasAuthority("USER_MANAGE")
 
                         .requestMatchers(

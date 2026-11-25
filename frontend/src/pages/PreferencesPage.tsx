@@ -353,7 +353,6 @@ export function PreferencesPage() {
             <label className="sakhtyar-field-caption">{t('country')}</label>
             <Select
               showSearch
-              allowClear
               optionFilterProp="label"
               value={draft.countryId ?? undefined}
               style={{ width: '100%' }}
@@ -410,6 +409,30 @@ export function PreferencesPage() {
                 label: x,
               }))}
             />
+          </Col>
+          <Col xs={24} md={8} style={{ marginTop: 14 }}>
+            <label className="sakhtyar-field-caption">{language === 'fa' ? 'نوع تقویم' : 'Calendar'}</label>
+            <Select value={draft.dateFormat ?? 'JALALI'} style={{width:'100%'}}
+              onChange={(v)=>{update('dateFormat',v);markChanged('تقویم تغییر کرد؛ ذخیره کنید.','Calendar changed. Save to persist.') }}
+              options={[{value:'JALALI',label:language==='fa'?'شمسی':'Persian (Jalali)'},
+                        {value:'GREGORIAN',label:language==='fa'?'میلادی':'Gregorian'},
+                        {value:'ISO',label:'ISO 8601'}]}/>
+          </Col>
+          <Col xs={24} md={8} style={{ marginTop: 14 }}>
+            <label className="sakhtyar-field-caption">{language === 'fa' ? 'شکل اعداد' : 'Numerals'}</label>
+            <Select value={draft.numberFormat ?? 'PERSIAN'} style={{width:'100%'}}
+              onChange={(v)=>{update('numberFormat',v);markChanged('شکل اعداد تغییر کرد؛ ذخیره کنید.','Numeral system changed. Save to persist.') }}
+              options={[{value:'PERSIAN',label:'۱۲۳ فارسی'},
+                        {value:'LATIN',label:'123 Latin'},
+                        {value:'ARABIC',label:'١٢٣ Arabic'}]}/>
+          </Col>
+          <Col xs={24} md={8} style={{ marginTop: 14 }}>
+            <label className="sakhtyar-field-caption">{language === 'fa' ? 'اولین روز هفته' : 'First weekday'}</label>
+            <Select value={draft.firstDayOfWeek ?? 6} style={{width:'100%'}}
+              onChange={(v)=>{update('firstDayOfWeek',v);markChanged('شروع هفته تغییر کرد؛ ذخیره کنید.','First weekday changed. Save to persist.') }}
+              options={[{value:6,label:language==='fa'?'شنبه':'Saturday'},
+                        {value:1,label:language==='fa'?'دوشنبه':'Monday'},
+                        {value:7,label:language==='fa'?'یکشنبه':'Sunday'}]}/>
           </Col>
         </Row>},
           {key:'theme', label: language === 'fa' ? 'پوسته و ظاهر' : 'Theme & Appearance', children: <div style={{ marginTop: 22 }}>

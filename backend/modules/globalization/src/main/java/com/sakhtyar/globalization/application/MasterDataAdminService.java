@@ -32,6 +32,11 @@ public class MasterDataAdminService {
     }
 
     public Map<String, Object> startGeoNamesImport(String requestedMode) {
+        GlobalizationAccess.requireAdmin();
+        importer.requireImportPermission();
+        if (!"full".equalsIgnoreCase(requestedMode) && !"quick".equalsIgnoreCase(requestedMode))
+            throw new IllegalArgumentException("Mode must be quick or full.");
+        final var submitterContext=org.springframework.security.core.context.SecurityContextHolder.getContext();
         String normalizedMode = "full".equalsIgnoreCase(requestedMode)
                 ? "full"
                 : "quick";
@@ -52,6 +57,7 @@ public class MasterDataAdminService {
         finishedAt.set(null);
 
         Thread.startVirtualThread(() -> {
+            org.springframework.security.core.context.SecurityContextHolder.setContext(submitterContext);
             try {
                 log.info(
                         "{} event=ASYNC_START mode={}",
@@ -73,14 +79,14 @@ public class MasterDataAdminService {
                 );
             } catch (Exception ex) {
                 String message = rootMessage(ex);
-                lastError.set(message);
+                lastError.set("Import failed; consult restricted server logs.");
                 stage.set("FAILED");
                 log.error(
                         "{} event=ASYNC_FAILED mode={} stage={} error={}",
                         MARKER,
                         normalizedMode,
                         stage.get(),
-                        message,
+                        ex.getClass().getSimpleName(),
                         ex
                 );
             } finally {
@@ -89,6 +95,7 @@ public class MasterDataAdminService {
                     stage.set("COMPLETED");
                 }
                 running.set(false);
+                org.springframework.security.core.context.SecurityContextHolder.clearContext();
                 log.info(
                         "{} event=ASYNC_FINISH mode={} stage={}",
                         MARKER,
@@ -108,6 +115,7 @@ public class MasterDataAdminService {
     }
 
     public Map<String, Object> status() {
+        GlobalizationAccess.requireAdmin();
         LinkedHashMap<String, Object> result = new LinkedHashMap<>();
         result.put("running", running.get());
         result.put("stage", stage.get());

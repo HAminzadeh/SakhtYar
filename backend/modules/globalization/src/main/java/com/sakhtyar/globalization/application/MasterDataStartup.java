@@ -16,10 +16,9 @@ public class MasterDataStartup {
 
     @EventListener(ApplicationReadyEvent.class)
     public void ready(){
-        if(!autoImport)return;
-        Thread.startVirtualThread(()->{
-            try{importer.importAll();}
-            catch(Exception ex){System.err.println("Global master-data import failed: "+ex.getMessage());}
-        });
+        // Startup never initiates external downloads or writes reference data.
+        // Admin must invoke the explicit import API with outbound-enabled=true.
+        if(autoImport) org.slf4j.LoggerFactory.getLogger(getClass()).warn(
+            "Global master-data auto-import ignored; explicit admin action is required.");
     }
 }

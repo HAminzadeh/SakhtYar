@@ -29,7 +29,7 @@ public class CatalogService {
     }
 
     public List<CountryItem> countries(String q){
-        String like=q==null||q.isBlank()?"%":"%"+q.trim().toLowerCase(Locale.ROOT)+"%";
+        String like=GlobalizationPolicy.search(q);
         return jdbc.query("""
           select id,iso_alpha2,iso_alpha3,name_en,name_native,default_currency_id
           from global_country
@@ -55,7 +55,7 @@ public class CatalogService {
     }
 
     public List<CityItem> cities(UUID countryId,UUID divisionId,String q){
-        String like=q==null||q.isBlank()?"%":"%"+q.trim().toLowerCase(Locale.ROOT)+"%";
+        String like=GlobalizationPolicy.search(q);
         if(divisionId==null){
             return jdbc.query("""
               select id,country_id,administrative_division_id,geonames_id,name,ascii_name,timezone,population
