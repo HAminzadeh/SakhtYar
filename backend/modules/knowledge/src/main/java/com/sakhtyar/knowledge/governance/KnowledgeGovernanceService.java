@@ -1,6 +1,8 @@
 package com.sakhtyar.knowledge.governance;
 
 import org.springframework.jdbc.core.JdbcTemplate;
+import org.springframework.security.access.AccessDeniedException;
+import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import java.time.LocalDate;
@@ -10,6 +12,13 @@ import java.util.*;
 public class KnowledgeGovernanceService {
     private final JdbcTemplate jdbc;
     public KnowledgeGovernanceService(JdbcTemplate jdbc) { this.jdbc = jdbc; }
+    private static void requireManager(String reviewer) {
+        var auth=SecurityContextHolder.getContext().getAuthentication();
+        if(auth==null || !auth.isAuthenticated() || auth.getAuthorities()==null ||
+           auth.getAuthorities().stream().noneMatch(a->"USER_MANAGE".equals(a.getAuthority())) ||
+           reviewer==null || !reviewer.equals(auth.getName()))
+            throw new AccessDeniedException("USER_MANAGE required");
+    }
 
     public record ReviewRequest(String decision, String subjectCode, String operator, String unitCode,
                                 String country, String city, String district, String sourceAuthority,
@@ -30,6 +39,7 @@ public class KnowledgeGovernanceService {
 
     @Transactional
     public Map<String,Object> review(UUID id, ReviewRequest req, String reviewer) {
+        requireManager(reviewer);
         if (reviewer == null || reviewer.isBlank()) throw new IllegalArgumentException("Authenticated reviewer required");
         if (req == null || !Set.of("APPROVED", "REJECTED").contains(req.decision()))
             throw new IllegalArgumentException("Decision must be APPROVED or REJECTED");
@@ -97,6 +107,7 @@ public class KnowledgeGovernanceService {
 
     @Transactional
     public Map<String,Object> publish(UUID releaseId, String reviewer) {
+        requireManager(reviewer);
         if(reviewer==null||reviewer.isBlank())throw new IllegalArgumentException("Authenticated reviewer required");
         var releases=jdbc.queryForList("select id,knowledge_version_id,status from knowledge_release where id=? for update",releaseId);
         if(releases.isEmpty())throw new IllegalArgumentException("Release not found");

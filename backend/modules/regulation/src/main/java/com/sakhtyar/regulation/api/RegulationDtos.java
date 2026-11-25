@@ -13,7 +13,7 @@ public final class RegulationDtos {
             @NotBlank @Size(max=500) String nameFa,
             @Size(max=500) String nameEn,
             @NotNull UrbanRuleType ruleType,
-            @Size(max=2) String jurisdictionCountry,
+            @Size(min=2,max=2) @Pattern(regexp="[A-Za-z]{2}") String jurisdictionCountry,
             @Size(max=100) String jurisdictionProvince,
             @Size(max=100) String jurisdictionCity,
             @Size(max=100) String jurisdictionDistrict,
@@ -24,7 +24,7 @@ public final class RegulationDtos {
             LocalDate validTo,
             @Min(0) int priority,
             boolean active,
-            @NotNull Map<String,Object> parameters
+            @NotEmpty Map<String,Object> parameters
     ) {}
 
     public record EvaluateRequest(@NotNull UUID propertyId, UUID scenarioId) {}

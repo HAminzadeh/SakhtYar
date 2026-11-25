@@ -246,6 +246,25 @@ public class KnowledgeFinalPipelineService {
 
             // Store a new version of structured candidates; existing successful releases remain untouched.
             Versions v = ensureVersions(executionId);
+            // Fail closed BEFORE deleting any candidate output. An approved rule,
+            // evidence link, or published version must never be silently replaced
+            // by a rerun of an extraction pipeline.
+            Integer approved=jdbc.queryForObject("""
+                select count(*) from knowledge_rule_review rev
+                join knowledge_rule r on r.id=rev.rule_id
+                where r.knowledge_version_id=?
+                """,Integer.class,v.knowledge);
+            Integer published=jdbc.queryForObject("""
+                select count(*) from knowledge_release
+                where knowledge_version_id=? and status='PUBLISHED'
+                """,Integer.class,v.knowledge);
+            Integer reviewedSegments=jdbc.queryForObject("""
+                select count(*) from knowledge_legal_segment
+                where execution_id=? and review_status<>'CANDIDATE'
+                """,Integer.class,executionId);
+            if ((approved!=null && approved>0) || (published!=null && published>0) ||
+                (reviewedSegments!=null && reviewedSegments>0))
+                throw new IllegalStateException("Refusing to overwrite reviewed or published legal extraction; create a new version.");
             jdbc.update("delete from knowledge_legal_segment where execution_id=?", executionId);
             jdbc.update("delete from knowledge_extraction_quality where execution_id=?", executionId);
             jdbc.update("delete from knowledge_semantic_relation where knowledge_version_id=?", v.knowledge);

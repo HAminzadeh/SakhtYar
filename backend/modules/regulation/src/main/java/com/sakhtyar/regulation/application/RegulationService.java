@@ -3,6 +3,7 @@ package com.sakhtyar.regulation.application;
 import static com.sakhtyar.regulation.api.RegulationDtos.*;
 
 import com.sakhtyar.audit.application.AuditService;
+import com.sakhtyar.casefile.application.CaseAccessService;
 import com.sakhtyar.knowledge.domain.KnowledgeSourceRepository;
 import com.sakhtyar.globalization.application.JurisdictionService;
 import com.sakhtyar.property.domain.*;
@@ -28,23 +29,26 @@ public class RegulationService {
     private final AuditService auditService;
     private final JurisdictionService jurisdictionService;
     private final RegulationEvidenceService evidence;
+    private final CaseAccessService caseAccess;
     private final UrbanRuleEvaluator evaluator = new UrbanRuleEvaluator();
 
     public RegulationService(UrbanRuleRepository ruleRepo,UrbanEvaluationRepository evaluationRepo,
             UrbanEvaluationResultRepository resultRepo,PropertyRepository propertyRepo,
             ConstructionScenarioRepository scenarioRepo,KnowledgeSourceRepository sourceRepo,
-            AuditService auditService,JurisdictionService jurisdictionService,RegulationEvidenceService evidence) {
+            AuditService auditService,JurisdictionService jurisdictionService,RegulationEvidenceService evidence,
+            CaseAccessService caseAccess) {
         this.ruleRepo=ruleRepo; this.evaluationRepo=evaluationRepo; this.resultRepo=resultRepo;
         this.propertyRepo=propertyRepo; this.scenarioRepo=scenarioRepo; this.sourceRepo=sourceRepo;
         this.auditService=auditService;
         this.jurisdictionService=jurisdictionService;
         this.evidence=evidence;
+        this.caseAccess=caseAccess;
     }
 
     private static void requireRuleManager() {
         var auth = org.springframework.security.core.context.SecurityContextHolder
                 .getContext().getAuthentication();
-        if (auth == null || !auth.isAuthenticated() || auth.getAuthorities().stream()
+        if (auth == null || !auth.isAuthenticated() || auth.getAuthorities() == null || auth.getAuthorities().stream()
                 .noneMatch(a -> "USER_MANAGE".equals(a.getAuthority()))) {
             throw new org.springframework.security.access.AccessDeniedException(
                     "Only a regulation manager may change urban rules.");
@@ -90,6 +94,11 @@ public class RegulationService {
     public EvaluationResponse evaluate(EvaluateRequest r,Authentication auth) {
         PropertyEntity property=propertyRepo.findById(r.propertyId())
             .orElseThrow(()->new IllegalArgumentException("Property not found."));
+        // Access is enforced before reading scenario assumptions or any evidence.
+        caseAccess.requireWrite(property.getCaseId());
+        if (!"REAL".equals(property.getDataScope()))
+            throw new org.springframework.web.server.ResponseStatusException(
+                org.springframework.http.HttpStatus.NOT_FOUND, "Property not found.");
         ConstructionScenarioEntity scenario=null;
         if(r.scenarioId()!=null) {
             scenario=scenarioRepo.findById(r.scenarioId())
@@ -176,6 +185,12 @@ public class RegulationService {
 
     @Transactional(readOnly=true)
     public List<EvaluationResponse> evaluations(UUID propertyId) {
+        var property=propertyRepo.findById(propertyId)
+            .orElseThrow(()->new IllegalArgumentException("Property not found."));
+        caseAccess.requireRead(property.getCaseId());
+        if (!"REAL".equals(property.getDataScope()))
+            throw new org.springframework.web.server.ResponseStatusException(
+                org.springframework.http.HttpStatus.NOT_FOUND, "Property not found.");
         return evaluationRepo.findByPropertyIdOrderByEvaluatedAtDesc(propertyId).stream()
             .map(e->toResponse(e,resultRepo.findByEvaluationIdOrderByIdAsc(e.getId()))).toList();
     }
@@ -183,6 +198,12 @@ public class RegulationService {
     @Transactional(readOnly=true)
     public EvaluationResponse evaluation(UUID id) {
         var e=evaluationRepo.findById(id).orElseThrow(()->new IllegalArgumentException("Urban evaluation not found."));
+        var property=propertyRepo.findById(e.getPropertyId())
+            .orElseThrow(()->new IllegalArgumentException("Property not found."));
+        caseAccess.requireRead(property.getCaseId());
+        if (!"REAL".equals(property.getDataScope()))
+            throw new org.springframework.web.server.ResponseStatusException(
+                org.springframework.http.HttpStatus.NOT_FOUND, "Property not found.");
         return toResponse(e,resultRepo.findByEvaluationIdOrderByIdAsc(id));
     }
 

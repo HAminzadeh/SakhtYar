@@ -1,5 +1,7 @@
 package com.sakhtyar.regulation.application;
 
+import com.sakhtyar.casefile.application.CaseAccessService;
+import com.sakhtyar.globalization.application.JurisdictionService;
 import com.sakhtyar.property.domain.PropertyEntity;
 import com.sakhtyar.property.domain.PropertyRepository;
 import com.sakhtyar.regulation.domain.UrbanRuleEntity;
@@ -17,8 +19,12 @@ public class RegulationEvidenceService {
     private final JdbcTemplate jdbc;
     private final PropertyRepository properties;
     private final UrbanRuleRepository rules;
-    public RegulationEvidenceService(JdbcTemplate jdbc,PropertyRepository properties,UrbanRuleRepository rules){
+    private final CaseAccessService caseAccess;
+    private final JurisdictionService jurisdictions;
+    public RegulationEvidenceService(JdbcTemplate jdbc,PropertyRepository properties,UrbanRuleRepository rules,
+            CaseAccessService caseAccess,JurisdictionService jurisdictions){
         this.jdbc=jdbc;this.properties=properties;this.rules=rules;
+        this.caseAccess=caseAccess;this.jurisdictions=jurisdictions;
     }
     private static boolean matches(String scope,String value){return scope==null||scope.isBlank()||(value!=null&&scope.trim().equalsIgnoreCase(value.trim()));}
     private static LocalDate asDate(Object raw){
@@ -27,12 +33,30 @@ public class RegulationEvidenceService {
         if(raw instanceof java.sql.Date d)return d.toLocalDate();
         return LocalDate.parse(raw.toString());
     }
-    private PropertyEntity property(UUID caseId){return properties.findByCaseId(caseId).orElseThrow(()->new IllegalArgumentException("Property not found for case"));}
+    private PropertyEntity property(UUID caseId){
+        caseAccess.requireRead(caseId);
+        PropertyEntity p=properties.findByCaseId(caseId)
+            .orElseThrow(()->new IllegalArgumentException("Property not found for case"));
+        if(!"REAL".equals(p.getDataScope())) throw new org.springframework.web.server.ResponseStatusException(
+            org.springframework.http.HttpStatus.NOT_FOUND,"Property not found for case");
+        return p;
+    }
+    private static void requireRuleManager(String reviewer){
+        var auth=org.springframework.security.core.context.SecurityContextHolder.getContext().getAuthentication();
+        if(auth==null || !auth.isAuthenticated() || auth.getAuthorities()==null ||
+           auth.getAuthorities().stream().noneMatch(a->"USER_MANAGE".equals(a.getAuthority())) ||
+           reviewer==null || !reviewer.equals(auth.getName()))
+            throw new org.springframework.security.access.AccessDeniedException("USER_MANAGE required");
+    }
 
     @Transactional(readOnly=true)
     public List<Map<String,Object>> evidence(UUID caseId) {
         PropertyEntity p=property(caseId);
+        String country=jurisdictions.forCase(caseId).countryCode();
+        // Unknown country cannot be treated as IR: fail closed and request location review.
+        if (country == null || country.isBlank()) return List.of();
         LocalDate now=LocalDate.now();
+        // Scope, validity and provenance checks MUST precede the limit.
         List<Map<String,Object>> rows=jdbc.queryForList("""
              select r.id as rule_id,r.stable_key,r.numeric_value,r.operator,rv.subject_code,rv.unit_code,
                rv.scope_country,rv.scope_city,rv.scope_district,rv.source_authority,
@@ -42,13 +66,16 @@ public class RegulationEvidenceService {
              join knowledge_release rel on rel.knowledge_version_id=r.knowledge_version_id and rel.status='PUBLISHED'
              join knowledge_source_document d on d.id=rv.source_document_id
              where r.status='VERIFIED' and rv.source_page>0 and rv.source_sha256=d.sha256
-             order by rel.published_at desc,r.id limit 1000
-             """);
-        return rows.stream().filter(x->matches((String)x.get("scope_country"),"IR"))
-            .filter(x->matches((String)x.get("scope_city"),p.getCity()))
-            .filter(x->matches((String)x.get("scope_district"),p.getDistrict()))
-            .filter(x->{LocalDate from=asDate(x.get("valid_from")),to=asDate(x.get("valid_to"));return (from==null||!now.isBefore(from))&&(to==null||!now.isAfter(to));})
-            .toList();
+               and upper(rv.scope_country)=upper(?)
+               and (nullif(btrim(rv.scope_city),'') is null or lower(btrim(rv.scope_city))=lower(?))
+               and (nullif(btrim(rv.scope_district),'') is null or lower(btrim(rv.scope_district))=lower(?))
+               and (rv.valid_from is null or rv.valid_from <= ?)
+               and (rv.valid_to is null or rv.valid_to >= ?)
+             order by rel.published_at desc,r.id limit 5001
+             """,country,p.getCity(),p.getDistrict(),now,now);
+        if(rows.size()>5000) throw new IllegalStateException(
+                "Matching legal evidence exceeds safe bound; narrow the scope before evaluating.");
+        return rows;
     }
 
     @Transactional(readOnly=true)
@@ -64,14 +91,19 @@ public class RegulationEvidenceService {
 
     @Transactional
     public Map<String,Object> bind(UUID urbanRuleId,UUID knowledgeRuleId,String reviewer){
+        requireRuleManager(reviewer);
         if(reviewer==null||reviewer.isBlank())throw new IllegalArgumentException("Reviewer required");
         UrbanRuleEntity urban=rules.findById(urbanRuleId).orElseThrow(()->new IllegalArgumentException("Urban rule not found"));
         var reviewed=jdbc.queryForList("""
             select k.id,k.numeric_value,v.verified_operator,v.subject_code,v.unit_code,v.scope_country,
                    v.scope_city,v.scope_district,v.valid_from,v.valid_to
             from knowledge_rule k join knowledge_rule_review v on v.rule_id=k.id
+            join knowledge_source_document d on d.id=v.source_document_id
             join knowledge_release rel on rel.knowledge_version_id=k.knowledge_version_id
             where k.id=? and k.status='VERIFIED' and v.decision='APPROVED' and rel.status='PUBLISHED'
+              and v.source_sha256=d.sha256 and v.source_page>0
+              and (v.valid_from is null or v.valid_from <= current_date)
+              and (v.valid_to is null or v.valid_to >= current_date)
             """,knowledgeRuleId);
         if(reviewed.isEmpty())throw new IllegalArgumentException("Knowledge rule must be approved and published");
         var source=reviewed.get(0);
@@ -79,7 +111,9 @@ public class RegulationEvidenceService {
         if(!type.name().equals(source.get("subject_code")))throw new IllegalArgumentException("Rule type and reviewed subject mismatch");
         String expectedOp=type.name().startsWith("MIN_")?">=":"<=";
         if(!expectedOp.equals(source.get("verified_operator")))throw new IllegalArgumentException("Operator mismatch");
-        if(!"IR".equals(source.get("scope_country")))throw new IllegalArgumentException("Expected Iran jurisdiction");
+        if(!matches(urban.getJurisdictionCountry(),(String)source.get("scope_country")) ||
+           (urban.getJurisdictionCountry()==null && source.get("scope_country")!=null))
+            throw new IllegalArgumentException("Urban rule jurisdiction cannot exceed reviewed evidence");
         if(!matches(urban.getJurisdictionCity(),(String)source.get("scope_city")) ||
            !matches(urban.getJurisdictionDistrict(),(String)source.get("scope_district")) ||
            (urban.getJurisdictionCity()==null && source.get("scope_city")!=null) ||
@@ -99,7 +133,8 @@ public class RegulationEvidenceService {
         };
         if(!unit.equalsIgnoreCase(Objects.toString(source.get("unit_code"),"")))throw new IllegalArgumentException("Unit mismatch");
         Object v=urban.getParameters().get(key);
-        if(v==null || new BigDecimal(v.toString()).compareTo((BigDecimal)source.get("numeric_value"))!=0)
+        if(v==null || source.get("numeric_value")==null ||
+           new BigDecimal(v.toString()).compareTo(new BigDecimal(source.get("numeric_value").toString()))!=0)
             throw new IllegalArgumentException("Urban rule numeric limit differs from verified source");
         jdbc.update("update urban_rule set verified_knowledge_rule_id=? where id=?",knowledgeRuleId,urbanRuleId);
         return Map.of("urbanRuleId",urbanRuleId,"knowledgeRuleId",knowledgeRuleId,"reviewer",reviewer,"status","BOUND");
