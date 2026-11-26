@@ -34,10 +34,13 @@ class RegulationCandidateBridgeAuthorizationTest {
         item.put("item_id",UUID.randomUUID());item.put("content_sha256","hash");
         item.put("full_text","حداکثر ۵ طبقه");item.put("source_matches",0L);
         item.put("segment_type","ARTICLE");
-        when(jdbc.queryForList(anyString(),any(),any(),any(),any())).thenReturn(List.of(item));
+        // Force the varargs SQL overload, not queryForList(String, Class<T>, Object...).
+        when(jdbc.queryForList(anyString(), eq("RULE"), eq("RULE"), eq(20), eq(0)))
+                .thenReturn(List.of(item));
         Map<String,Object> page=service.candidates(1,20,"RULE");
         assertEquals("NONE",page.get("publication"));
         @SuppressWarnings("unchecked") var items=(List<Map<String,Object>>)page.get("items");
+        assertEquals(1, items.size(), "The mocked SQL result must contain one candidate");
         assertEquals("BLOCKED_MISSING_SOURCE",items.get(0).get("provenanceState"));
         assertEquals("HUMAN_REVIEW_REQUIRED",items.get(0).get("reviewState"));
         verify(jdbc,never()).update(anyString(),any(Object[].class));
