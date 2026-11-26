@@ -136,6 +136,31 @@ public class KnowledgeGovernanceService {
             throw new IllegalStateException("Release includes verified rules from unclassified or non-legal documents");
         if(pending==null || pending>0 || approved==null || approved<1)
             throw new IllegalStateException("Cannot publish: all candidate rules require individual review and at least one approved rule");
+        // Publishing cannot silently turn PENDING_REVIEW components into COMPATIBLE.
+        List<Map<String,Object>> components=jdbc.queryForList(
+            "select component_type,compatibility_status from knowledge_release_component where release_id=?",releaseId);
+        if(components.isEmpty() || components.stream().anyMatch(c->
+                !"COMPATIBLE".equals(c.get("compatibility_status"))))
+            throw new IllegalStateException("Release components must be independently validated before publication");
+        Integer invalidProvenance=jdbc.queryForObject("""
+            select count(*) from knowledge_rule k
+            join knowledge_rule_review rv on rv.rule_id=k.id and rv.decision='APPROVED'
+            left join knowledge_source_document d on d.id=rv.source_document_id
+            where k.knowledge_version_id=? and k.status='VERIFIED'
+              and (rv.source_page is null or rv.source_page < 1 or
+                   d.id is null or rv.source_sha256 is distinct from d.sha256 or
+                   rv.valid_from is null or rv.valid_from > current_date or
+                   (rv.valid_to is not null and rv.valid_to < current_date))
+            """,Integer.class,version);
+        if(invalidProvenance==null || invalidProvenance>0)
+            throw new IllegalStateException("Release contains stale or incomplete legal provenance");
+        Integer sameReviewer=jdbc.queryForObject("""
+            select count(*) from knowledge_rule r
+            join knowledge_rule_review rv on rv.rule_id=r.id and rv.decision='APPROVED'
+            where r.knowledge_version_id=? and lower(rv.reviewer)=lower(?)
+            """,Integer.class,version,reviewer);
+        if(sameReviewer==null || sameReviewer>0)
+            throw new IllegalStateException("Release publisher must be independent of rule reviewers");
         // The graph was prepared when these rules were only candidates. Add reviewed edges now.
         UUID graph=(UUID)jdbc.queryForMap("select graph_version_id from knowledge_release where id=?",releaseId).get("graph_version_id");
         jdbc.update("""
@@ -155,12 +180,33 @@ public class KnowledgeGovernanceService {
             """,graph,graph,graph,version,graph);
         // No published data is overwritten. The exact reviewed version becomes immutable.
         jdbc.update("update knowledge_release set status='PUBLISHED',published_at=now(),notes=concat(coalesce(notes,''),' | Approved by ',?) where id=?",reviewer,releaseId);
-        jdbc.update("update knowledge_release_component set compatibility_status='COMPATIBLE' where release_id=?",releaseId);
         jdbc.update("update structured_knowledge_version set status='PUBLISHED',published_at=now() where id=?",version);
         jdbc.update("update construction_catalog_version set status='PUBLISHED',published_at=now() where id=(select catalog_version_id from knowledge_release where id=?)",releaseId);
         jdbc.update("update knowledge_graph_version set status='PUBLISHED' where id=(select graph_version_id from knowledge_release where id=?)",releaseId);
         jdbc.update("update knowledge_graphrag_version set status='PUBLISHED' where id=(select graphrag_version_id from knowledge_release where id=?)",releaseId);
         return Map.of("releaseId",releaseId,"status","PUBLISHED","approvedRuleCount",approved);
+    }
+
+    @Transactional(readOnly=true)
+    public Map<String,Object> publicationPreview(UUID releaseId,String reviewer) {
+        requireManager(reviewer);
+        List<Map<String,Object>> found=jdbc.queryForList(
+            "select id,status,knowledge_version_id from knowledge_release where id=?",releaseId);
+        if(found.isEmpty())throw new IllegalArgumentException("Release not found");
+        Map<String,Object> release=found.get(0);
+        UUID version=(UUID)release.get("knowledge_version_id");
+        Integer total=jdbc.queryForObject(
+            "select count(*) from knowledge_rule where knowledge_version_id=?",Integer.class,version);
+        Integer verified=jdbc.queryForObject(
+            "select count(*) from knowledge_rule where knowledge_version_id=? and status='VERIFIED'",Integer.class,version);
+        List<Map<String,Object>> components=jdbc.queryForList(
+            "select component_type,compatibility_status from knowledge_release_component where release_id=?",releaseId);
+        boolean compatible=!components.isEmpty() && components.stream().allMatch(c ->
+            "COMPATIBLE".equals(c.get("compatibility_status")));
+        return Map.of("releaseId",releaseId,"status",Objects.toString(release.get("status"),""),
+            "canonicalRules",total==null?0:total,"verifiedRules",verified==null?0:verified,
+            "componentsCompatible",compatible,"requiresIndependentHumanApproval",true,
+            "publicationPerformed",false);
     }
 
     public List<Map<String,Object>> releases() {

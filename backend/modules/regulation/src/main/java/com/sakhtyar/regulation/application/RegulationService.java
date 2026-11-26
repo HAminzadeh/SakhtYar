@@ -18,7 +18,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 @Service
 public class RegulationService {
-    private static final String ALGORITHM_VERSION="1.0";
+    private static final String ALGORITHM_VERSION="1.1-phase17b";
 
     private final UrbanRuleRepository ruleRepo;
     private final UrbanEvaluationRepository evaluationRepo;
@@ -70,7 +70,7 @@ public class RegulationService {
         var e=new UrbanRuleEntity(UUID.randomUUID(),code,r.nameFa().trim(),trim(r.nameEn()),r.ruleType(),
             upper(r.jurisdictionCountry()),trim(r.jurisdictionProvince()),trim(r.jurisdictionCity()),
             trim(r.jurisdictionDistrict()),trim(r.propertyType()),r.sourceId(),trim(r.sourceUrl()),
-            r.validFrom(),r.validTo(),r.priority(),r.active(),r.parameters(),actor(auth),now);
+            r.validFrom(),r.validTo(),r.priority(),false,r.parameters(),actor(auth),now);
         ruleRepo.save(e);
         auditService.record("URBAN_RULE",e.getId(),"URBAN_RULE_CREATED",Map.of("code",code,"ruleType",r.ruleType().name()));
         return RuleResponse.from(e);
@@ -86,7 +86,8 @@ public class RegulationService {
             trim(r.jurisdictionProvince()),trim(r.jurisdictionCity()),trim(r.jurisdictionDistrict()),
             trim(r.propertyType()),r.sourceId(),trim(r.sourceUrl()),r.validFrom(),r.validTo(),
             r.priority(),r.active(),r.parameters(),Instant.now());
-        auditService.record("URBAN_RULE",id,"URBAN_RULE_UPDATED",Map.of("code",e.getCode(),"active",e.isActive()));
+        auditService.record("URBAN_RULE",id,"URBAN_RULE_UPDATED",Map.of("code",e.getCode(),
+            "active",e.isActive(),"bindingState",e.getVerifiedKnowledgeRuleId()==null?"UNBOUND":"REVIEWED"));
         return RuleResponse.from(e);
     }
 
@@ -118,6 +119,9 @@ public class RegulationService {
             .filter(x->matches(x.getPropertyType(),property.getPropertyType()))
             .toList();
 
+        // Explicitly mark overlapping, non-identical legal limits as unresolved;
+        // priority order alone cannot establish legal superiority.
+        Set<UUID> conflictingRuleIds=UrbanRuleConflictPolicy.conflicts(applicable);
         Map<String,Object> assumptions=scenario==null?Map.of():scenario.getAssumptions();
         Integer proposedFloors=integer(assumptions.get("proposedFloors"));
         BigDecimal totalBuiltArea=decimal(assumptions.get("totalBuiltAreaM2"));
@@ -145,8 +149,11 @@ public class RegulationService {
             prepared.add(new PreparedResult(rule,result));
         }
 
-        EvaluationStatus status=applicable.isEmpty()?EvaluationStatus.REVIEW_REQUIRED:fail>0?EvaluationStatus.NON_COMPLIANT:
-            (review>0?EvaluationStatus.REVIEW_REQUIRED:EvaluationStatus.COMPLIANT);
+        // Until the full set of applicable obligations has been legally certified,
+        // passing known rules does not prove project-wide regulatory compliance.
+        EvaluationStatus status=applicable.isEmpty() || !conflictingRuleIds.isEmpty() ?
+            EvaluationStatus.REVIEW_REQUIRED : fail>0?EvaluationStatus.NON_COMPLIANT:
+            EvaluationStatus.REVIEW_REQUIRED;
 
         Map<String,Object> snapshot=new LinkedHashMap<>();
         put(snapshot,"propertyId",property.getId().toString());
@@ -158,6 +165,31 @@ public class RegulationService {
         put(snapshot,"passageWidthM",text(property.getPassageWidthM()));
         put(snapshot,"proposedFloors",proposedFloors); put(snapshot,"totalBuiltAreaM2",text(totalBuiltArea));
         put(snapshot,"footprintAreaM2",text(footprintArea)); put(snapshot,"proposedHeightM",text(proposedHeight));
+        snapshot.put("coverageDecision","REVIEW_REQUIRED_UNTIL_LEGAL_SCOPE_CERTIFIED");
+        snapshot.put("conflictRuleIds",conflictingRuleIds.stream().map(UUID::toString).sorted().toList());
+        List<Map<String,Object>> ruleSnapshots=new ArrayList<>();
+        for (var p:prepared) {
+            UrbanRuleEntity rule=p.rule();
+            Map<String,Object> item=new LinkedHashMap<>();
+            item.put("id",rule.getId().toString());
+            item.put("code",rule.getCode());
+            item.put("type",rule.getRuleType().name());
+            item.put("parameters",new LinkedHashMap<>(rule.getParameters()));
+            item.put("country",Objects.toString(rule.getJurisdictionCountry(),""));
+            item.put("province",Objects.toString(rule.getJurisdictionProvince(),""));
+            item.put("city",Objects.toString(rule.getJurisdictionCity(),""));
+            item.put("district",Objects.toString(rule.getJurisdictionDistrict(),""));
+            item.put("propertyType",Objects.toString(rule.getPropertyType(),""));
+            item.put("validFrom",Objects.toString(rule.getValidFrom(),""));
+            item.put("validTo",Objects.toString(rule.getValidTo(),""));
+            item.put("sourceId",rule.getSourceId().toString());
+            item.put("verifiedKnowledgeRuleId",Objects.toString(rule.getVerifiedKnowledgeRuleId(),""));
+            item.put("updatedAt",Objects.toString(rule.getUpdatedAt(),""));
+            item.put("outcome",p.result().outcome().name());
+            item.put("conflict",conflictingRuleIds.contains(rule.getId()));
+            ruleSnapshots.add(item);
+        }
+        snapshot.put("ruleSnapshots",ruleSnapshots);
 
         Instant now=Instant.now();
         var evaluation=new UrbanEvaluationEntity(UUID.randomUUID(),property.getId(),r.scenarioId(),status,
@@ -166,11 +198,14 @@ public class RegulationService {
 
         List<UrbanEvaluationResultEntity> resultEntities=new ArrayList<>();
         for(var p:prepared) {
-            Map<String,Object> details=Map.of(
-                "ruleCode",p.rule().getCode(),
-                "ruleType",p.rule().getRuleType().name(),
-                "sourceId",p.rule().getSourceId().toString()
-            );
+            Map<String,Object> details=new LinkedHashMap<>();
+            details.put("ruleCode",p.rule().getCode());
+            details.put("ruleType",p.rule().getRuleType().name());
+            details.put("sourceId",p.rule().getSourceId().toString());
+            details.put("verifiedKnowledgeRuleId",Objects.toString(p.rule().getVerifiedKnowledgeRuleId(),""));
+            details.put("ruleParameters",new LinkedHashMap<>(p.rule().getParameters()));
+            details.put("ruleUpdatedAt",Objects.toString(p.rule().getUpdatedAt(),""));
+            details.put("conflict",conflictingRuleIds.contains(p.rule().getId()));
             var entity=new UrbanEvaluationResultEntity(UUID.randomUUID(),evaluation.getId(),p.rule().getId(),
                 p.result().outcome(),p.result().actualValue(),p.result().expectedValue(),
                 p.result().message(),details,now);
@@ -232,8 +267,8 @@ public class RegulationService {
 
     private static Integer integer(Object v) {
         if(v==null) return null;
-        if(v instanceof Number n) return n.intValue();
-        try{return Integer.valueOf(v.toString());}catch(Exception ex){return null;}
+        try {return new BigDecimal(v.toString()).intValueExact();}
+        catch (RuntimeException ex) {return null;}
     }
 
     private static BigDecimal decimal(Object v) {

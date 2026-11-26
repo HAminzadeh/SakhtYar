@@ -14,6 +14,12 @@ public class RegulationEvidenceController {
     @GetMapping("/cases/{caseId}/verified-evidence")
     public Object evidence(@PathVariable UUID caseId){return service.evidence(caseId);}
     public record BindRequest(UUID knowledgeRuleId){}
+    @PostMapping("/admin/rules/{id}/bind-evidence/preview")
+    public Object previewBinding(@PathVariable UUID id,@RequestBody BindRequest request,Authentication auth){
+        if(request==null || request.knowledgeRuleId()==null)
+            throw new IllegalArgumentException("knowledgeRuleId required");
+        return service.previewBind(id,request.knowledgeRuleId(),auth==null?null:auth.getName());
+    }
     @PostMapping("/admin/rules/{id}/bind-evidence")
     public Object bind(@PathVariable UUID id,@RequestBody BindRequest request,Authentication auth){
         if(auth==null||!auth.isAuthenticated()||auth.getAuthorities().stream().noneMatch(a->a.getAuthority().equals("USER_MANAGE")))

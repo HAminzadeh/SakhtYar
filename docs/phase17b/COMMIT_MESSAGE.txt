@@ -1,0 +1,37 @@
+feat(regulation,knowledge): add fail-closed rule governance and exact urban evaluation
+
+Phase 17-B — Regulation engine and governance hardening
+
+Engine correctness:
+- Make FAR and coverage decisions using exact BigDecimal cross-multiplication.
+- Validate negative inputs and non-integral floor thresholds.
+- Treat unknown conditions, exceptions and unreviewed textual obligations as REVIEW.
+- Add numerical conflict detection for overlapping rule scopes; never resolve legal priority by arbitrary sort order.
+- Report unresolved conflicts and uncertified coverage as REVIEW_REQUIRED.
+
+Evidence lifecycle:
+- Map existing verified_knowledge_rule_id without a schema migration.
+- Clear binding and deactivate a rule following material legal changes.
+- Revalidate source-approved rule type, numeric value, operator, unit, scope and dates before selection.
+- Preserve result history and store relevant rule parameters and binding IDs in JSON snapshots.
+
+Governance:
+- Require independent validation of nonempty Release components before publication.
+- Prevent publication by the same actor who reviewed an approved rule.
+- Validate source SHA, page and legal effective-date bounds at publish time.
+- Add read-only binding preview and publication preview endpoints with authorization.
+- Preserve legacy API and JSONB schemas.
+
+Tests and safety:
+- Add six-rule golden cases, exact rounding-boundary tests, conflict cases,
+  evidence invalidation regression tests, and release compatibility tests.
+- Add read-only SQL audit, 31-action acceptance matrix, Persian implementation
+  notes, conflict policy and 17-C handoff.
+- Deliver a SHA256-pinned fail-closed PowerShell 5.1 ZIP installer supporting
+  SelfTest, Audit, DryRun, ApplySource, Verify and Rollback.
+
+Baseline: f8578f0fa2aff8aea0a2710018919f6aec9e8bfe
+Verification: offline Java21 checks only until user runs Maven/JUnit on Windows.
+Pending: database clone/RLS/EXPLAIN, legal expert approvals, immutable rule
+version ledger, batch binding workflow and browser E2E.
+No automatic legal publication, real-data writes, or Flyway migrations.

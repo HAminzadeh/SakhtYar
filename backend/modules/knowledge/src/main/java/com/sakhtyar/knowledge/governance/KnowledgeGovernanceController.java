@@ -22,6 +22,10 @@ public class KnowledgeGovernanceController {
     public Object releases(Authentication auth){reviewer(auth);return service.releases();}
     @PostMapping("/rules/{id}/review")
     public Object review(@PathVariable UUID id,@RequestBody KnowledgeGovernanceService.ReviewRequest req,Authentication auth){return service.review(id,req,reviewer(auth));}
+    @GetMapping("/releases/{id}/publication-preview")
+    public Object publicationPreview(@PathVariable UUID id,Authentication auth){
+        return service.publicationPreview(id,reviewer(auth));
+    }
     @PostMapping("/releases/{id}/publish")
     public Object publish(@PathVariable UUID id,Authentication auth){return service.publish(id,reviewer(auth));}
 }

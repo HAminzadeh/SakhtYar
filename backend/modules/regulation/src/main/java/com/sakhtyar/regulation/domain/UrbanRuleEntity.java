@@ -31,6 +31,7 @@ public class UrbanRuleEntity {
     @Column(name="created_by", nullable=false, length=150) private String createdBy;
     @Column(name="created_at", nullable=false) private Instant createdAt;
     @Column(name="updated_at", nullable=false) private Instant updatedAt;
+    @Column(name="verified_knowledge_rule_id") private UUID verifiedKnowledgeRuleId;
 
     protected UrbanRuleEntity(){}
 
@@ -50,11 +51,28 @@ public class UrbanRuleEntity {
             String province,String city,String district,String propertyType,UUID sourceId,
             String sourceUrl,LocalDate validFrom,LocalDate validTo,int priority,boolean active,
             Map<String,Object> parameters,Instant now) {
+        Map<String,Object> nextParameters = parameters==null?Map.of():Map.copyOf(parameters);
+        boolean evidenceChanged = ruleType!=this.ruleType ||
+            !Objects.equals(country,this.jurisdictionCountry) ||
+            !Objects.equals(province,this.jurisdictionProvince) ||
+            !Objects.equals(city,this.jurisdictionCity) ||
+            !Objects.equals(district,this.jurisdictionDistrict) ||
+            !Objects.equals(propertyType,this.propertyType) ||
+            !Objects.equals(sourceId,this.sourceId) ||
+            !Objects.equals(sourceUrl,this.sourceUrl) ||
+            !Objects.equals(validFrom,this.validFrom) ||
+            !Objects.equals(validTo,this.validTo) ||
+            !Objects.equals(nextParameters,this.parameters);
         this.nameFa=nameFa; this.nameEn=nameEn; this.ruleType=ruleType; this.jurisdictionCountry=country;
         this.jurisdictionProvince=province; this.jurisdictionCity=city; this.jurisdictionDistrict=district;
         this.propertyType=propertyType; this.sourceId=sourceId; this.sourceUrl=sourceUrl;
-        this.validFrom=validFrom; this.validTo=validTo; this.priority=priority; this.active=active;
-        this.parameters=parameters==null?Map.of():Map.copyOf(parameters); this.updatedAt=now;
+        this.validFrom=validFrom; this.validTo=validTo; this.priority=priority;
+        this.parameters=nextParameters; this.updatedAt=now;
+        if (evidenceChanged) {
+            // A modified rule may never inherit a previously approved binding.
+            this.verifiedKnowledgeRuleId=null;
+            this.active=false;
+        } else this.active=active;
     }
 
     public UUID getId(){return id;} public String getCode(){return code;}
@@ -68,4 +86,5 @@ public class UrbanRuleEntity {
     public Map<String,Object> getParameters(){return parameters==null?Map.of():Map.copyOf(parameters);}
     public String getCreatedBy(){return createdBy;} public Instant getCreatedAt(){return createdAt;}
     public Instant getUpdatedAt(){return updatedAt;}
+    public UUID getVerifiedKnowledgeRuleId(){return verifiedKnowledgeRuleId;}
 }
