@@ -1,0 +1,25 @@
+feat(frontend,navigation): reorganize SakhtYar menus into guided workflows
+
+- Replace the crowded top-level navigation with permission-filtered
+  dropdown groups for market, knowledge/AI, and platform administration.
+- Keep the case list as the primary entry point and retain help access.
+- Consolidate account, preferences, help and logout into a user menu.
+- Introduce a responsive mobile drawer with keyboard-accessible menus.
+- Reorganize case navigation into four human-readable workflow stages:
+  preparation, studies and estimates, builder selection, and agreement.
+- Retain all 12 existing case panels and permission-gated AI assistant.
+- Add stage-specific submenus, contextual descriptions and next-step links.
+- Persist the selected case section in URL search parameters so browser
+  refresh, Back and deep links preserve navigation state.
+- Clearly distinguish navigation steps from actual case completion,
+  approval and legal status; do not infer business progress from clicks.
+- Add scoped RTL/responsive CSS with keyboard focus and compact layouts.
+- Add route/section regression checks and a detailed acceptance runbook.
+- Deliver a guarded, SHA256-verified PowerShell 5.1 source-only installer
+  with Audit, DryRun, ApplySource, Verify, SelfTest and Rollback.
+
+Baseline: v2@909d57770f33a76a793109ac13ef1e5973598383
+
+Verification: standalone TypeScript syntax checks passed.
+Maven/DB: not changed or invoked.
+Full frontend npm build and browser testing: pending user-side Verify.
