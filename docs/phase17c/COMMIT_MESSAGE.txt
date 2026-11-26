@@ -1,0 +1,13 @@
+feat(analysis,regulation,ui): reject stale urban snapshots and surface legal review evidence
+
+- Record Property and Scenario update timestamps in urban evaluation snapshots.
+- Add fail-closed feasibility gate for ownership, scope, costs, snapshot provenance and current verified rule bindings.
+- Reject legacy/expired or cross-scenario decisions with HTTP 409 before creating assessments.
+- Recheck live authorization for bound urban rules through RegulationEvidenceService.
+- Improve case UI with individual rule outcomes, Persian dates, review warnings and source path sanitization.
+- Introduce a paginated read-only AI regulation bridge in the existing Knowledge Governance Workbench.
+- Add regression tests and a read-only SQL inventory.
+- Deliver Phase17C 15-action matrix and historical 75-action acceptance overview, runbook and handoff.
+
+Verification: independent compile/package integrity checks performed; Maven, frontend build, PostgreSQL clone/RLS and browser E2E require fresh operator logs.
+No auto legal approval, no production activation, and no database migration.

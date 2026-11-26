@@ -159,6 +159,9 @@ public class RegulationService {
         put(snapshot,"propertyId",property.getId().toString());
         put(snapshot,"caseId",property.getCaseId().toString());
         put(snapshot,"scenarioId",scenario==null?null:scenario.getId().toString());
+        // Phase 17-C: the consuming feasibility service must re-check current versions.
+        put(snapshot,"propertyUpdatedAt",property.getUpdatedAt()==null?null:property.getUpdatedAt().toString());
+        put(snapshot,"scenarioUpdatedAt",scenario==null||scenario.getUpdatedAt()==null?null:scenario.getUpdatedAt().toString());
         put(snapshot,"province",property.getProvince()); put(snapshot,"city",property.getCity());
         put(snapshot,"district",property.getDistrict()); put(snapshot,"propertyType",property.getPropertyType());
         put(snapshot,"landAreaM2",text(property.getLandAreaM2())); put(snapshot,"frontageM",text(property.getFrontageM()));

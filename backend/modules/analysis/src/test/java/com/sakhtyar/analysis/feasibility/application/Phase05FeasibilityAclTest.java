@@ -22,7 +22,8 @@ class Phase05FeasibilityAclTest {
     private final FeasibilityService service = new FeasibilityService(repo,reasons,mock(CaseRepository.class),
             mock(PropertyRepository.class),mock(ConstructionScenarioRepository.class),
             mock(ScenarioCostSnapshotRepository.class),mock(UrbanEvaluationRepository.class),
-            mock(AuditService.class),acl);
+            mock(AuditService.class),acl,mock(com.sakhtyar.regulation.domain.UrbanRuleRepository.class),
+            mock(com.sakhtyar.regulation.application.RegulationEvidenceService.class));
 
     @Test void unauthorizedCreationRejectedBeforePersistence() {
         UUID caseId=UUID.randomUUID();

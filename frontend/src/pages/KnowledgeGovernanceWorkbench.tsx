@@ -31,6 +31,34 @@ const ruleStatus = (value?: string, decision?: string) =>
   value === 'VERIFIED' ? 'VERIFIED بدون سابقه تأیید انسانی' :
   value === 'REJECTED' ? 'REJECTED بدون سابقه رد انسانی' : 'در انتظار بررسی'
 const catOptions = [{value:'ALL',label:'همه دسته‌ها'}, ...categories]
+type BridgeRow = {item_id: string; record_type?: string; segment_type?: string; article_label?: string;
+  provenanceState?: string; reviewState?: string; legalStatus?: string; full_text?: string;
+  suggestion?: {ruleType?:string|null; numericValue?:string|null; warnings?:string[]}}
+type BridgePage = {items:BridgeRow[]; total:number; page:number; pageSize:number; publication:string}
+function RegulationBridgePreview() {
+  const [bridgePage,setBridgePage]=useState(1)
+  const [recordType,setRecordType]=useState('ALL')
+  const result=useQuery({queryKey:['phase17c-bridge',bridgePage,recordType],staleTime:0,
+    queryFn:()=>api<BridgePage>(`/api/v1/knowledge/admin/phase17/bridge/candidates?page=${bridgePage}&pageSize=20&recordType=${recordType}`)})
+  return <Card title="پیش‌نمایش خواندنی قوانین استخراج‌شده (بدون اعتبار اجرایی)">
+    <Alert type="warning" showIcon message="تأیید کاتالوگ ≠ تأیید حقوقی ≠ قانون قابل اجرا"
+      description="این بخش فقط پیشنهادهای Bridge را نشان می‌دهد. انتشار، اتصال به UrbanRule و تأیید کارشناسی از این بخش انجام نمی‌شود." />
+    <Space style={{margin:'12px 0'}} wrap><Select value={recordType} style={{width:170}} onChange={v=>{setRecordType(v);setBridgePage(1)}}
+      options={['ALL','RULE','SEGMENT'].map(value=>({value,label:value}))}/><Tag>رکوردهای قابل پیش‌نمایش: {result.data?.total??'—'}</Tag></Space>
+    {result.isError && <Alert type="error" showIcon message="پیش‌نمایش Bridge قابل دریافت نیست؛ مجوز مدیریت و نسخه Backend را بررسی کنید."/>}
+    <Table<BridgeRow> rowKey="item_id" size="small" loading={result.isLoading} dataSource={result.data?.items??[]} scroll={{x:900}}
+      pagination={{current:bridgePage,pageSize:20,total:result.data?.total??0,showSizeChanger:false,onChange:setBridgePage}}
+      columns={[{title:'نوع',dataIndex:'record_type',width:95},{title:'بند',dataIndex:'segment_type',width:110},
+        {title:'شناسه ماده',dataIndex:'article_label',width:130,ellipsis:true},
+        {title:'منشأ',dataIndex:'provenanceState',width:220,render:v=><Tag color={v==='SOURCE_LINK_PROPOSED'?'blue':'gold'}>{v??'نامعلوم'}</Tag>},
+        {title:'پیشنهاد غیرقطعی',width:210,render:(_,r)=>r.suggestion?.ruleType?`${r.suggestion.ruleType}: ${r.suggestion.numericValue??'—'}`:'نیازمند بررسی'},
+        {title:'وضعیت حقوقی',dataIndex:'legalStatus',width:210,render:v=><Tag color="gold">{v??'NOT_VERIFIED'}</Tag>}]}
+      expandable={{expandedRowRender:r=><Space direction="vertical" style={{width:'100%'}}>
+        <Typography.Paragraph style={{whiteSpace:'pre-wrap'}}>{r.full_text??'متن موجود نیست'}</Typography.Paragraph>
+        <Typography.Text type="secondary">{(r.suggestion?.warnings??[]).join('، ') || 'بازبینی سند و تبصره‌ها الزامی است.'}</Typography.Text>
+      </Space>}} />
+  </Card>
+}
 
 export function KnowledgeGovernanceWorkbench({mode, executionId, onReviewRule}: {
   mode: 'documents' | 'rules'; executionId?: string; onReviewRule?: (rule: RuleRow) => void
@@ -81,6 +109,7 @@ export function KnowledgeGovernanceWorkbench({mode, executionId, onReviewRule}: 
       description={mode === 'rules'
         ? 'عملگر OBSERVED و وضعیت CANDIDATE به معنای شناسایی عدد از متن است. برای تأیید قانون، ابتدا نوع سند را «قوانین و ضوابط» ثبت کنید و سپس صفحه، متن حکم، شرط‌ها، استثناها، تاریخ اعتبار و مرجع را در تب «بازبینی و تأیید» بررسی کنید.'
         : 'دسته‌بندی پیشنهادی پوشه جایگزین تصمیم کارشناس نیست. فایل آموزشی نباید به‌صورت خودکار وارد قوانین اجرایی شود. تغییر دسته‌بندی و نام بازبین در سابقه ذخیره می‌شود.'} />
+    {mode === 'rules' && <RegulationBridgePreview/>}
     {query.data?.classificationReady === false && <Alert showIcon type="warning"
       message="ساختار دسته‌بندی هنوز در پایگاه داده فعال نیست"
       description="فهرست اسناد و قوانین قابل مشاهده است؛ برای ثبت دسته‌بندی باید پس از پایان پردازش‌های فعال، Backend را راه‌اندازی مجدد کرده و اجرای موفق Flyway V47 را بررسی کنید." />}

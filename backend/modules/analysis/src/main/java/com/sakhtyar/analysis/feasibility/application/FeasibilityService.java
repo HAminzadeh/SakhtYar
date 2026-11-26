@@ -12,6 +12,7 @@ import com.sakhtyar.scenario.domain.*;
 import java.math.*;
 import java.time.Instant;
 import java.util.*;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.security.core.Authentication;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -28,17 +29,24 @@ public class FeasibilityService {
     private final ConstructionScenarioRepository scenarioRepo;
     private final ScenarioCostSnapshotRepository costSnapshotRepo;
     private final UrbanEvaluationRepository urbanEvaluationRepo;
+    private final UrbanRuleRepository urbanRuleRepo;
+    private final com.sakhtyar.regulation.application.RegulationEvidenceService regulationEvidenceService;
     private final AuditService auditService;
+    @Value("${app.regulation.decision.enabled:false}")
+    private boolean regulationDecisionEnabled;
     private final FeasibilityCalculator calculator=new FeasibilityCalculator();
 
     public FeasibilityService(FeasibilityAssessmentRepository assessmentRepo,FeasibilityReasonRepository reasonRepo,
             CaseRepository caseRepo,PropertyRepository propertyRepo,ConstructionScenarioRepository scenarioRepo,
             ScenarioCostSnapshotRepository costSnapshotRepo,UrbanEvaluationRepository urbanEvaluationRepo,
-            AuditService auditService,CaseAccessService caseAccess) {
+            AuditService auditService,CaseAccessService caseAccess,UrbanRuleRepository urbanRuleRepo,
+            com.sakhtyar.regulation.application.RegulationEvidenceService regulationEvidenceService) {
         this.caseAccess=Objects.requireNonNull(caseAccess,"caseAccess");
         this.assessmentRepo=assessmentRepo; this.reasonRepo=reasonRepo; this.caseRepo=caseRepo;
         this.propertyRepo=propertyRepo; this.scenarioRepo=scenarioRepo; this.costSnapshotRepo=costSnapshotRepo;
         this.urbanEvaluationRepo=urbanEvaluationRepo; this.auditService=auditService;
+        this.urbanRuleRepo=Objects.requireNonNull(urbanRuleRepo,"urbanRuleRepo");
+        this.regulationEvidenceService=Objects.requireNonNull(regulationEvidenceService,"regulationEvidenceService");
     }
 
     @Transactional
@@ -68,6 +76,11 @@ public class FeasibilityService {
         if(urban.getScenarioId()!=null && !urban.getScenarioId().equals(scenario.getId()))
             throw new IllegalArgumentException("Urban evaluation belongs to a different scenario.");
 
+        // Enforce version, ACL-related scope and evidence freshness on the server,
+        // not by trusting a frontend button or an old COMPLIANT status.
+        FeasibilityRegulationGate.requireFresh(property,scenario,costSnapshot,urban,urbanRuleRepo,
+            regulationEvidenceService.authorizedUrbanRuleIds(property.getCaseId()));
+
         Map<String,Object> assumptions=scenario.getAssumptions();
         Integer proposedFloors=integer(assumptions.get("proposedFloors"));
         BigDecimal totalBuiltArea=decimal(assumptions.get("totalBuiltAreaM2"));
@@ -79,6 +92,10 @@ public class FeasibilityService {
                 urban.getStatus(),scenario.getStatus(),property.getLandAreaM2(),
                 totalBuiltArea,costSnapshot.getTotalCost(),proposedFloors));
 
+        // Both legal coverage and operator opt-in are required for FEASIBLE.
+        if (calc.status()==FeasibilityStatus.FEASIBLE && !regulationDecisionEnabled)
+            throw new org.springframework.web.server.ResponseStatusException(
+                org.springframework.http.HttpStatus.CONFLICT,"Regulation decision mode is disabled.");
         int blockers=(int)calc.reasons().stream().filter(x->x.type()==FeasibilityReasonType.BLOCKER).count();
         int warnings=(int)calc.reasons().stream().filter(x->x.type()==FeasibilityReasonType.WARNING).count();
 

@@ -9,6 +9,18 @@ type Scenario = Item & { nameFa: string; status: string; assumptions?: Obj }
 type Assessment = Item & { scenarioId: string; status: string; readinessScore: number; scenarioCost: number; urbanEvaluationId: string }
 type Financial = Item & { scenarioId: string; grossRevenue: number; totalProjectCost: number; projectedProfit: number; roiPercent: number; currencyCode: string }
 type Evidence = Item & { rule_id: string; stable_key: string; original_name: string; source_page: number; source_authority: string; release_key: string; scope_city: string; scope_district?: string; numeric_value: string; unit_code: string }
+type UrbanResult = {id: string; ruleId: string; outcome: string; actualValue?: string; expectedValue?: string; message?: string; details?: Obj}
+type UrbanEvaluation = Item & { status: string; ruleCount: number; reviewCount: number; failedCount: number; scenarioId?: string; evaluatedAt?: string; inputSnapshot?: Obj; results?: UrbanResult[] }
+// Do not leak server filesystem paths; source downloads require a separately authorized endpoint.
+const safeSourceName = (value: unknown) => {
+  const s = asText(value)
+  return s.startsWith('/') || s.includes('\\') || /^[A-Za-z]:/.test(s) ? 'سند خصوصی (دسترسی از طریق سامانه)' : s
+}
+const persianDate = (value: unknown) => {
+  if (!value) return '—'
+  const d = new Date(String(value))
+  return Number.isNaN(d.getTime()) ? '—' : new Intl.DateTimeFormat('fa-IR-u-ca-persian', {dateStyle:'medium',timeStyle:'short'}).format(d)
+}
 const post = <T,>(url: string, body: unknown) => api<T>(url, { method: 'POST', body: JSON.stringify(body) })
 const asText = (v: unknown) => v === undefined || v === null ? '—' : String(v)
 const err = (e: unknown) => e instanceof Error ? e.message : 'خطا در دریافت یا ثبت اطلاعات'
@@ -17,30 +29,41 @@ export function UrbanAnalysisPanel({ caseId }: { caseId: string }) {
   const qc = useQueryClient()
   const prop = useQuery({ queryKey: ['phase515-property',caseId], queryFn: () => api<Item>(`/api/v1/cases/${caseId}/property`) })
   const evidence = useQuery({ queryKey: ['phase515-evidence',caseId], queryFn: () => api<Evidence[]>(`/api/v1/regulations/cases/${caseId}/verified-evidence`) })
-  const evaluations = useQuery({ queryKey: ['phase515-evaluations',prop.data?.id], enabled: Boolean(prop.data?.id), queryFn: () => api<Item[]>(`/api/v1/regulations/properties/${prop.data!.id}/evaluations`) })
+  const evaluations = useQuery({ queryKey: ['phase515-evaluations',caseId,prop.data?.id,prop.data?.updatedAt], enabled: Boolean(prop.data?.id), staleTime:0, refetchOnWindowFocus:true, queryFn: () => api<UrbanEvaluation[]>(`/api/v1/regulations/properties/${prop.data!.id}/evaluations`) })
   const [scenarioId,setScenarioId] = useState<string | undefined>()
   const scenarios = useQuery({ queryKey: ['phase515-scenarios'],queryFn: () => api<Scenario[]>('/api/v1/scenarios') })
-  const evalMutation = useMutation({ mutationFn: () => post<Item>('/api/v1/regulations/evaluate',{ propertyId: prop.data!.id, scenarioId: scenarioId ?? null }),onSuccess: () => void qc.invalidateQueries({queryKey:['phase515-evaluations',prop.data?.id]}) })
+  const evalMutation = useMutation({ mutationFn: () => post<Item>('/api/v1/regulations/evaluate',{ propertyId: prop.data!.id, scenarioId: scenarioId ?? null }),onSuccess: () => void qc.invalidateQueries({queryKey:['phase515-evaluations',caseId]}) })
   return <Space direction="vertical" style={{width:'100%'}} size="middle">
     <Alert type="info" showIcon message="فقط قوانین تأییدشده و منتشرشده معتبر تلقی می‌شوند" description="وجود یک عبارت عددی در PDF به معنی ضابطه قانونی نیست. هر Rule باید به منبع، صفحه، نسخه و تأیید کارشناس متصل شود." />
     {evidence.isError && <Alert type="error" showIcon message={err(evidence.error)}/>}
     <Card title="شواهد قانونی معتبر برای موقعیت ملک"><Table<Evidence> rowKey="rule_id" size="small" loading={evidence.isLoading} dataSource={evidence.data ?? []} pagination={{pageSize:7}} scroll={{x:900}} columns={[
       {title:'قاعده',dataIndex:'stable_key'}, {title:'مقدار',render:(_,r)=>`${asText(r.numeric_value)} ${asText(r.unit_code)}`},
       {title:'محدوده',render:(_,r)=>`${asText(r.scope_city)} / ${asText(r.scope_district)}`},
-      {title:'منبع',render:(_,r)=>`${r.original_name}، صفحه ${r.source_page}`},
+      {title:'منبع',render:(_,r)=>`${safeSourceName(r.original_name)}، صفحه ${r.source_page}`},
       {title:'مرجع',dataIndex:'source_authority'},{title:'نسخه',dataIndex:'release_key'}
     ]}/>{evidence.data?.length === 0 && <Alert type="warning" showIcon message="هیچ قاعده تأییدشده مرتبط با این ملک پیدا نشد. نتیجه امکان‌سنجی قطعی نیست."/>}</Card>
     <Card title="ارزیابی شهرسازی">
       <Space wrap><Select style={{minWidth:220}} allowClear placeholder="سناریو (اختیاری)" value={scenarioId} onChange={setScenarioId} options={(scenarios.data??[]).map(s=>({label:s.nameFa??s.id,value:s.id}))}/>
         <Button type="primary" loading={evalMutation.isPending} disabled={!prop.data?.id || !evidence.data?.length} onClick={()=>evalMutation.mutate()}>ارزیابی با قواعد معتبر</Button></Space>
       {evalMutation.isError && <Alert style={{marginTop:12}} type="error" message={err(evalMutation.error)}/>}
-      <Table<Item> style={{marginTop:14}} rowKey="id" size="small" dataSource={evaluations.data??[]} pagination={{pageSize:5}} columns={[{title:'وضعیت',dataIndex:'status',render:v=><Tag color={v==='COMPLIANT'?'green':'orange'}>{asText(v)}</Tag>},{title:'قوانین اعمال‌شده',dataIndex:'ruleCount'},{title:'نیازمند بررسی',dataIndex:'reviewCount'},{title:'تاریخ',dataIndex:'evaluatedAt',render:v=>asText(v)}]}/>
+      {evaluations.isError && <Alert type="error" showIcon message="دریافت تاریخچه ارزیابی مجاز یا ممکن نیست" description={err(evaluations.error)} />}
+      <Table<UrbanEvaluation> style={{marginTop:14}} rowKey="id" size="small" loading={evaluations.isLoading} dataSource={evaluations.data??[]} pagination={{pageSize:5}} scroll={{x:750}}
+        columns={[{title:'وضعیت',dataIndex:'status',render:v=><Tag color={v==='NON_COMPLIANT'?'red':'gold'}>{asText(v)}</Tag>},{title:'قوانین محاسبه‌شده',dataIndex:'ruleCount'},{title:'عدم انطباق',dataIndex:'failedCount'},{title:'نیازمند بررسی',dataIndex:'reviewCount'},{title:'تاریخ',dataIndex:'evaluatedAt',render:v=>persianDate(v)}]}
+        expandable={{expandedRowRender:e=><Space direction="vertical" style={{width:'100%'}}>
+          <Alert type="warning" showIcon message="این نتیجه سند صدور مجوز ساخت نیست" description={asText(e.inputSnapshot?.coverageDecision ?? 'پوشش کامل مقررات هنوز به تأیید حقوقی نیاز دارد.')} />
+          <Table<UrbanResult> size="small" rowKey="id" dataSource={e.results??[]} pagination={false} scroll={{x:960}}
+            columns={[{title:'کد قانون',render:(_,r)=>asText(r.details?.ruleCode)},{title:'نتیجه',dataIndex:'outcome',render:v=><Tag color={v==='PASS'?'green':v==='FAIL'?'red':'gold'}>{asText(v)}</Tag>},
+              {title:'مقدار',dataIndex:'actualValue',render:v=>asText(v)},{title:'حد قانونی',dataIndex:'expectedValue',render:v=>asText(v)},
+              {title:'منبع دانش',render:(_,r)=>asText(r.details?.verifiedKnowledgeRuleId)},{title:'توضیح',dataIndex:'message',render:v=>asText(v)}]} />
+          <Typography.Text type="secondary">شناسه منبع، جایگزین شماره صفحه یا بررسی اصل سند نیست. موارد بدون شاهد کامل نیازمند بررسی باقی می‌مانند.</Typography.Text>
+        </Space>}}/>
       {evaluations.data?.some(x => Number(x.ruleCount)===0) && <Alert type="warning" message="ارزیابی بدون قانون نباید مجوز ساخت تلقی شود." showIcon/>}
     </Card>
   </Space>
 }
 
 export function ConstructionCostPanel({caseId}: {caseId:string}) {
+  const prop=useQuery({queryKey:['phase515-property',caseId],queryFn:()=>api<Item>(`/api/v1/cases/${caseId}/property`)})
   const scenarios=useQuery({queryKey:['phase515-scenarios'],queryFn:()=>api<Scenario[]>('/api/v1/scenarios')})
   const [scenarioId,setScenarioId]=useState<string>()
   const [currency,setCurrency]=useState('IRR')
@@ -48,9 +71,9 @@ export function ConstructionCostPanel({caseId}: {caseId:string}) {
   const qc=useQueryClient()
   const snapshots=useQuery({queryKey:['phase515-costs',scenarioId],enabled:!!scenarioId,queryFn:()=>api<Item[]>(`/api/v1/scenarios/${scenarioId}/snapshots`)})
   const items=useQuery({queryKey:['phase515-scenario-items',scenarioId],enabled:!!scenarioId,queryFn:()=>api<Item[]>(`/api/v1/scenarios/${scenarioId}/items`)})
-  const mutation=useMutation({mutationFn:()=>post<Item>(`/api/v1/scenarios/${scenarioId}/calculate`,{priceType,currencyCode:currency,city:'تهران',province:'تهران'}),onSuccess:()=>void qc.invalidateQueries({queryKey:['phase515-costs',scenarioId]})})
+  const mutation=useMutation({mutationFn:()=>post<Item>(`/api/v1/scenarios/${scenarioId}/calculate`,{priceType,currencyCode:currency,city:prop.data?.city??null,province:prop.data?.province??null}),onSuccess:()=>void qc.invalidateQueries({queryKey:['phase515-costs',scenarioId]})})
   return <Space direction="vertical" style={{width:'100%'}} size="middle"><Alert type="info" showIcon message="هزینه‌ها از Assembly و قیمت مصالح موجود محاسبه می‌شوند" description="قیمت خالی، منقضی یا نامعتبر را به‌صورت خودکار جایگزین نمی‌کنیم. ابتدا اقلام سناریو را در API مربوط ثبت کنید."/>
-    <Card title="انتخاب سناریو و محاسبه هزینه"><Space wrap><Select value={scenarioId} onChange={setScenarioId} placeholder="سناریو" style={{minWidth:250}} options={(scenarios.data??[]).map(x=>({label:x.nameFa,value:x.id}))}/><Select value={priceType} onChange={setPriceType} style={{width:175}} options={['MARKET_QUOTE','RETAIL','WHOLESALE','CONTRACTOR','OFFICIAL_INDEX'].map(value=>({value,label:value}))}/><Select value={currency} onChange={setCurrency} style={{width:105}} options={['IRR','TOMAN','USD'].map(value=>({value,label:value}))}/><Button loading={mutation.isPending} disabled={!scenarioId||!items.data?.length} onClick={()=>mutation.mutate()} type="primary">محاسبه هزینه</Button></Space>
+    <Card title="انتخاب سناریو و محاسبه هزینه"><Space wrap><Select value={scenarioId} onChange={setScenarioId} placeholder="سناریو" style={{minWidth:250}} options={(scenarios.data??[]).map(x=>({label:x.nameFa,value:x.id}))}/><Select value={priceType} onChange={setPriceType} style={{width:175}} options={['MARKET_QUOTE','RETAIL','WHOLESALE','CONTRACTOR','OFFICIAL_INDEX'].map(value=>({value,label:value}))}/><Select value={currency} onChange={setCurrency} style={{width:105}} options={['IRR','TOMAN','USD'].map(value=>({value,label:value}))}/><Button loading={mutation.isPending} disabled={!scenarioId||!items.data?.length||!prop.data?.city||!prop.data?.province} onClick={()=>mutation.mutate()} type="primary">محاسبه هزینه</Button></Space>
       <Typography.Paragraph type="secondary" style={{marginTop:12}}>تعداد آیتم‌های سناریو: {items.data?.length ?? 0}. انتخاب سناریو مستقل از پرونده است؛ شناسه Snapshot در مرحله امکان‌سنجی مصرف می‌شود.</Typography.Paragraph>
       {mutation.isError&&<Alert showIcon type="error" message={err(mutation.error)}/>}
     </Card><Card title="نسخه‌های محاسبات هزینه"><Table<Item> rowKey="id" dataSource={snapshots.data??[]} size="small" scroll={{x:750}} columns={[{title:'Snapshot',dataIndex:'id',render:v=><Typography.Text copyable>{asText(v)}</Typography.Text>},{title:'هزینه کل',dataIndex:'totalCost'},{title:'ارز',dataIndex:'currencyCode'},{title:'نسخه موتور',dataIndex:'algorithmVersion'}]}/></Card>
@@ -66,13 +89,13 @@ export function FeasibilityPanel({caseId}:{caseId:string}) {
   const [urbanId,setUrbanId]=useState<string>()
   const qc=useQueryClient()
   const cost=useQuery({queryKey:['phase515-costs',scenarioId],enabled:!!scenarioId,queryFn:()=>api<Item[]>(`/api/v1/scenarios/${scenarioId}/snapshots`)})
-  const urban=useQuery({queryKey:['phase515-evaluations',prop.data?.id],enabled:!!prop.data?.id,queryFn:()=>api<Item[]>(`/api/v1/regulations/properties/${prop.data!.id}/evaluations`)})
+  const urban=useQuery({queryKey:['phase515-evaluations',caseId,prop.data?.id,prop.data?.updatedAt],enabled:!!prop.data?.id,staleTime:0,refetchOnWindowFocus:true,queryFn:()=>api<UrbanEvaluation[]>(`/api/v1/regulations/properties/${prop.data!.id}/evaluations`)})
   const assessments=useQuery({queryKey:['phase515-assessments',caseId],queryFn:()=>api<Assessment[]>(`/api/v1/feasibility/cases/${caseId}/assessments`)})
   const mutation=useMutation({mutationFn:()=>post<Assessment>('/api/v1/feasibility/assessments',{caseId,scenarioId,scenarioCostSnapshotId:costId,urbanEvaluationId:urbanId}),onSuccess:()=>void qc.invalidateQueries({queryKey:['phase515-assessments',caseId]})})
   const currentUrban=urban.data?.find(x=>x.id===urbanId)
   return <Space direction="vertical" size="middle" style={{width:'100%'}}><Alert showIcon type="info" message="ارزیابی فقط با Snapshotهای مشخص انجام می‌شود" description="سناریو، هزینه و نتیجه شهرسازی باید مربوط به همان ملک و نسخه باشند."/>
-    <Card title="اجرای امکان‌سنجی"><Space direction="vertical" style={{width:'100%'}}><Select placeholder="سناریوی ساخت" value={scenarioId} onChange={v=>{setScenarioId(v);setCostId(undefined);setUrbanId(undefined)}} options={(scenarios.data??[]).map(x=>({label:x.nameFa,value:x.id}))}/><Select placeholder="Snapshot هزینه" value={costId} onChange={setCostId} options={(cost.data??[]).map(x=>({label:`${asText(x.totalCost)} ${asText(x.currencyCode)} - ${x.id}`,value:x.id}))}/><Select placeholder="ارزیابی شهرسازی" value={urbanId} onChange={setUrbanId} options={(urban.data??[]).filter(x=>!scenarioId||x.scenarioId===scenarioId).map(x=>({label:`${asText(x.status)} / ${asText(x.ruleCount)} قوانین / ${x.id}`,value:x.id}))}/><Button type="primary" loading={mutation.isPending} disabled={!scenarioId||!costId||!urbanId||Number(currentUrban?.ruleCount??0)<1||currentUrban?.status!=='COMPLIANT'} onClick={()=>mutation.mutate()}>ایجاد Snapshot امکان‌سنجی</Button>
-    {currentUrban && currentUrban.status!=='COMPLIANT' && <Alert type="warning" showIcon message="ارزیابی شهرسازی تأیید کامل ندارد؛ ادامه تحلیل مالی قطعی مجاز نیست."/>}{mutation.isError&&<Alert type="error" showIcon message={err(mutation.error)}/>}</Space></Card>
+    <Card title="اجرای امکان‌سنجی"><Space direction="vertical" style={{width:'100%'}}><Select placeholder="سناریوی ساخت" value={scenarioId} onChange={v=>{setScenarioId(v);setCostId(undefined);setUrbanId(undefined)}} options={(scenarios.data??[]).map(x=>({label:x.nameFa,value:x.id}))}/><Select placeholder="Snapshot هزینه" value={costId} onChange={setCostId} options={(cost.data??[]).map(x=>({label:`${asText(x.totalCost)} ${asText(x.currencyCode)} - ${x.id}`,value:x.id}))}/><Select placeholder="ارزیابی شهرسازی" value={urbanId} onChange={setUrbanId} options={(urban.data??[]).filter(x=>!scenarioId||x.scenarioId===scenarioId).map(x=>({label:`${asText(x.status)} / ${asText(x.ruleCount)} قوانین / ${x.id}`,value:x.id}))}/><Button type="primary" loading={mutation.isPending} disabled={!scenarioId||!costId||!urbanId||Number(currentUrban?.ruleCount??0)<1||currentUrban?.status!=='COMPLIANT'||currentUrban?.inputSnapshot?.legalCoverageCertified!==true} onClick={()=>mutation.mutate()}>ایجاد Snapshot امکان‌سنجی</Button>
+    {currentUrban && (currentUrban.status!=='COMPLIANT'||currentUrban.inputSnapshot?.legalCoverageCertified!==true) && <Alert type="warning" showIcon message="ارزیابی شهرسازی یا پوشش کامل قوانین هنوز تأیید نشده است؛ امکان‌سنجی قطعی مجاز نیست."/>}{mutation.isError&&<Alert type="error" showIcon message={err(mutation.error)}/>}</Space></Card>
     <Card title="نتایج امکان‌سنجی"><Table<Assessment> rowKey="id" dataSource={assessments.data??[]} scroll={{x:800}} columns={[{title:'وضعیت',dataIndex:'status'},{title:'آمادگی',dataIndex:'readinessScore'},{title:'هزینه',dataIndex:'scenarioCost'},{title:'شناسه خروجی',dataIndex:'id',render:v=><Typography.Text copyable>{asText(v)}</Typography.Text>}]} /></Card>
   </Space>
 }
