@@ -8,8 +8,8 @@ spring:
 
   datasource:
     url: jdbc:postgresql://localhost:5432/${POSTGRES_DB:sakhtyar}
-    username: ${SAKHTYAR_RUNTIME_DB_USER:${POSTGRES_USER:sakhtyar}}
-    password: ${SAKHTYAR_RUNTIME_DB_PASSWORD:${POSTGRES_PASSWORD:change-me-postgres}}
+    username: ${SAKHTYAR_RUNTIME_DB_USER:sakhtyar_runtime}
+    password: ${SAKHTYAR_RUNTIME_DB_PASSWORD:}
 
   # Phase13: do not apply V67/V68 to the user's shared database on IDE startup.
   # Run migrations separately on an isolated clone and explicitly approve promotion.
@@ -37,6 +37,10 @@ management:
         http.server.requests: 50ms,100ms,250ms,500ms,1s,2s,5s
 
 app:
+  database-migration:
+    startup-enabled: ${APP_DATABASE_MIGRATION_STARTUP_ENABLED:true}
+    python-executable: ${SAKHTYAR_DATABASE_MIGRATION_PYTHON:python}
+
   storage:
     endpoint: http://localhost:19000
     access-key: ${MINIO_ROOT_USER:sakhtyar}

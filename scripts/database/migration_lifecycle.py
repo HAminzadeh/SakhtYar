@@ -348,55 +348,88 @@ class Operator:
                 self.report['clone_migrated_canonical_sha256']=canonical_schema_hash(migrated_schema)
                 (self.work/'clone-migrated-schema.private.sql').write_bytes(migrated_schema)
                 self.gate('clone_migration','PASS')
+    def verify_current(self):
+        require(not self.pending, 'Pending migrations remain')
+        import role_lifecycle as r
+        require(self.role == r.ROLE, 'Use dedicated sakhtyar_runtime')
+        policy = r.read_policy(self.root)
+        objects = r.catalog(self.c, self.owner)
+        r.validate(policy, objects, {})
+        r.verify(self.c, self.owner, objects, policy)
+        versions = [int(v) for v in self.policy if int(v) <= self.entries[-1]['version']]
+        self.check_runtime(self.c, self.owner, versions)
+        self.gate('schema_history', 'CURRENT')
+
     def execute(self):
+        mode = self.a.mode
+        if mode == 'Startup':
+            require(os.environ.get('SAKHTYAR_STARTUP_MIGRATION_PROFILE') == 'local',
+                    'Automatic startup migration is restricted to the local profile')
         self.source(); self.connect(); self.audit()
-        mode=self.a.mode
-        if mode=='Audit': return
-        if mode=='Backup': self.backup(); return
-        self.image(); self.fly(self.c,self.password,'validate'); self.gate('live_flyway_checksum','PASS')
-        if mode=='Plan':
-            print('[Migration] Approval token (not a password): '+self.report['approval_token']); return
-        if mode=='Verify':
-            require(not self.pending,'Pending migrations remain')
-            import role_lifecycle as r
-            require(self.role==r.ROLE,'Use dedicated sakhtyar_runtime')
-            rp=r.read_policy(self.root); objs=r.catalog(self.c,self.owner); r.validate(rp,objs,{}); r.verify(self.c,self.owner,objs,rp)
-            self.check_runtime(self.c,self.owner,[int(v) for v in self.policy if int(v)<=self.entries[-1]['version']]); self.gate('schema_history','CURRENT')
-            if self.a.check_backend:
-                with build_opener(ProxyHandler({})).open('http://127.0.0.1:8080/actuator/health/readiness',timeout=10) as response:
-                    health=json.load(response)
-                require(health.get('status')=='UP','Backend readiness is not UP'); self.gate('backend_readiness','UP (not business E2E)')
+        if mode == 'Audit': return
+        if mode == 'Backup': self.backup(); return
+        self.image(); self.fly(self.c, self.password, 'validate'); self.gate('live_flyway_checksum', 'PASS')
+        if mode == 'Plan':
+            print('[Migration] Approval token (not a password): ' + self.report['approval_token']); return
+        if mode == 'Startup' and not self.pending:
+            self.verify_current()
+            self.gate('startup_migration', 'NOOP; database already current')
             return
-        if mode=='ApplyDatabase':
-            require(self.a.approve==f'{DB}:V{self.entries[-1]["version"]}:{self.head[:12]}','Explicit approval token required for current target and Git HEAD')
-            require(bool(self.pending),'No pending migrations; use Verify')
-            quiet(self.c,self.owner)
-        if mode in ('DryRun','ApplyDatabase'): self.prepare_role_policy()
-        self.backup(); self.clone_preflight(mode!='Clone')
-        if mode in ('Clone','DryRun'): return
-        require(mode=='ApplyDatabase','Unknown execution mode')
-        require(git(self.root,'rev-parse','HEAD')==self.head and inventory(self.root/MIG)==self.entries and not git(self.root,'status','--porcelain','--untracked-files=all','--',str(MIG)),'Source changed during preflight')
-        require(sha(self.root/POLICY)==self.policy_sha,'Runtime policy changed during preflight')
-        require(inspect(SOURCE)['Id']==self.c,'Target container changed')
-        require(history(self.c,self.owner)==self.before and schema_hash(self.c,self.owner)==self.schema_before and roles_hash(self.c,self.owner)==self.roles_before,'Live schema/history/role drift since backup')
-        quiet(self.c,self.owner)
+        if mode == 'Verify':
+            self.verify_current()
+            if self.a.check_backend:
+                with build_opener(ProxyHandler({})).open('http://127.0.0.1:8080/actuator/health/readiness', timeout=10) as response:
+                    health = json.load(response)
+                require(health.get('status') == 'UP', 'Backend readiness is not UP')
+                self.gate('backend_readiness', 'UP (not business E2E)')
+            return
+        if mode == 'ApplyDatabase':
+            require(self.a.approve == f'{DB}:V{self.entries[-1]["version"]}:{self.head[:12]}',
+                    'Explicit approval token required for current target and Git HEAD')
+            require(bool(self.pending), 'No pending migrations; use Verify')
+            quiet(self.c, self.owner)
+        if mode == 'Startup':
+            require(self.role == 'sakhtyar_runtime', 'Startup migration requires the dedicated sakhtyar_runtime role')
+            quiet(self.c, self.owner)
+        if mode in ('DryRun', 'ApplyDatabase', 'Startup'):
+            self.prepare_role_policy()
+        self.backup(); self.clone_preflight(mode != 'Clone')
+        if mode in ('Clone', 'DryRun'): return
+        require(mode in ('ApplyDatabase', 'Startup'), 'Unknown execution mode')
+        require(git(self.root, 'rev-parse', 'HEAD') == self.head
+                and inventory(self.root / MIG) == self.entries
+                and not git(self.root, 'status', '--porcelain', '--untracked-files=all', '--', str(MIG)),
+                'Source changed during preflight')
+        require(sha(self.root / POLICY) == self.policy_sha, 'Runtime policy changed during preflight')
+        require(inspect(SOURCE)['Id'] == self.c, 'Target container changed')
+        require(history(self.c, self.owner) == self.before
+                and schema_hash(self.c, self.owner) == self.schema_before
+                and roles_hash(self.c, self.owner) == self.roles_before,
+                'Live schema/history/role drift since backup')
+        quiet(self.c, self.owner)
         import role_lifecycle as r
-        require(r.digest(r.read_policy(self.root))==self.role_policy_digest,'Reviewed role policy changed during preflight')
-        self.gate('live_apply','STARTED; failure requires DBA review, never automatic restore')
-        self.fly(self.c,self.password,'migrate',self.entries[-1]['version']); self.fly(self.c,self.password,'validate')
-        require(not history_gate(history(self.c,self.owner),self.entries),'Live migration history incomplete')
-        require(set(tables(self.c,self.owner))-set(self.before_tables)==set(self.report['new_tables']),'Live new table inventory differs from clone')
-        import role_lifecycle as r
-        r.apply_pending(self,self.c,self.owner,[e['version'] for e in self.pending],self.report['new_tables'])
-        live_schema=schema_bytes(self.c,self.owner)
-        post_dir=self.work/'post-migration-schema'; post_dir.mkdir(exist_ok=True)
-        comparison=compare_schema(post_dir,(self.work/'clone-migrated-schema.private.sql').read_bytes(),live_schema)
-        self.gate('post_migration_schema_comparison',comparison)
-        require(comparison['matches'],'Live schema fingerprint differs from migrated clone; do not rerun automatically')
-        self.check_runtime(self.c,self.owner,[e['version'] for e in self.pending],False,self.report['new_tables']); self.gate('live_apply','PASS; backend restart and UI tests still required')
+        require(r.digest(r.read_policy(self.root)) == self.role_policy_digest,
+                'Reviewed role policy changed during preflight')
+        self.gate('live_apply', 'STARTED; failure requires DBA review, never automatic restore')
+        self.fly(self.c, self.password, 'migrate', self.entries[-1]['version'])
+        self.fly(self.c, self.password, 'validate')
+        require(not history_gate(history(self.c, self.owner), self.entries), 'Live migration history incomplete')
+        require(set(tables(self.c, self.owner)) - set(self.before_tables) == set(self.report['new_tables']),
+                'Live new table inventory differs from clone')
+        r.apply_pending(self, self.c, self.owner, [e['version'] for e in self.pending], self.report['new_tables'])
+        live_schema = schema_bytes(self.c, self.owner)
+        post_dir = self.work / 'post-migration-schema'; post_dir.mkdir(exist_ok=True)
+        comparison = compare_schema(post_dir, (self.work / 'clone-migrated-schema.private.sql').read_bytes(), live_schema)
+        self.gate('post_migration_schema_comparison', comparison)
+        require(comparison['matches'], 'Live schema fingerprint differs from migrated clone; do not rerun automatically')
+        self.check_runtime(self.c, self.owner, [e['version'] for e in self.pending], False, self.report['new_tables'])
+        if mode == 'Startup':
+            self.gate('live_apply', 'PASS; local automatic startup migration completed')
+        else:
+            self.gate('live_apply', 'PASS; backend restart and UI tests still required')
 
 def main():
-    p=argparse.ArgumentParser(); p.add_argument('--mode',required=True,choices=['Audit','Plan','Backup','Clone','DryRun','ApplyDatabase','Verify','Report']); p.add_argument('--root',default=str(ROOT)); p.add_argument('--backup-root'); p.add_argument('--runtime-role'); p.add_argument('--approve'); p.add_argument('--check-backend',action='store_true'); a=p.parse_args()
+    p=argparse.ArgumentParser(); p.add_argument('--mode',required=True,choices=['Audit','Plan','Backup','Clone','DryRun','ApplyDatabase','Startup','Verify','Report']); p.add_argument('--root',default=str(ROOT)); p.add_argument('--backup-root'); p.add_argument('--runtime-role'); p.add_argument('--approve'); p.add_argument('--check-backend',action='store_true'); a=p.parse_args()
     op=None; lock=None
     try:
         if a.mode=='Report':

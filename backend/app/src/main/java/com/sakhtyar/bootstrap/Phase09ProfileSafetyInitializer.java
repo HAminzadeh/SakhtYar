@@ -15,6 +15,8 @@ public final class Phase09ProfileSafetyInitializer implements ApplicationContext
             throw new IllegalStateException("Phase09 startup denied: app.dev-seed.enabled must be false");
         if(e.getProperty("spring.flyway.enabled",Boolean.class,false))
             throw new IllegalStateException("Phase09 startup denied: automatic Flyway must be false");
+        if(e.getProperty("app.database-migration.startup-enabled",Boolean.class,false))
+            throw new IllegalStateException("Phase09 startup denied: automatic database migration is local-profile only");
     }
     @Override public void initialize(ConfigurableApplicationContext context) {
         validate(context.getEnvironment());

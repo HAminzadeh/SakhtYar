@@ -1,11 +1,16 @@
 # Phase09: UI-driven Development. A profile is NOT a substitute for proven TEST isolation.
 app:
+  database-migration:
+    startup-enabled: false
   dev-seed:
     enabled: false
   quality:
     phase09:
       ui-preflight-enabled: true
 spring:
+  datasource:
+    username: ${SAKHTYAR_RUNTIME_DB_USER:sakhtyar_runtime}
+    password: ${SAKHTYAR_RUNTIME_DB_PASSWORD:}
   flyway:
     enabled: false  # no automatic schema mutation against the shared REAL/TEST database
   jpa:

@@ -15,6 +15,15 @@ class Phase09ProfileSafetyInitializerTest {
             assertThrows(IllegalStateException.class,()->Phase09ProfileSafetyInitializer.validate(flyway));
         }
     }
+    @Test void officialProfilesRejectAutomaticDatabaseMigration() {
+        for(String profile:new String[]{"development","production"}) {
+            var env=new MockEnvironment();env.setActiveProfiles(profile);
+            env.setProperty("app.dev-seed.enabled","false");
+            env.setProperty("spring.flyway.enabled","false");
+            env.setProperty("app.database-migration.startup-enabled","true");
+            assertThrows(IllegalStateException.class,()->Phase09ProfileSafetyInitializer.validate(env));
+        }
+    }
     @Test void officialProfilesWithBothGuardsDisabledAreAccepted() {
         var env=new MockEnvironment();env.setActiveProfiles("development");
         env.setProperty("app.dev-seed.enabled","false");

@@ -19,7 +19,8 @@ import java.util.regex.Pattern;
 public final class DatabaseMigrationPreflightInitializer
         implements ApplicationContextInitializer<ConfigurableApplicationContext> {
     private static final Pattern NAME = Pattern.compile("V([1-9][0-9]*)__[A-Za-z0-9_]+\\.sql");
-    private static final String NEXT = " Run scripts/database/Invoke-SakhtYar-DatabaseMigration.ps1 -Mode Audit. "
+    private static final String NEXT = " Local startup migration is enabled only for the local profile. "
+            + "Inspect the private MigrationLifecycle report or use the explicit approved operator workflow. "
             + "Do not enable automatic Flyway or Hibernate schema update.";
 
     record HistoryRow(String version, String script, String type, boolean success, Integer checksum) {}
