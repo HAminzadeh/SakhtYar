@@ -9,6 +9,15 @@ p=load('deploy',ROOT/'scripts/devops/phase03_deploy_preflight.py')
 class InfraContracts(unittest.TestCase):
     def test_repository_offline_invariants(self):
         self.assertEqual(m.check(ROOT)['status'],'PASS_OFFLINE_SOURCE_CONTRACTS_ONLY')
+    def test_dynamic_migration_verifier_not_fixed_version(self):
+        ci=(ROOT/'.github/workflows/ci.yml').read_text(encoding='utf-8')
+        verifier=(ROOT/'scripts/database/verify_ci_migration_history.py').read_text(encoding='utf-8')
+        self.assertTrue(m.ci_migration_contract(ci,verifier))
+        self.assertFalse(m.ci_migration_contract(ci.replace('run: python3 -B scripts/database/verify_ci_migration_history.py --container sakhtyar-ci-db','# removed verifier'),verifier))
+        self.assertFalse(m.ci_migration_contract(ci.replace('--container sakhtyar-ci-db','--container production'),verifier))
+        self.assertFalse(m.ci_migration_contract(ci.replace('        run: python3 -B scripts/database/verify_ci_migration_history.py','        if: false\n        run: python3 -B scripts/database/verify_ci_migration_history.py'),verifier))
+        self.assertFalse(m.ci_migration_contract(ci,verifier.replace('entries=inventory(ROOT/MIG)','entries=[]')))
+        self.assertFalse(m.ci_migration_contract(ci,verifier.replace('require(not history_gate(rows,entries),','print(')))
     def test_missing_file_fails_closed(self):
         with tempfile.TemporaryDirectory() as d:
             with self.assertRaises(m.ContractError):m.check(Path(d))
