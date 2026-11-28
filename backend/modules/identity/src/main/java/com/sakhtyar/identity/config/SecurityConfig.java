@@ -168,6 +168,12 @@ http
                         .requestMatchers(HttpMethod.GET, "/api/web/v1/market/**").hasAuthority("CASE_READ")
                         .requestMatchers(HttpMethod.GET, "/api/web/v1/cases/**").hasAuthority("CASE_READ")
 
+                        // Shared material catalog: explicitly authorize reads and administrative writes.
+                        .requestMatchers(HttpMethod.GET, "/api/v1/materials", "/api/v1/materials/**").hasAnyAuthority("CASE_READ", "USER_MANAGE")
+                        .requestMatchers(HttpMethod.POST, "/api/v1/materials", "/api/v1/materials/**").hasAuthority("USER_MANAGE")
+                        .requestMatchers(HttpMethod.PUT, "/api/v1/materials", "/api/v1/materials/**").hasAuthority("USER_MANAGE")
+                        .requestMatchers(HttpMethod.OPTIONS, "/api/v1/materials", "/api/v1/materials/**").permitAll()
+                        .requestMatchers("/api/v1/materials", "/api/v1/materials/**").denyAll()
                         .requestMatchers(HttpMethod.POST, "/api/v1/market/observations").hasAuthority("USER_MANAGE")
                         .requestMatchers(HttpMethod.POST, "/api/v1/market/snapshots").hasAuthority("USER_MANAGE")
                         .requestMatchers(HttpMethod.GET, "/api/v1/market/**").hasAuthority("CASE_READ")

@@ -69,6 +69,13 @@ public class MaterialVariantEntity {
         this.updatedAt = now;
     }
 
+    public void update(String brand,String model,String grade,String manufacturer,String countryCode,
+                       Map<String,Object> attributes,boolean active,Instant now) {
+        this.brand=brand; this.model=model; this.grade=grade; this.manufacturer=manufacturer;
+        this.countryCode=countryCode; this.attributes=attributes==null?Map.of():Map.copyOf(attributes);
+        this.active=active; this.updatedAt=now;
+    }
+
     public UUID getId() { return id; }
     public UUID getMaterialItemId() { return materialItemId; }
     public String getBrand() { return brand; }

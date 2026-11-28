@@ -51,13 +51,13 @@ public class MaterialService {
 
     @Transactional(readOnly = true)
     public List<MaterialResponse> listMaterials(String query, String category) {
-        String q = query == null ? "" : query.trim().toLowerCase(Locale.ROOT);
+        String q = MaterialFoundation.search(query);
         return itemRepository.findAllByOrderByUpdatedAtDesc().stream()
-                .filter(i -> category == null || category.isBlank() || i.getCategory().equalsIgnoreCase(category))
+                .filter(i -> category == null || category.isBlank() || MaterialFoundation.search(i.getCategory()).equals(MaterialFoundation.search(category)))
                 .filter(i -> q.isBlank()
-                        || i.getCode().toLowerCase(Locale.ROOT).contains(q)
-                        || i.getNameFa().toLowerCase(Locale.ROOT).contains(q)
-                        || (i.getNameEn() != null && i.getNameEn().toLowerCase(Locale.ROOT).contains(q)))
+                        || MaterialFoundation.search(i.getCode()).contains(q)
+                        || MaterialFoundation.search(i.getNameFa()).contains(q)
+                        || (i.getNameEn() != null && MaterialFoundation.search(i.getNameEn()).contains(q)))
                 .map(MaterialResponse::from)
                 .toList();
     }
@@ -69,7 +69,7 @@ public class MaterialService {
 
     @Transactional
     public MaterialResponse createMaterial(UpsertMaterialRequest request, Authentication authentication) {
-        String code = request.code().trim().toUpperCase(Locale.ROOT);
+        String code = MaterialFoundation.code(request.code());
         itemRepository.findByCodeIgnoreCase(code).ifPresent(existing -> {
             throw new IllegalArgumentException("Material code already exists: " + code);
         });
@@ -77,8 +77,8 @@ public class MaterialService {
 
         Instant now = Instant.now();
         MaterialItemEntity entity = new MaterialItemEntity(
-                UUID.randomUUID(), code, request.nameFa().trim(), trim(request.nameEn()),
-                request.category().trim(), request.unitCode().trim().toUpperCase(Locale.ROOT),
+                UUID.randomUUID(), code, MaterialFoundation.required(request.nameFa(), 400), MaterialFoundation.optional(request.nameEn(), 400),
+                MaterialFoundation.required(request.category(), 160), MaterialFoundation.unitCode(request.unitCode()),
                 request.knowledgeTermId(), request.active(), request.metadata(),
                 actor(authentication), now
         );
@@ -90,14 +90,14 @@ public class MaterialService {
 
     @Transactional
     public MaterialResponse updateMaterial(UUID id, UpsertMaterialRequest request) {
-        MaterialItemEntity entity = requireItem(id);
+        MaterialItemEntity entity = requireLockedItem(id);
         if (!entity.getCode().equalsIgnoreCase(request.code().trim())) {
             throw new IllegalArgumentException("Material code is immutable after creation.");
         }
-        validateKnowledgeTerm(request.knowledgeTermId());
+        if (!Objects.equals(entity.getKnowledgeTermId(), request.knowledgeTermId())) validateKnowledgeTerm(request.knowledgeTermId());
         entity.update(
-                request.nameFa().trim(), trim(request.nameEn()), request.category().trim(),
-                request.unitCode().trim().toUpperCase(Locale.ROOT), request.knowledgeTermId(),
+                MaterialFoundation.required(request.nameFa(), 400), MaterialFoundation.optional(request.nameEn(), 400), MaterialFoundation.required(request.category(), 160),
+                MaterialFoundation.unchangedUnit(entity.getUnitCode(), request.unitCode()), request.knowledgeTermId(),
                 request.active(), request.metadata(), Instant.now()
         );
         auditService.record("MATERIAL_ITEM", entity.getId(), "MATERIAL_UPDATED",
@@ -117,12 +117,13 @@ public class MaterialService {
     public VariantResponse createVariant(
             UUID itemId, CreateVariantRequest request, Authentication authentication
     ) {
-        requireItem(itemId);
+        MaterialItemEntity item = requireLockedItem(itemId);
+        if (!item.isActive()) throw new IllegalArgumentException("Inactive material.");
         Instant now = Instant.now();
         MaterialVariantEntity entity = new MaterialVariantEntity(
-                UUID.randomUUID(), itemId, trim(request.brand()), trim(request.model()),
-                trim(request.grade()), trim(request.manufacturer()),
-                request.countryCode() == null ? null : request.countryCode().trim().toUpperCase(Locale.ROOT),
+                UUID.randomUUID(), itemId, MaterialFoundation.optional(request.brand(), 250), MaterialFoundation.optional(request.model(), 250),
+                MaterialFoundation.optional(request.grade(), 160), MaterialFoundation.optional(request.manufacturer(), 250),
+                MaterialFoundation.country(request.countryCode()),
                 request.attributes(), request.active(), actor(authentication), now
         );
         variantRepository.save(entity);
@@ -132,16 +133,41 @@ public class MaterialService {
     }
 
     @Transactional
+    public VariantResponse updateVariant(UUID itemId, UUID variantId, CreateVariantRequest request) {
+        MaterialItemEntity item = requireLockedItem(itemId);
+        MaterialVariantEntity variant = variantRepository.findById(variantId)
+                .orElseThrow(() -> new IllegalArgumentException("Material variant not found."));
+        if (!variant.getMaterialItemId().equals(itemId)) throw new IllegalArgumentException("Variant does not belong to the selected material.");
+        if (request.active() && !item.isActive()) throw new IllegalArgumentException("Inactive material.");
+        String brand=MaterialFoundation.optional(request.brand(),250), model=MaterialFoundation.optional(request.model(),250);
+        String grade=MaterialFoundation.optional(request.grade(),160), manufacturer=MaterialFoundation.optional(request.manufacturer(),250);
+        String country=MaterialFoundation.country(request.countryCode());
+        Map<String,Object> attributes=request.attributes()==null?Map.of():Map.copyOf(request.attributes());
+        boolean changed=!Objects.equals(brand,variant.getBrand()) || !Objects.equals(model,variant.getModel())
+                || !Objects.equals(grade,variant.getGrade()) || !Objects.equals(manufacturer,variant.getManufacturer())
+                || !Objects.equals(country,variant.getCountryCode()) || !Objects.equals(attributes,variant.getAttributes());
+        if(changed && observationRepository.findByMaterialItemIdOrderByObservedAtDesc(itemId).stream()
+                .anyMatch(o -> variantId.equals(o.getVariantId())))
+            throw new IllegalArgumentException("Referenced variant identity is immutable; create a new variant.");
+        // V69 also guards assembly references and direct database writes.
+        variant.update(brand,model,grade,manufacturer,country,attributes,request.active(),Instant.now());
+        auditService.record("MATERIAL_ITEM",itemId,"MATERIAL_VARIANT_UPDATED",Map.of("variantId",variantId.toString(),"active",variant.isActive()));
+        return VariantResponse.from(variant);
+    }
+
+    @Transactional
     public PriceObservationResponse createObservation(
             UUID itemId, CreatePriceObservationRequest request, Authentication authentication
     ) {
-        MaterialItemEntity item = requireItem(itemId);
+        MaterialItemEntity item = requireLockedItem(itemId);
+        if (!item.isActive()) throw new IllegalArgumentException("Inactive material.");
         if (!knowledgeSourceRepository.existsById(request.sourceId())) {
             throw new IllegalArgumentException("Knowledge source not found.");
         }
         if (request.variantId() != null) {
             MaterialVariantEntity variant = variantRepository.findById(request.variantId())
                     .orElseThrow(() -> new IllegalArgumentException("Material variant not found."));
+            if (!variant.isActive()) throw new IllegalArgumentException("Inactive variant.");
             if (!variant.getMaterialItemId().equals(itemId)) {
                 throw new IllegalArgumentException("Variant does not belong to the selected material.");
             }
@@ -149,17 +175,17 @@ public class MaterialService {
 
         if (!item.getUnitCode().equalsIgnoreCase(request.unitCode().trim())) {
             throw new IllegalArgumentException(
-                    "Observation unit must match material base unit in Phase 5.4. Unit conversion is deferred."
+                    "Observation unit must match material base unit until normalized aggregation is released."
             );
         }
 
         Instant now = Instant.now();
         MaterialPriceObservationEntity entity = new MaterialPriceObservationEntity(
                 UUID.randomUUID(), itemId, request.variantId(), request.priceType(),
-                request.amount(), request.currencyCode().trim().toUpperCase(Locale.ROOT),
-                request.unitCode().trim().toUpperCase(Locale.ROOT), request.quantityBasis(),
+                MaterialFoundation.amount(request.amount()), MaterialFoundation.currencyCode(request.currencyCode()),
+                item.getUnitCode(), MaterialFoundation.quantity(request.quantityBasis()),
                 trim(request.province()), trim(request.city()), request.sourceId(),
-                trim(request.sourceUrl()), request.observedAt(), now, request.confidence(),
+                trim(request.sourceUrl()), request.observedAt(), now, MaterialFoundation.confidence(request.confidence()),
                 request.origin(), request.rawPayload(), actor(authentication)
         );
         observationRepository.save(entity);
@@ -317,9 +343,14 @@ public class MaterialService {
                 .orElseThrow(() -> new IllegalArgumentException("Material not found."));
     }
 
+    private MaterialItemEntity requireLockedItem(UUID id) {
+        return itemRepository.findLockedById(id).orElseThrow(() -> new IllegalArgumentException("Material not found."));
+    }
+
     private void validateKnowledgeTerm(UUID termId) {
-        if (termId != null && !knowledgeTermRepository.existsById(termId)) {
-            throw new IllegalArgumentException("Knowledge term not found.");
+        if (termId != null) {
+            var term=knowledgeTermRepository.findById(termId).orElseThrow(() -> new IllegalArgumentException("Knowledge term not found."));
+            if (term.getStatus()!=KnowledgeReviewStatus.APPROVED) throw new IllegalArgumentException("Knowledge term must be approved.");
         }
     }
 

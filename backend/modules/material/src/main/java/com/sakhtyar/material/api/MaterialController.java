@@ -3,6 +3,7 @@ package com.sakhtyar.material.api;
 import static com.sakhtyar.material.api.MaterialDtos.*;
 
 import com.sakhtyar.material.application.MaterialService;
+import com.sakhtyar.material.application.MaterialFoundation;
 import com.sakhtyar.material.domain.PriceAnomalyStatus;
 import jakarta.validation.Valid;
 import java.util.List;
@@ -26,6 +27,11 @@ public class MaterialController {
             @RequestParam(required = false) String category
     ) {
         return service.listMaterials(query, category);
+    }
+
+    @GetMapping("/units")
+    public List<MaterialFoundation.Unit> units() {
+        return MaterialFoundation.units();
     }
 
     @GetMapping("/{id}")
@@ -61,6 +67,12 @@ public class MaterialController {
             Authentication authentication
     ) {
         return service.createVariant(id, request, authentication);
+    }
+
+    @PutMapping("/{id}/variants/{variantId}")
+    public VariantResponse updateVariant(@PathVariable UUID id, @PathVariable UUID variantId,
+                                         @Valid @RequestBody CreateVariantRequest request) {
+        return service.updateVariant(id, variantId, request);
     }
 
     @GetMapping("/{id}/prices")

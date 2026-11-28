@@ -36,16 +36,16 @@ public final class MaterialDtos {
     public record CreatePriceObservationRequest(
             UUID variantId,
             @NotNull MaterialPriceType priceType,
-            @NotNull @DecimalMin(value = "0.01") BigDecimal amount,
+            @NotNull @DecimalMin(value = "0.01") @Digits(integer=18,fraction=2) BigDecimal amount,
             @NotBlank @Size(min=3,max=8) String currencyCode,
             @NotBlank @Size(max = 40) String unitCode,
-            @NotNull @DecimalMin(value = "0.000001") BigDecimal quantityBasis,
+            @NotNull @DecimalMin(value = "0.000001") @Digits(integer=14,fraction=6) BigDecimal quantityBasis,
             @Size(max = 160) String province,
             @Size(max = 160) String city,
             @NotNull UUID sourceId,
             @Size(max = 3000) String sourceUrl,
             @NotNull Instant observedAt,
-            @DecimalMin("0.0") @DecimalMax("1.0") BigDecimal confidence,
+            @DecimalMin("0.0") @DecimalMax("1.0") @Digits(integer=1,fraction=4) BigDecimal confidence,
             @NotNull PriceObservationOrigin origin,
             Map<String, Object> rawPayload
     ) {}
