@@ -63,6 +63,18 @@ public class CostAssemblyComponentEntity {
         this.createdAt = createdAt;
     }
 
+    public void revise(UUID materialItemId, UUID variantId, BigDecimal quantity, BigDecimal wasteFactor,
+                       String unitCode, PriceBasis priceBasis, int sortOrder, String note) {
+        this.materialItemId = materialItemId;
+        this.variantId = variantId;
+        this.quantity = quantity;
+        this.wasteFactor = wasteFactor;
+        this.unitCode = unitCode;
+        this.priceBasis = priceBasis;
+        this.sortOrder = sortOrder;
+        this.note = note;
+    }
+
     public UUID getId() { return id; }
     public UUID getAssemblyId() { return assemblyId; }
     public UUID getMaterialItemId() { return materialItemId; }

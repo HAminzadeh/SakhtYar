@@ -61,6 +61,12 @@ public class AssemblyController {
         return service.addComponent(id, request);
     }
 
+    @PutMapping("/{id}/components/{componentId}")
+    public ComponentResponse updateComponent(@PathVariable UUID id, @PathVariable UUID componentId,
+                                             @Valid @RequestBody CreateComponentRequest request) {
+        return service.updateComponent(id, componentId, request);
+    }
+
     @DeleteMapping("/{id}/components/{componentId}")
     public void removeComponent(
             @PathVariable UUID id,

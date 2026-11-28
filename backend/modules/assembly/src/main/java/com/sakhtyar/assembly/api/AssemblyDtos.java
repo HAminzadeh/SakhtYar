@@ -27,8 +27,8 @@ public final class AssemblyDtos {
     public record CreateComponentRequest(
             @NotNull UUID materialItemId,
             UUID variantId,
-            @NotNull @DecimalMin("0.000001") BigDecimal quantity,
-            @NotNull @DecimalMin("0.0") @DecimalMax("10.0") BigDecimal wasteFactor,
+            @NotNull @DecimalMin("0.000001") @Digits(integer=14, fraction=6) BigDecimal quantity,
+            @NotNull @DecimalMin("0.0") @DecimalMax("10.0") @Digits(integer=4, fraction=6) BigDecimal wasteFactor,
             @NotBlank @Size(max = 40) String unitCode,
             @NotNull PriceBasis priceBasis,
             @Min(0) int sortOrder,
@@ -36,7 +36,7 @@ public final class AssemblyDtos {
     ) {}
 
     public record CalculateCostRequest(
-            @NotNull @DecimalMin("0.000001") BigDecimal quantity,
+            @NotNull @DecimalMin("0.000001") @Digits(integer=14, fraction=6) BigDecimal quantity,
             @NotNull MaterialPriceType priceType,
             @NotBlank @Size(min=3,max=8) String currencyCode,
             @Size(max = 160) String province,

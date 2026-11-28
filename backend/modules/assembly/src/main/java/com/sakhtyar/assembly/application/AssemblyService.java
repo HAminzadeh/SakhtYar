@@ -51,13 +51,13 @@ public class AssemblyService {
 
     @Transactional(readOnly = true)
     public List<AssemblyResponse> listAssemblies(String query, String category) {
-        String q = query == null ? "" : query.trim().toLowerCase(Locale.ROOT);
+        String q = MaterialFoundation.search(query);
         return assemblyRepository.findAllByOrderByUpdatedAtDesc().stream()
                 .filter(a -> category == null || category.isBlank() || a.getCategory().equalsIgnoreCase(category))
                 .filter(a -> q.isBlank()
-                        || a.getCode().toLowerCase(Locale.ROOT).contains(q)
-                        || a.getNameFa().toLowerCase(Locale.ROOT).contains(q)
-                        || (a.getNameEn() != null && a.getNameEn().toLowerCase(Locale.ROOT).contains(q)))
+                        || MaterialFoundation.search(a.getCode()).contains(q)
+                        || MaterialFoundation.search(a.getNameFa()).contains(q)
+                        || MaterialFoundation.search(a.getNameEn()).contains(q))
                 .map(AssemblyResponse::from)
                 .toList();
     }
@@ -71,16 +71,16 @@ public class AssemblyService {
     public AssemblyResponse createAssembly(
             UpsertAssemblyRequest request, Authentication authentication
     ) {
-        String code = request.code().trim().toUpperCase(Locale.ROOT);
+        String code = MaterialFoundation.code(request.code());
         assemblyRepository.findByCodeIgnoreCase(code).ifPresent(existing -> {
             throw new IllegalArgumentException("Assembly code already exists: " + code);
         });
 
         Instant now = Instant.now();
         CostAssemblyEntity entity = new CostAssemblyEntity(
-                UUID.randomUUID(), code, request.nameFa().trim(), trim(request.nameEn()),
-                request.category().trim(), request.outputUnitCode().trim().toUpperCase(Locale.ROOT),
-                trim(request.description()), request.active(), request.metadata(),
+                UUID.randomUUID(), code, MaterialFoundation.required(request.nameFa(), 400), MaterialFoundation.optional(request.nameEn(), 400),
+                MaterialFoundation.required(request.category(), 160), MaterialFoundation.unitCode(request.outputUnitCode()),
+                AssemblyDefinitionPolicy.optionalText(request.description(), 10000), request.active(), AssemblyDefinitionPolicy.metadata(request.metadata()),
                 actor(authentication), now
         );
         assemblyRepository.save(entity);
@@ -99,9 +99,9 @@ public class AssemblyService {
         }
 
         entity.update(
-                request.nameFa().trim(), trim(request.nameEn()), request.category().trim(),
-                request.outputUnitCode().trim().toUpperCase(Locale.ROOT),
-                trim(request.description()), request.active(), request.metadata(), Instant.now()
+                MaterialFoundation.required(request.nameFa(), 400), MaterialFoundation.optional(request.nameEn(), 400), MaterialFoundation.required(request.category(), 160),
+                AssemblyDefinitionPolicy.unchangedOutputUnit(entity.getOutputUnitCode(), request.outputUnitCode()),
+                AssemblyDefinitionPolicy.optionalText(request.description(), 10000), request.active(), AssemblyDefinitionPolicy.metadata(request.metadata()), Instant.now()
         );
 
         auditService.record("COST_ASSEMBLY", entity.getId(), "ASSEMBLY_UPDATED",
@@ -121,31 +121,13 @@ public class AssemblyService {
     @Transactional
     public ComponentResponse addComponent(UUID assemblyId, CreateComponentRequest request) {
         if(!requireLockedAssembly(assemblyId).isActive()) throw new IllegalStateException("Assembly inactive.");
-        MaterialItemEntity material = materialRepository.findById(request.materialItemId())
-                .orElseThrow(() -> new IllegalArgumentException("Material not found."));
-
-        if (!material.isActive()) throw new IllegalArgumentException("Inactive material.");
-        MaterialFoundation.quantity(request.quantity());
-        if(request.wasteFactor()==null || request.wasteFactor().signum()<0 || request.wasteFactor().compareTo(BigDecimal.TEN)>0 || Math.max(0,request.wasteFactor().stripTrailingZeros().scale())>6) throw new IllegalArgumentException("Invalid waste factor.");
-        if (!material.getUnitCode().equalsIgnoreCase(request.unitCode().trim())) {
-            throw new IllegalArgumentException(
-                    "Assembly component unit must match the material base unit in Phase 5.5."
-            );
-        }
-
-        if (request.variantId() != null) {
-            MaterialVariantEntity variant = variantRepository.findById(request.variantId())
-                    .orElseThrow(() -> new IllegalArgumentException("Material variant not found."));
-            if (!variant.isActive() || !variant.getMaterialItemId().equals(material.getId())) {
-                throw new IllegalArgumentException("Variant does not belong to selected material.");
-            }
-        }
+        MaterialItemEntity material = validateComponent(request);
 
         CostAssemblyComponentEntity entity = new CostAssemblyComponentEntity(
                 UUID.randomUUID(), assemblyId, material.getId(), request.variantId(),
-                request.quantity(), request.wasteFactor(),
-                request.unitCode().trim().toUpperCase(Locale.ROOT),
-                request.priceBasis(), request.sortOrder(), trim(request.note()), Instant.now()
+                MaterialFoundation.quantity(request.quantity()), AssemblyDefinitionPolicy.waste(request.wasteFactor()),
+                MaterialFoundation.unitCode(request.unitCode()),
+                request.priceBasis(), request.sortOrder(), AssemblyDefinitionPolicy.optionalText(request.note(), 4000), Instant.now()
         );
         componentRepository.save(entity);
 
@@ -158,14 +140,53 @@ public class AssemblyService {
         return ComponentResponse.from(entity);
     }
 
+    private MaterialItemEntity validateComponent(CreateComponentRequest request) {
+        if (request == null || request.materialItemId() == null || request.priceBasis() == null || request.sortOrder() < 0)
+            throw new IllegalArgumentException("Invalid assembly component.");
+        MaterialItemEntity material = materialRepository.findLockedById(request.materialItemId())
+                .orElseThrow(() -> new IllegalArgumentException("Material not found."));
+        if (!material.isActive()) throw new IllegalArgumentException("Inactive material.");
+        MaterialFoundation.quantity(request.quantity());
+        AssemblyDefinitionPolicy.waste(request.wasteFactor());
+        if (!material.getUnitCode().equalsIgnoreCase(MaterialFoundation.unitCode(request.unitCode())))
+            throw new IllegalArgumentException("Assembly component unit must match material base unit.");
+        AssemblyDefinitionPolicy.optionalText(request.note(), 4000);
+        if (request.variantId() != null) {
+            MaterialVariantEntity variant = variantRepository.findById(request.variantId())
+                    .orElseThrow(() -> new IllegalArgumentException("Material variant not found."));
+            if (!variant.isActive() || !variant.getMaterialItemId().equals(material.getId()))
+                throw new IllegalArgumentException("Variant does not belong to selected material.");
+        }
+        return material;
+    }
+
+    @Transactional
+    public ComponentResponse updateComponent(UUID assemblyId, UUID componentId, CreateComponentRequest request) {
+        if (!requireLockedAssembly(assemblyId).isActive()) throw new IllegalStateException("Assembly inactive.");
+        CostAssemblyComponentEntity component = requireComponent(assemblyId, componentId);
+        MaterialItemEntity material = validateComponent(request);
+        component.revise(material.getId(), request.variantId(), MaterialFoundation.quantity(request.quantity()),
+                AssemblyDefinitionPolicy.waste(request.wasteFactor()), MaterialFoundation.unitCode(request.unitCode()),
+                request.priceBasis(), request.sortOrder(), AssemblyDefinitionPolicy.optionalText(request.note(), 4000));
+        auditService.record("COST_ASSEMBLY", assemblyId, "ASSEMBLY_COMPONENT_UPDATED",
+                Map.of("componentId", componentId.toString(), "materialId", material.getId().toString()));
+        return ComponentResponse.from(component);
+    }
+
+    private CostAssemblyComponentEntity requireComponent(UUID assemblyId, UUID componentId) {
+        CostAssemblyComponentEntity component = componentRepository.findById(componentId)
+                .orElseThrow(() -> new IllegalArgumentException("Assembly component not found."));
+        if (!component.getAssemblyId().equals(assemblyId))
+            throw new IllegalArgumentException("Component does not belong to selected assembly.");
+        return component;
+    }
+
     @Transactional
     public void removeComponent(UUID assemblyId, UUID componentId) {
         requireLockedAssembly(assemblyId);
-        CostAssemblyComponentEntity component = componentRepository.findById(componentId)
-                .orElseThrow(() -> new IllegalArgumentException("Assembly component not found."));
-        if (!component.getAssemblyId().equals(assemblyId)) {
-            throw new IllegalArgumentException("Component does not belong to selected assembly.");
-        }
+        CostAssemblyComponentEntity component = requireComponent(assemblyId, componentId);
+        if (lineRepository.existsByAssemblyComponentId(componentId))
+            throw new IllegalStateException("Component has historical estimates; revise the definition or create a new assembly.");
         componentRepository.delete(component);
 
         auditService.record("COST_ASSEMBLY", assemblyId, "ASSEMBLY_COMPONENT_REMOVED",
@@ -189,6 +210,7 @@ public class AssemblyService {
             throw new IllegalStateException("Assembly has no components.");
         }
 
+        if (request.priceType() == null) throw new IllegalArgumentException("Price type required.");
         String currency = MaterialFoundation.currencyCode(request.currencyCode());
         String province = normalizeRegion(request.province());
         String city = normalizeRegion(request.city());

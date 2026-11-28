@@ -49,6 +49,7 @@ const navigationGroups: NavigationGroup[] = [
     links: [
       { label: 'تحلیل بازار', path: '/market', permission: 'CASE_READ', icon: <BarChartOutlined /> },
       { label: 'مصالح و قیمت ساخت', path: '/materials', permission: ['CASE_READ','USER_MANAGE'], icon: <ToolOutlined /> },
+      { label: 'آنالیز بهای عملیات ساختمانی', path: '/assemblies', permission: ['CASE_READ','USER_MANAGE'], icon: <ToolOutlined /> },
       { label: 'مدیریت سازندگان', path: '/admin/builders', permission: 'USER_MANAGE', icon: <ApartmentOutlined /> },
     ],
   },

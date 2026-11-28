@@ -21,6 +21,7 @@ import { KnowledgeImportPage } from './pages/KnowledgeImportPage'
 
 import { Phase517MarketPage } from './pages/Phase517MarketPage'
 import { MaterialsPage } from './pages/MaterialsPage'
+import { AssemblyCatalogPage } from './pages/AssemblyCatalogPage'
 import { Phase517BuildersPage } from './pages/Phase517BuildersPage'
 import { Phase517EventsPage } from './pages/Phase517EventsPage'
 import { Phase517AgentsPage } from './pages/Phase517AgentsPage'
@@ -42,6 +43,7 @@ export default function App() {
 
           <Route element={<PermissionRoute permission={["CASE_READ", "USER_MANAGE"]} />}>
             <Route path="/materials" element={<MaterialsPage />} />
+            <Route path="/assemblies" element={<AssemblyCatalogPage />} />
           </Route>
 
           <Route element={<PermissionRoute permission="CASE_READ" />}>

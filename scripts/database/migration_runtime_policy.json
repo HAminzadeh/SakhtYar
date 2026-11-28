@@ -595,5 +595,91 @@
         ]
       }
     }
+  },
+  "72": {
+    "review": "V72 assembly definition revision archive and estimate definition binding. Operator must verify physical runtime roles and clone migration; no automatic grants.",
+    "tables": {
+      "cost_assembly": {
+        "privileges": [
+          "SELECT",
+          "INSERT",
+          "UPDATE"
+        ],
+        "forbidden": [
+          "DELETE",
+          "TRUNCATE"
+        ],
+        "rls": true,
+        "triggers": [
+          "trg_phase18c_cost_scope",
+          "trg_phase19a_assembly_revision"
+        ],
+        "policies": [
+          "phase18c_cost_allow",
+          "phase18c_cost_limit"
+        ]
+      },
+      "cost_assembly_component": {
+        "privileges": [
+          "SELECT",
+          "INSERT",
+          "UPDATE",
+          "DELETE"
+        ],
+        "forbidden": [
+          "TRUNCATE"
+        ],
+        "rls": true,
+        "triggers": [
+          "trg_phase18c_cost_scope",
+          "trg_phase19a_component_revision"
+        ],
+        "policies": [
+          "phase18c_cost_allow",
+          "phase18c_cost_limit"
+        ]
+      },
+      "cost_estimate": {
+        "privileges": [
+          "SELECT",
+          "INSERT"
+        ],
+        "forbidden": [
+          "UPDATE",
+          "DELETE",
+          "TRUNCATE"
+        ],
+        "rls": true,
+        "triggers": [
+          "trg_phase18c_cost_scope",
+          "trg_phase18c_cost_seal",
+          "trg_phase19a_estimate_definition",
+          "trg_phase19a_definition_seal"
+        ],
+        "policies": [
+          "phase18c_cost_allow",
+          "phase18c_cost_limit"
+        ]
+      },
+      "cost_assembly_revision": {
+        "privileges": [
+          "SELECT",
+          "INSERT"
+        ],
+        "forbidden": [
+          "UPDATE",
+          "DELETE",
+          "TRUNCATE"
+        ],
+        "rls": true,
+        "triggers": [
+          "trg_phase19a_revision_guard"
+        ],
+        "policies": [
+          "phase19a_revision_allow",
+          "phase19a_revision_limit"
+        ]
+      }
+    }
   }
 }

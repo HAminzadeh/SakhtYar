@@ -6,4 +6,5 @@ import org.springframework.data.jpa.repository.JpaRepository;
 
 public interface CostEstimateLineRepository extends JpaRepository<CostEstimateLineEntity, UUID> {
     List<CostEstimateLineEntity> findByEstimateIdOrderByIdAsc(UUID estimateId);
+    boolean existsByAssemblyComponentId(UUID assemblyComponentId);
 }
