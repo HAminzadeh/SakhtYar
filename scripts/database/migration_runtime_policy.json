@@ -681,5 +681,114 @@
         ]
       }
     }
+  },
+  "73": {
+    "review": "V73 calculation request identity, lineage and numeric/definition guards. Clone and restricted runtime review required; no automatic grants.",
+    "tables": {
+      "cost_assembly": {
+        "privileges": [
+          "SELECT",
+          "INSERT",
+          "UPDATE"
+        ],
+        "forbidden": [
+          "DELETE",
+          "TRUNCATE"
+        ],
+        "rls": true,
+        "triggers": [
+          "trg_phase18c_cost_scope",
+          "trg_phase19a_assembly_revision",
+          "trg_phase19b_definition_write_guard"
+        ],
+        "policies": [
+          "phase18c_cost_allow",
+          "phase18c_cost_limit"
+        ]
+      },
+      "cost_assembly_component": {
+        "privileges": [
+          "SELECT",
+          "INSERT",
+          "UPDATE",
+          "DELETE"
+        ],
+        "forbidden": [
+          "TRUNCATE"
+        ],
+        "rls": true,
+        "triggers": [
+          "trg_phase18c_cost_scope",
+          "trg_phase19a_component_revision"
+        ],
+        "policies": [
+          "phase18c_cost_allow",
+          "phase18c_cost_limit"
+        ]
+      },
+      "cost_estimate": {
+        "privileges": [
+          "SELECT",
+          "INSERT"
+        ],
+        "forbidden": [
+          "UPDATE",
+          "DELETE",
+          "TRUNCATE"
+        ],
+        "rls": true,
+        "triggers": [
+          "trg_phase18c_cost_scope",
+          "trg_phase18c_cost_seal",
+          "trg_phase19a_estimate_definition",
+          "trg_phase19a_definition_seal",
+          "trg_phase19b_calculation_guard"
+        ],
+        "policies": [
+          "phase18c_cost_allow",
+          "phase18c_cost_limit"
+        ]
+      },
+      "cost_assembly_revision": {
+        "privileges": [
+          "SELECT",
+          "INSERT"
+        ],
+        "forbidden": [
+          "UPDATE",
+          "DELETE",
+          "TRUNCATE"
+        ],
+        "rls": true,
+        "triggers": [
+          "trg_phase19a_revision_guard"
+        ],
+        "policies": [
+          "phase19a_revision_allow",
+          "phase19a_revision_limit"
+        ]
+      },
+      "cost_estimate_line": {
+        "privileges": [
+          "SELECT",
+          "INSERT"
+        ],
+        "forbidden": [
+          "UPDATE",
+          "DELETE",
+          "TRUNCATE"
+        ],
+        "rls": true,
+        "triggers": [
+          "trg_phase18c_cost_scope",
+          "trg_phase18c_cost_seal",
+          "trg_phase19b_line_guard"
+        ],
+        "policies": [
+          "phase18c_cost_allow",
+          "phase18c_cost_limit"
+        ]
+      }
+    }
   }
 }

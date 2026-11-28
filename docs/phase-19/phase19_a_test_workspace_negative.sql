@@ -57,20 +57,32 @@ BEGIN
  SET CONSTRAINTS ALL IMMEDIATE;
  SELECT assembly_definition INTO saved FROM public.cost_estimate WHERE id=est;
  IF saved IS NULL OR (SELECT definition_revision FROM public.cost_estimate WHERE id=est) IS DISTINCT FROM 4::bigint THEN RAISE EXCEPTION 'FAIL missing estimate definition'; END IF;
- UPDATE public.cost_assembly_component SET quantity=4 WHERE id=comp;
- IF (SELECT assembly_definition FROM public.cost_estimate WHERE id=est) IS DISTINCT FROM saved OR
-    (SELECT definition FROM public.cost_assembly_revision WHERE assembly_id=ass AND revision=4) IS DISTINCT FROM saved
- THEN RAISE EXCEPTION 'FAIL historical estimate or definition changed'; END IF;
+ IF EXISTS(SELECT 1 FROM pg_trigger WHERE tgrelid='public.cost_assembly'::regclass AND tgname='trg_phase19b_definition_write_guard') THEN
+   -- V73 strengthens V72: same-transaction changes after an early seal must fail.
+   BEGIN
+     UPDATE public.cost_assembly_component SET quantity=4 WHERE id=comp;
+     RAISE EXCEPTION 'FAIL definition changed after estimate in same transaction';
+   EXCEPTION WHEN check_violation THEN NULL; END;
+   IF (SELECT revision FROM public.cost_assembly WHERE id=ass) IS DISTINCT FROM 4::bigint
+      OR (SELECT quantity FROM public.cost_assembly_component WHERE id=comp) IS DISTINCT FROM 2::numeric
+      OR (SELECT assembly_definition FROM public.cost_estimate WHERE id=est) IS DISTINCT FROM saved
+   THEN RAISE EXCEPTION 'FAIL protected definition or estimate changed'; END IF;
+ ELSE
+   UPDATE public.cost_assembly_component SET quantity=4 WHERE id=comp;
+   IF (SELECT assembly_definition FROM public.cost_estimate WHERE id=est) IS DISTINCT FROM saved OR
+      (SELECT definition FROM public.cost_assembly_revision WHERE assembly_id=ass AND revision=4) IS DISTINCT FROM saved
+   THEN RAISE EXCEPTION 'FAIL historical estimate or definition changed'; END IF;
+ END IF;
  BEGIN
    DELETE FROM public.cost_assembly_component WHERE id=comp;
    RAISE EXCEPTION 'FAIL referenced component deleted'; EXCEPTION WHEN foreign_key_violation OR insufficient_privilege THEN NULL;
  END;
  BEGIN
-   UPDATE public.cost_assembly_revision SET definition='{}'::jsonb WHERE assembly_id=ass AND revision=4;
+   UPDATE public.cost_assembly_revision SET definition='{}'::jsonb WHERE assembly_id=ass AND revision=2;
    RAISE EXCEPTION 'FAIL revision changed'; EXCEPTION WHEN insufficient_privilege THEN NULL;
  END;
  BEGIN
-   DELETE FROM public.cost_assembly_revision WHERE assembly_id=ass AND revision=4;
+   DELETE FROM public.cost_assembly_revision WHERE assembly_id=ass AND revision=2;
    RAISE EXCEPTION 'FAIL revision deleted'; EXCEPTION WHEN insufficient_privilege THEN NULL;
  END;
  PERFORM set_config('app.sakhtyar_workspace',other::text,true);

@@ -184,6 +184,7 @@ public class ScenarioService {
         var items = itemRepo.findByScenarioIdOrderBySortOrderAscIdAsc(id).stream().filter(ConstructionScenarioItemEntity::isEnabled).toList();
         if (items.isEmpty()) throw new IllegalStateException("Scenario has no enabled items.");
         String currency = com.sakhtyar.material.application.MaterialFoundation.currencyCode(r.currencyCode());
+        assemblyService.lockForScenarioCalculation(items.stream().map(ConstructionScenarioItemEntity::getAssemblyId).toList());
         BigDecimal total = BigDecimal.ZERO;
         List<AssemblyResult> results = new ArrayList<>();
         for (var item : items) {

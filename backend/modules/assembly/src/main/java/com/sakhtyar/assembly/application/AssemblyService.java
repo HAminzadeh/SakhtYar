@@ -197,8 +197,50 @@ public class AssemblyService {
     public EstimateResponse calculate(
             UUID assemblyId, CalculateCostRequest request, Authentication authentication
     ) {
+        return calculateInternal(assemblyId, request, authentication, null, null);
+    }
+
+    @Transactional
+    public EstimateResponse calculate(UUID assemblyId, CalculateCostRequest request,
+                                      Authentication authentication, UUID requestKey) {
+        return calculateInternal(assemblyId, request, authentication, requestKey, null);
+    }
+
+    @Transactional
+    public EstimateResponse recalculate(UUID estimateId, Authentication authentication, UUID requestKey) {
+        CostEstimateEntity previous = requireEstimate(estimateId);
+        return calculateInternal(previous.getAssemblyId(), new CalculateCostRequest(
+                previous.getRequestedQuantity(), previous.getPriceType(), previous.getCurrencyCode(),
+                previous.getProvince(), previous.getCity()), authentication, requestKey, estimateId);
+    }
+
+    private EstimateResponse calculateInternal(UUID assemblyId, CalculateCostRequest request,
+            Authentication authentication, UUID requestKey, UUID previousEstimateId) {
+        if (request == null || request.priceType() == null) throw new IllegalArgumentException("Price type required.");
+        BigDecimal quantity = AssemblyCalculationPolicy.quantity(request.quantity());
+        String currency = MaterialFoundation.currencyCode(request.currencyCode());
+        String province = normalizeRegion(request.province());
+        String city = normalizeRegion(request.city());
+        if (!city.isBlank() && province.isBlank()) throw new IllegalArgumentException("City requires province.");
+        String principal = actor(authentication);
+        if (requestKey != null && (authentication == null || !authentication.isAuthenticated()
+                || authentication.getName() == null || authentication.getName().isBlank()))
+            throw new IllegalArgumentException("Authenticated principal required for idempotency.");
         CostAssemblyEntity assembly = requireLockedAssembly(assemblyId);
-        MaterialFoundation.quantity(request.quantity());
+        // Parent lock serializes retries and definition mutations; a retry does not consume new prices.
+        if (requestKey != null) {
+            var existing = estimateRepository.findByAssemblyIdAndCalculatedByAndRequestKey(assemblyId, principal, requestKey);
+            if (existing.isPresent()) {
+                var old = existing.get();
+                if (old.getRequestedQuantity().compareTo(quantity)!=0 || old.getPriceType()!=request.priceType()
+                        || !old.getCurrencyCode().equals(currency)
+                        || !Objects.equals(old.getProvince(), blankToNull(province))
+                        || !Objects.equals(old.getCity(), blankToNull(city))
+                        || !Objects.equals(old.getRecalculatedFromId(), previousEstimateId))
+                    throw new IllegalStateException("Idempotency key already used for a different calculation.");
+                return toEstimateResponse(old, lineRepository.findByEstimateIdOrderByIdAsc(old.getId()));
+            }
+        }
         if (!assembly.isActive()) {
             throw new IllegalStateException("Assembly is inactive.");
         }
@@ -210,24 +252,20 @@ public class AssemblyService {
             throw new IllegalStateException("Assembly has no components.");
         }
 
-        if (request.priceType() == null) throw new IllegalArgumentException("Price type required.");
-        String currency = MaterialFoundation.currencyCode(request.currencyCode());
-        String province = normalizeRegion(request.province());
-        String city = normalizeRegion(request.city());
-        if (!city.isBlank() && province.isBlank()) throw new IllegalArgumentException("City requires province.");
-        // Lock in deterministic UUID order within this assembly; a deadlock aborts the whole transaction.
-        components.stream().map(CostAssemblyComponentEntity::getMaterialItemId).distinct().sorted().forEach(id -> {
-            var item=materialRepository.findLockedById(id).orElseThrow(() -> new IllegalStateException("Missing material."));
-            if(!item.isActive()) throw new IllegalStateException("Inactive material.");
-        });
+        // Market context was normalized before acquiring the assembly lock.
+        lockMaterials(components.stream().map(CostAssemblyComponentEntity::getMaterialItemId).toList());
+        Instant pricingAt = Instant.now();
+        Map<UUID, List<MaterialPriceAggregateEntity>> candidates = new HashMap<>();
 
         List<PreparedLine> prepared = new ArrayList<>();
         BigDecimal total = BigDecimal.ZERO;
 
         for (CostAssemblyComponentEntity component : components) {
-            MaterialPriceAggregateEntity aggregate = selectAggregate(
-                    component, request.priceType(), currency, province, city
-            );
+            List<MaterialPriceAggregateEntity> refs = candidates.computeIfAbsent(component.getMaterialItemId(),
+                    aggregateRepository::findByMaterialItemIdOrderByCalculatedAtDesc);
+            MaterialPriceAggregateEntity aggregate = MaterialPriceResolver.resolve(refs,
+                    component.getMaterialItemId(), component.getVariantId(), request.priceType(),
+                    currency, component.getUnitCode(), province, city, pricingAt);
 
             BigDecimal unitPrice = AssemblyCostCalculator.choosePrice(
                     component.getPriceBasis(),
@@ -238,24 +276,24 @@ public class AssemblyService {
             );
 
             BigDecimal effectiveQuantity = AssemblyCostCalculator.effectiveQuantity(
-                    component.getQuantity(), component.getWasteFactor(), request.quantity()
+                    component.getQuantity(), component.getWasteFactor(), quantity
             );
-            MaterialFoundation.quantity(effectiveQuantity);
-            BigDecimal lineTotal = MaterialFoundation.amount(AssemblyCostCalculator.lineTotal(effectiveQuantity, unitPrice));
-            total = total.add(lineTotal);
+            BigDecimal lineTotal = AssemblyCostCalculator.lineTotal(effectiveQuantity, unitPrice);
+            total = AssemblyCalculationPolicy.addLine(total, lineTotal);
 
             prepared.add(new PreparedLine(component, aggregate, unitPrice, effectiveQuantity, lineTotal));
         }
 
-        BigDecimal finalTotal = MaterialFoundation.amount(total.setScale(2, RoundingMode.HALF_UP));
-        BigDecimal unitCost = MaterialFoundation.amount(finalTotal.divide(request.quantity(), 2, RoundingMode.HALF_UP));
+        BigDecimal finalTotal = AssemblyCalculationPolicy.price(total);
+        BigDecimal unitCost = AssemblyCalculationPolicy.unitCost(finalTotal, quantity);
 
         Instant now = Instant.now();
         CostEstimateEntity estimate = new CostEstimateEntity(
-                UUID.randomUUID(), assemblyId, request.quantity(), assembly.getOutputUnitCode(),
+                UUID.randomUUID(), assemblyId, quantity, assembly.getOutputUnitCode(),
                 request.priceType(), currency, blankToNull(province), blankToNull(city),
-                unitCost, finalTotal, ALGORITHM_VERSION, actor(authentication), now
+                unitCost, finalTotal, ALGORITHM_VERSION, principal, now
         );
+        estimate.bindCalculationRequest(requestKey, previousEstimateId);
         estimateRepository.save(estimate);
 
         List<CostEstimateLineEntity> lines = new ArrayList<>();
@@ -303,15 +341,43 @@ public class AssemblyService {
         );
     }
 
-    private MaterialPriceAggregateEntity selectAggregate(
-            CostAssemblyComponentEntity component,
-            MaterialPriceType priceType,
-            String currency,
-            String province,
-            String city
-    ) {
-        return MaterialPriceResolver.resolve(aggregateRepository.findByMaterialItemIdOrderByCalculatedAtDesc(component.getMaterialItemId()),
-                component.getMaterialItemId(), component.getVariantId(), priceType, currency, component.getUnitCode(), province, city, Instant.now());
+    /** Scenario caller acquires all assembly locks, then all material locks in global UUID order. */
+    @Transactional
+    public void lockForScenarioCalculation(Collection<UUID> assemblyIds) {
+        var sorted = assemblyIds.stream().distinct().sorted().toList();
+        for (UUID id : sorted) {
+            if (!requireLockedAssembly(id).isActive()) throw new IllegalStateException("Assembly is inactive.");
+        }
+        List<UUID> materials = new ArrayList<>();
+        for (UUID id : sorted) {
+            var rows = componentRepository.findByAssemblyIdOrderBySortOrderAscIdAsc(id);
+            if (rows.isEmpty()) throw new IllegalStateException("Assembly has no components.");
+            rows.forEach(c -> materials.add(c.getMaterialItemId()));
+        }
+        lockMaterials(materials);
+    }
+
+    private void lockMaterials(Collection<UUID> ids) {
+        ids.stream().distinct().sorted().forEach(id -> {
+            var item=materialRepository.findLockedById(id).orElseThrow(() -> new IllegalStateException("Missing material."));
+            if (!item.isActive()) throw new IllegalStateException("Inactive material.");
+        });
+    }
+
+    private CostEstimateEntity requireEstimate(UUID id) {
+        return estimateRepository.findById(id)
+                .orElseThrow(() -> new IllegalArgumentException("Cost estimate not found."));
+    }
+
+    @Transactional(readOnly=true)
+    public AssemblyEstimateComparison.Result compareEstimates(UUID before, UUID after) {
+        return AssemblyEstimateComparison.compare(estimate(before), estimate(after));
+    }
+
+    @Transactional(readOnly=true)
+    public AssemblyEstimateComparison.Lineage calculationLineage(UUID id) {
+        var e = requireEstimate(id);
+        return new AssemblyEstimateComparison.Lineage(e.getId(), e.getRecalculatedFromId(), e.getAlgorithmVersion());
     }
 
     private EstimateResponse toEstimateResponse(

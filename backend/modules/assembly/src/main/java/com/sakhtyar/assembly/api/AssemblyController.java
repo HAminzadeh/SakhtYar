@@ -79,9 +79,28 @@ public class AssemblyController {
     public EstimateResponse calculate(
             @PathVariable UUID id,
             @Valid @RequestBody CalculateCostRequest request,
+            @RequestHeader(value="Idempotency-Key", required=false) UUID requestKey,
             Authentication authentication
     ) {
-        return service.calculate(id, request, authentication);
+        return service.calculate(id, request, authentication, requestKey);
+    }
+
+    @PostMapping("/estimates/{id}/recalculate")
+    public EstimateResponse recalculate(@PathVariable UUID id,
+            @RequestHeader(value="Idempotency-Key", required=false) UUID requestKey,
+            Authentication authentication) {
+        return service.recalculate(id, authentication, requestKey);
+    }
+
+    @GetMapping("/estimates/{id}/compare")
+    public com.sakhtyar.assembly.application.AssemblyEstimateComparison.Result compare(
+            @PathVariable UUID id, @RequestParam UUID otherId) {
+        return service.compareEstimates(id, otherId);
+    }
+
+    @GetMapping("/estimates/{id}/lineage")
+    public com.sakhtyar.assembly.application.AssemblyEstimateComparison.Lineage lineage(@PathVariable UUID id) {
+        return service.calculationLineage(id);
     }
 
     @GetMapping("/{id}/estimates")

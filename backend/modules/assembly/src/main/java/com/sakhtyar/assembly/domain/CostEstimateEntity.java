@@ -54,6 +54,12 @@ public class CostEstimateEntity {
     @Column(name = "calculated_at", nullable = false)
     private Instant calculatedAt;
 
+    @Column(name = "request_key", updatable = false)
+    private UUID requestKey;
+
+    @Column(name = "recalculated_from_id", updatable = false)
+    private UUID recalculatedFromId;
+
     protected CostEstimateEntity() {}
 
     public CostEstimateEntity(
@@ -78,6 +84,15 @@ public class CostEstimateEntity {
         this.calculatedAt = calculatedAt;
     }
 
+    public void bindCalculationRequest(UUID key, UUID previousEstimateId) {
+        if (requestKey != null || recalculatedFromId != null)
+            throw new IllegalStateException("Calculation request already bound.");
+        this.requestKey = key;
+        this.recalculatedFromId = previousEstimateId;
+    }
+
+    public UUID getRequestKey() { return requestKey; }
+    public UUID getRecalculatedFromId() { return recalculatedFromId; }
     public UUID getId() { return id; }
     public UUID getAssemblyId() { return assemblyId; }
     public BigDecimal getRequestedQuantity() { return requestedQuantity; }
