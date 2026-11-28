@@ -322,7 +322,7 @@ public class AssemblyService {
     }
 
     private static String normalizeRegion(String value) {
-        return value == null ? "" : value.trim().toLowerCase(Locale.ROOT);
+        return com.sakhtyar.material.application.MaterialPricePolicy.region(value);
     }
 
     private static String blankToNull(String value) {

@@ -128,6 +128,8 @@ public final class MaterialDtos {
         }
     }
 
+    public record PriceAggregateHistoryResponse(PriceAggregateResponse aggregate, boolean usable, Instant expiresAt, java.util.List<String> evidenceIds) {}
+
     public record PriceAnomalyResponse(
             UUID id, UUID observationId, String anomalyType, PriceAnomalySeverity severity,
             BigDecimal score, PriceAnomalyStatus status, String reason,

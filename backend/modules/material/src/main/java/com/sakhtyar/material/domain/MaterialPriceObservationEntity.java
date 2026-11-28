@@ -85,6 +85,14 @@ public class MaterialPriceObservationEntity {
     @Column(name = "review_note", columnDefinition = "text")
     private String reviewNote;
 
+    @Column(name="quote_key", length=64, updatable=false)
+    private String quoteKey;
+
+    public void assignQuoteKey(String key) {
+        if (quoteKey != null || key == null || !key.matches("[0-9a-f]{64}")) throw new IllegalArgumentException("Invalid immutable quote key.");
+        quoteKey=key;
+    }
+
     protected MaterialPriceObservationEntity() {}
 
     public MaterialPriceObservationEntity(

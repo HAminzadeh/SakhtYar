@@ -25,19 +25,19 @@ public class PriceAnomalyDetector {
             return Optional.empty();
         }
 
-        BigDecimal median = PriceStatistics.calculate(historicalApprovedPrices).median();
+        BigDecimal median = MaterialPricePolicy.exactMedian(historicalApprovedPrices);
         if (median.signum() == 0) {
             return Optional.empty();
         }
 
-        BigDecimal deviation = candidate.subtract(median).abs()
-                .divide(median, 4, RoundingMode.HALF_UP);
+        BigDecimal difference = candidate.subtract(median).abs();
+        BigDecimal deviation = difference.divide(median, 4, RoundingMode.HALF_UP);
 
-        if (deviation.compareTo(MEDIUM_THRESHOLD) < 0) {
+        if (difference.compareTo(median.multiply(MEDIUM_THRESHOLD)) < 0) {
             return Optional.empty();
         }
 
-        PriceAnomalySeverity severity = deviation.compareTo(HIGH_THRESHOLD) >= 0
+        PriceAnomalySeverity severity = difference.compareTo(median.multiply(HIGH_THRESHOLD)) >= 0
                 ? PriceAnomalySeverity.HIGH
                 : PriceAnomalySeverity.MEDIUM;
 

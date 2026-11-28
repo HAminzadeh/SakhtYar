@@ -4,6 +4,9 @@ import jakarta.persistence.*;
 import java.math.BigDecimal;
 import java.time.Instant;
 import java.util.UUID;
+import java.util.List;
+import org.hibernate.annotations.JdbcTypeCode;
+import org.hibernate.type.SqlTypes;
 
 @Entity
 @Table(name = "material_price_aggregate")
@@ -62,6 +65,25 @@ public class MaterialPriceAggregateEntity {
 
     @Column(name = "calculated_at", nullable = false)
     private Instant calculatedAt;
+
+    @Column(name="current_reference",nullable=false)
+    private boolean currentReference;
+    @Column(name="expires_at")
+    private Instant expiresAt;
+    @Column(name="publication_key",length=64)
+    private String publicationKey;
+    @JdbcTypeCode(SqlTypes.JSON)
+    @Column(name="evidence_ids",nullable=false,columnDefinition="jsonb")
+    private List<String> evidenceIds=List.of();
+
+    public void publish(List<String> ids,Instant expires,String key) {
+        if(publicationKey!=null || ids==null || ids.isEmpty() || ids.size()!=sampleCount || expires==null || key==null || !key.matches("[0-9a-f]{64}"))
+            throw new IllegalArgumentException("Invalid aggregate publication evidence.");
+        this.evidenceIds=List.copyOf(ids);this.expiresAt=expires;this.publicationKey=key;this.currentReference=true;
+    }
+    public Instant getExpiresAt(){return expiresAt;}
+    public String getPublicationKey(){return publicationKey;}
+    public List<String> getEvidenceIds(){return List.copyOf(evidenceIds);}
 
     protected MaterialPriceAggregateEntity() {}
 

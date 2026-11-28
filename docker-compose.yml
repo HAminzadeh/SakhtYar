@@ -280,11 +280,11 @@ services:
     environment:
       REDIS_PASSWORD: ${REDIS_PASSWORD:?Set a unique Redis password}
     # Expand password inside the container, not into docker compose config output.
-    command: ["sh", "-c", "exec redis-server --appendonly yes --requirepass "$$REDIS_PASSWORD" --maxmemory 2gb --maxmemory-policy allkeys-lru"]
+    command: ["sh", "-c", 'exec redis-server --appendonly yes --requirepass "$$REDIS_PASSWORD" --maxmemory 2gb --maxmemory-policy allkeys-lru']
     volumes:
       - sakhtyar_redis_data:/data
     healthcheck:
-      test: ["CMD-SHELL", "REDISCLI_AUTH="$$REDIS_PASSWORD" redis-cli ping | grep -q PONG"]
+      test: ["CMD-SHELL", 'REDISCLI_AUTH="$$REDIS_PASSWORD" redis-cli ping | grep -q PONG']
       interval: 5s
       timeout: 3s
       retries: 20

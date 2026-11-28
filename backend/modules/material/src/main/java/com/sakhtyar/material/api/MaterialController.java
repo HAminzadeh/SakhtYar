@@ -103,6 +103,11 @@ public class MaterialController {
         return service.aggregates(id);
     }
 
+    @GetMapping("/{id}/aggregates/history")
+    public List<PriceAggregateHistoryResponse> aggregateHistory(@PathVariable UUID id) {
+        return service.aggregateHistory(id);
+    }
+
     @PostMapping("/{id}/aggregates/rebuild")
     public List<PriceAggregateResponse> rebuildAggregates(@PathVariable UUID id) {
         return service.rebuildAggregates(id);
