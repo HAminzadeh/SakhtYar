@@ -2,15 +2,598 @@
   "68": {
     "review": "Phase13 workflow: operator-reviewed source requirements. Future migrations need explicit policy, including an empty tables map for migrations that add no runtime tables.",
     "tables": {
-      "builder_account_binding": {"privileges": ["SELECT", "INSERT", "UPDATE"], "forbidden": ["TRUNCATE"]},
-      "builder_verification_event": {"privileges": ["SELECT", "INSERT"], "forbidden": ["TRUNCATE"], "triggers": ["trg_builder_review_immutable"]},
-      "builder_invitation": {"privileges": ["SELECT", "INSERT", "UPDATE"], "forbidden": ["TRUNCATE"], "rls": true, "triggers": ["trg_builder_invitation_scope"], "policies": ["builder_invitation_real_scope"]},
-      "builder_proposal": {"privileges": ["SELECT", "INSERT", "UPDATE"], "forbidden": ["TRUNCATE"], "rls": true, "triggers": ["trg_builder_proposal_scope"], "policies": ["builder_proposal_real_scope"]},
-      "builder_proposal_revision": {"privileges": ["SELECT", "INSERT"], "forbidden": ["TRUNCATE"], "rls": true, "triggers": ["trg_builder_revision_guard"], "policies": ["builder_proposal_revision_real_scope"]},
-      "construction_case": {"privileges": ["SELECT"], "forbidden": ["TRUNCATE"], "rls": true, "triggers": ["trg_sakhtyar_core_scope"], "policies": ["sakhtyar_core_scope_policy"]},
-      "builder_profile": {"privileges": ["SELECT", "INSERT", "UPDATE"], "forbidden": ["TRUNCATE"]},
-      "project_builder": {"privileges": ["SELECT", "INSERT", "UPDATE"], "forbidden": ["TRUNCATE"]},
-      "app_user": {"privileges": ["SELECT"], "forbidden": ["TRUNCATE"]}
+      "builder_account_binding": {
+        "privileges": [
+          "SELECT",
+          "INSERT",
+          "UPDATE"
+        ],
+        "forbidden": [
+          "TRUNCATE"
+        ]
+      },
+      "builder_verification_event": {
+        "privileges": [
+          "SELECT",
+          "INSERT"
+        ],
+        "forbidden": [
+          "TRUNCATE"
+        ],
+        "triggers": [
+          "trg_builder_review_immutable"
+        ]
+      },
+      "builder_invitation": {
+        "privileges": [
+          "SELECT",
+          "INSERT",
+          "UPDATE"
+        ],
+        "forbidden": [
+          "TRUNCATE"
+        ],
+        "rls": true,
+        "triggers": [
+          "trg_builder_invitation_scope"
+        ],
+        "policies": [
+          "builder_invitation_real_scope"
+        ]
+      },
+      "builder_proposal": {
+        "privileges": [
+          "SELECT",
+          "INSERT",
+          "UPDATE"
+        ],
+        "forbidden": [
+          "TRUNCATE"
+        ],
+        "rls": true,
+        "triggers": [
+          "trg_builder_proposal_scope"
+        ],
+        "policies": [
+          "builder_proposal_real_scope"
+        ]
+      },
+      "builder_proposal_revision": {
+        "privileges": [
+          "SELECT",
+          "INSERT"
+        ],
+        "forbidden": [
+          "TRUNCATE"
+        ],
+        "rls": true,
+        "triggers": [
+          "trg_builder_revision_guard"
+        ],
+        "policies": [
+          "builder_proposal_revision_real_scope"
+        ]
+      },
+      "construction_case": {
+        "privileges": [
+          "SELECT"
+        ],
+        "forbidden": [
+          "TRUNCATE"
+        ],
+        "rls": true,
+        "triggers": [
+          "trg_sakhtyar_core_scope"
+        ],
+        "policies": [
+          "sakhtyar_core_scope_policy"
+        ]
+      },
+      "builder_profile": {
+        "privileges": [
+          "SELECT",
+          "INSERT",
+          "UPDATE"
+        ],
+        "forbidden": [
+          "TRUNCATE"
+        ]
+      },
+      "project_builder": {
+        "privileges": [
+          "SELECT",
+          "INSERT",
+          "UPDATE"
+        ],
+        "forbidden": [
+          "TRUNCATE"
+        ]
+      },
+      "app_user": {
+        "privileges": [
+          "SELECT"
+        ],
+        "forbidden": [
+          "TRUNCATE"
+        ]
+      }
+    }
+  },
+  "69": {
+    "review": "Source-level minimum for material scope guards; separate physical-role policy review is mandatory. No grants implied.",
+    "tables": {
+      "material_item": {
+        "privileges": [
+          "SELECT",
+          "INSERT",
+          "UPDATE"
+        ],
+        "forbidden": [
+          "DELETE",
+          "TRUNCATE"
+        ],
+        "rls": true,
+        "triggers": [
+          "trg_phase18_material_guard"
+        ],
+        "policies": [
+          "phase18_material_allow",
+          "phase18_material_limit"
+        ]
+      },
+      "material_variant": {
+        "privileges": [
+          "SELECT",
+          "INSERT",
+          "UPDATE"
+        ],
+        "forbidden": [
+          "DELETE",
+          "TRUNCATE"
+        ],
+        "rls": true,
+        "triggers": [
+          "trg_phase18_material_guard"
+        ],
+        "policies": [
+          "phase18_material_allow",
+          "phase18_material_limit"
+        ]
+      },
+      "material_price_observation": {
+        "privileges": [
+          "SELECT",
+          "INSERT",
+          "UPDATE"
+        ],
+        "forbidden": [
+          "DELETE",
+          "TRUNCATE"
+        ],
+        "rls": true,
+        "triggers": [
+          "trg_phase18_material_guard"
+        ],
+        "policies": [
+          "phase18_material_allow",
+          "phase18_material_limit"
+        ]
+      },
+      "material_price_aggregate": {
+        "privileges": [
+          "SELECT",
+          "INSERT",
+          "UPDATE"
+        ],
+        "forbidden": [
+          "TRUNCATE"
+        ],
+        "rls": true,
+        "triggers": [
+          "trg_phase18_material_guard"
+        ],
+        "policies": [
+          "phase18_material_allow",
+          "phase18_material_limit"
+        ]
+      },
+      "material_price_anomaly": {
+        "privileges": [
+          "SELECT",
+          "INSERT",
+          "UPDATE"
+        ],
+        "forbidden": [
+          "TRUNCATE"
+        ],
+        "rls": true,
+        "triggers": [
+          "trg_phase18_material_guard"
+        ],
+        "policies": [
+          "phase18_material_allow",
+          "phase18_material_limit"
+        ]
+      },
+      "knowledge_source": {
+        "privileges": [
+          "SELECT"
+        ],
+        "forbidden": [
+          "TRUNCATE"
+        ]
+      },
+      "knowledge_term": {
+        "privileges": [
+          "SELECT"
+        ],
+        "forbidden": [
+          "TRUNCATE"
+        ]
+      },
+      "simulation_workspace": {
+        "privileges": [
+          "SELECT"
+        ],
+        "forbidden": [
+          "TRUNCATE"
+        ]
+      },
+      "cost_assembly_component": {
+        "privileges": [
+          "SELECT"
+        ],
+        "forbidden": [
+          "TRUNCATE"
+        ]
+      }
+    }
+  },
+  "70": {
+    "review": "V70 price lineage and immutable evidence requirements; operator review and clone verification still required.",
+    "tables": {
+      "material_price_observation": {
+        "privileges": [
+          "SELECT",
+          "INSERT",
+          "UPDATE"
+        ],
+        "forbidden": [
+          "DELETE",
+          "TRUNCATE"
+        ],
+        "rls": true,
+        "triggers": [
+          "trg_phase18_material_guard",
+          "trg_phase18b_price_evidence"
+        ],
+        "policies": [
+          "phase18_material_allow",
+          "phase18_material_limit"
+        ]
+      },
+      "material_price_aggregate": {
+        "privileges": [
+          "SELECT",
+          "INSERT",
+          "UPDATE"
+        ],
+        "forbidden": [
+          "DELETE",
+          "TRUNCATE"
+        ],
+        "rls": true,
+        "triggers": [
+          "trg_phase18_material_guard",
+          "trg_phase18b_aggregate_evidence"
+        ],
+        "policies": [
+          "phase18_material_allow",
+          "phase18_material_limit"
+        ]
+      },
+      "material_price_anomaly": {
+        "privileges": [
+          "SELECT",
+          "INSERT",
+          "UPDATE"
+        ],
+        "forbidden": [
+          "DELETE",
+          "TRUNCATE"
+        ],
+        "rls": true,
+        "triggers": [
+          "trg_phase18_material_guard",
+          "trg_phase18b_anomaly_evidence"
+        ],
+        "policies": [
+          "phase18_material_allow",
+          "phase18_material_limit"
+        ]
+      },
+      "global_currency": {
+        "privileges": [
+          "SELECT"
+        ],
+        "forbidden": [
+          "TRUNCATE"
+        ]
+      }
+    }
+  },
+  "71": {
+    "review": "V71 cost and snapshot scope requirements, minimum source contract only. Role catalog must be reviewed by operator, including new routines.",
+    "tables": {
+      "cost_assembly": {
+        "privileges": [
+          "SELECT",
+          "INSERT",
+          "UPDATE"
+        ],
+        "forbidden": [
+          "TRUNCATE"
+        ],
+        "rls": true,
+        "triggers": [
+          "trg_phase18c_cost_scope"
+        ],
+        "policies": [
+          "phase18c_cost_allow",
+          "phase18c_cost_limit"
+        ]
+      },
+      "cost_assembly_component": {
+        "privileges": [
+          "SELECT",
+          "INSERT",
+          "UPDATE",
+          "DELETE"
+        ],
+        "forbidden": [
+          "TRUNCATE"
+        ],
+        "rls": true,
+        "triggers": [
+          "trg_phase18c_cost_scope"
+        ],
+        "policies": [
+          "phase18c_cost_allow",
+          "phase18c_cost_limit"
+        ]
+      },
+      "cost_estimate": {
+        "privileges": [
+          "SELECT",
+          "INSERT"
+        ],
+        "forbidden": [
+          "UPDATE",
+          "DELETE",
+          "TRUNCATE"
+        ],
+        "rls": true,
+        "triggers": [
+          "trg_phase18c_cost_scope",
+          "trg_phase18c_cost_seal"
+        ],
+        "policies": [
+          "phase18c_cost_allow",
+          "phase18c_cost_limit"
+        ]
+      },
+      "cost_estimate_line": {
+        "privileges": [
+          "SELECT",
+          "INSERT"
+        ],
+        "forbidden": [
+          "UPDATE",
+          "DELETE",
+          "TRUNCATE"
+        ],
+        "rls": true,
+        "triggers": [
+          "trg_phase18c_cost_scope",
+          "trg_phase18c_cost_seal"
+        ],
+        "policies": [
+          "phase18c_cost_allow",
+          "phase18c_cost_limit"
+        ]
+      },
+      "quality_package": {
+        "privileges": [
+          "SELECT",
+          "INSERT",
+          "UPDATE"
+        ],
+        "forbidden": [
+          "TRUNCATE"
+        ],
+        "rls": true,
+        "triggers": [
+          "trg_phase18c_cost_scope"
+        ],
+        "policies": [
+          "phase18c_cost_allow",
+          "phase18c_cost_limit"
+        ]
+      },
+      "quality_package_selection": {
+        "privileges": [
+          "SELECT",
+          "INSERT",
+          "UPDATE",
+          "DELETE"
+        ],
+        "forbidden": [
+          "TRUNCATE"
+        ],
+        "rls": true,
+        "triggers": [
+          "trg_phase18c_cost_scope"
+        ],
+        "policies": [
+          "phase18c_cost_allow",
+          "phase18c_cost_limit"
+        ]
+      },
+      "construction_scenario": {
+        "privileges": [
+          "SELECT",
+          "INSERT",
+          "UPDATE"
+        ],
+        "forbidden": [
+          "TRUNCATE"
+        ],
+        "rls": true,
+        "triggers": [
+          "trg_phase18c_cost_scope"
+        ],
+        "policies": [
+          "phase18c_cost_allow",
+          "phase18c_cost_limit"
+        ]
+      },
+      "construction_scenario_item": {
+        "privileges": [
+          "SELECT",
+          "INSERT",
+          "UPDATE",
+          "DELETE"
+        ],
+        "forbidden": [
+          "TRUNCATE"
+        ],
+        "rls": true,
+        "triggers": [
+          "trg_phase18c_cost_scope"
+        ],
+        "policies": [
+          "phase18c_cost_allow",
+          "phase18c_cost_limit"
+        ]
+      },
+      "scenario_cost_snapshot": {
+        "privileges": [
+          "SELECT",
+          "INSERT"
+        ],
+        "forbidden": [
+          "UPDATE",
+          "DELETE",
+          "TRUNCATE"
+        ],
+        "rls": true,
+        "triggers": [
+          "trg_phase18c_cost_scope",
+          "trg_phase18c_cost_seal"
+        ],
+        "policies": [
+          "phase18c_cost_allow",
+          "phase18c_cost_limit"
+        ]
+      },
+      "scenario_cost_snapshot_line": {
+        "privileges": [
+          "SELECT",
+          "INSERT"
+        ],
+        "forbidden": [
+          "UPDATE",
+          "DELETE",
+          "TRUNCATE"
+        ],
+        "rls": true,
+        "triggers": [
+          "trg_phase18c_cost_scope",
+          "trg_phase18c_cost_seal"
+        ],
+        "policies": [
+          "phase18c_cost_allow",
+          "phase18c_cost_limit"
+        ]
+      },
+      "feasibility_assessment": {
+        "privileges": [
+          "SELECT",
+          "INSERT",
+          "UPDATE"
+        ],
+        "forbidden": [
+          "TRUNCATE"
+        ],
+        "rls": true,
+        "triggers": [
+          "trg_phase18c_cost_scope"
+        ],
+        "policies": [
+          "phase18c_cost_allow",
+          "phase18c_cost_limit"
+        ]
+      },
+      "feasibility_reason": {
+        "privileges": [
+          "SELECT",
+          "INSERT"
+        ],
+        "forbidden": [
+          "TRUNCATE"
+        ],
+        "rls": true,
+        "triggers": [
+          "trg_phase18c_cost_scope"
+        ],
+        "policies": [
+          "phase18c_cost_allow",
+          "phase18c_cost_limit"
+        ]
+      },
+      "financial_analysis": {
+        "privileges": [
+          "SELECT",
+          "INSERT",
+          "UPDATE"
+        ],
+        "forbidden": [
+          "TRUNCATE"
+        ],
+        "rls": true,
+        "triggers": [
+          "trg_phase18c_cost_scope"
+        ],
+        "policies": [
+          "phase18c_cost_allow",
+          "phase18c_cost_limit"
+        ]
+      },
+      "financial_participation_allocation": {
+        "privileges": [
+          "SELECT",
+          "INSERT"
+        ],
+        "forbidden": [
+          "TRUNCATE"
+        ],
+        "rls": true,
+        "triggers": [
+          "trg_phase18c_cost_scope"
+        ],
+        "policies": [
+          "phase18c_cost_allow",
+          "phase18c_cost_limit"
+        ]
+      },
+      "urban_evaluation": {
+        "privileges": [
+          "SELECT"
+        ],
+        "forbidden": [
+          "TRUNCATE"
+        ]
+      }
     }
   }
 }

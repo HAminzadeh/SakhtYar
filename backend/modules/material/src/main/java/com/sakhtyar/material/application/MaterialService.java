@@ -387,6 +387,13 @@ public class MaterialService {
                 PriceAggregateResponse.from(a),usable.contains(a.getId()),a.getExpiresAt(),a.getEvidenceIds())).toList();
     }
 
+    public record PriceSourceResponse(UUID id,String code,String name,String trust) {}
+    @Transactional(readOnly=true)
+    public List<PriceSourceResponse> priceSources(UUID itemId) {
+        requireItem(itemId);
+        return observationRepository.eligibleSources(itemId).stream().map(s -> new PriceSourceResponse(s.getId(),s.getCode(),s.getName(),s.getTrust())).toList();
+    }
+
     private MaterialItemEntity requireItem(UUID id) {
         return itemRepository.findById(id)
                 .orElseThrow(() -> new IllegalArgumentException("Material not found."));

@@ -31,7 +31,7 @@ import '../styles/navigation-workflow.css'
 type NavigationLink = {
   label: string
   path: string
-  permission?: Permission
+  permission?: Permission | Permission[]
   icon?: ReactNode
 }
 type NavigationGroup = {
@@ -48,6 +48,7 @@ const navigationGroups: NavigationGroup[] = [
     key: 'market', label: 'بازار و همکاران', icon: <TeamOutlined />,
     links: [
       { label: 'تحلیل بازار', path: '/market', permission: 'CASE_READ', icon: <BarChartOutlined /> },
+      { label: 'مصالح و قیمت ساخت', path: '/materials', permission: ['CASE_READ','USER_MANAGE'], icon: <ToolOutlined /> },
       { label: 'مدیریت سازندگان', path: '/admin/builders', permission: 'USER_MANAGE', icon: <ApartmentOutlined /> },
     ],
   },
@@ -86,7 +87,7 @@ export function AppShell() {
   const visibleGroups = navigationGroups
     .map(group => ({
       ...group,
-      links: group.links.filter(link => !link.permission || hasPermission(link.permission)),
+      links: group.links.filter(link => !link.permission || (Array.isArray(link.permission) ? link.permission.some(p => hasPermission(p)) : hasPermission(link.permission))),
     }))
     .filter(group => group.links.length > 0)
 

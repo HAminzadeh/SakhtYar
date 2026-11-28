@@ -6,7 +6,7 @@ import { useAuth } from './AuthProvider'
 export function PermissionRoute({
   permission,
 }: {
-  permission: Permission
+  permission: Permission | Permission[]
 }) {
   const { user, hasPermission } = useAuth()
 
@@ -14,7 +14,7 @@ export function PermissionRoute({
     return <Navigate to="/login" replace />
   }
 
-  if (!hasPermission(permission)) {
+  if (!(Array.isArray(permission) ? permission.some(p => hasPermission(p)) : hasPermission(permission))) {
     return (
       <Stack p={3}>
         <Alert severity="error">

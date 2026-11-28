@@ -26,7 +26,7 @@ public class CostEstimateEntity {
     @Column(name = "price_type", nullable = false, length = 40)
     private MaterialPriceType priceType;
 
-    @Column(name = "currency_code", nullable = false, length = 3)
+    @Column(name = "currency_code", nullable = false, length = 8)
     private String currencyCode;
 
     @Column(length = 160)

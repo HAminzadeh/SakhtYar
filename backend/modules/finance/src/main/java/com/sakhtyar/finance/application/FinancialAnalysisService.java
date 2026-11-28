@@ -48,6 +48,8 @@ public class FinancialAnalysisService {
         if(feasibility.getStatus()==FeasibilityStatus.NOT_FEASIBLE)
             throw new IllegalStateException("Financial analysis cannot be created from a NOT_FEASIBLE assessment.");
 
+        if(!"2.0".equals(feasibility.getInputSnapshot().get("materialCostAlgorithmVersion")))
+            throw new org.springframework.web.server.ResponseStatusException(org.springframework.http.HttpStatus.CONFLICT,"Recalculate feasibility with governed material costs.");
         validateParticipants(r.participants(),feasibility);
 
         List<FinancialCalculator.Participant> calculatorParticipants=new ArrayList<>();
@@ -71,6 +73,8 @@ public class FinancialAnalysisService {
 
         Map<String,Object> inputSnapshot=new LinkedHashMap<>();
         inputSnapshot.put("feasibilityAssessmentId",feasibility.getId().toString());
+        inputSnapshot.put("scenarioCostSnapshotId",feasibility.getScenarioCostSnapshotId().toString());
+        inputSnapshot.put("materialCostAlgorithmVersion","2.0");
         inputSnapshot.put("caseId",feasibility.getCaseId().toString());
         inputSnapshot.put("propertyId",feasibility.getPropertyId().toString());
         inputSnapshot.put("scenarioId",feasibility.getScenarioId().toString());

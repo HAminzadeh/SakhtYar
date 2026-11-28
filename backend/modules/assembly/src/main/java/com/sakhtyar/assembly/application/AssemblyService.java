@@ -5,6 +5,8 @@ import static com.sakhtyar.assembly.api.AssemblyDtos.*;
 import com.sakhtyar.assembly.domain.*;
 import com.sakhtyar.audit.application.AuditService;
 import com.sakhtyar.material.domain.*;
+import com.sakhtyar.material.application.MaterialFoundation;
+import com.sakhtyar.material.application.MaterialPricePolicy;
 import java.math.BigDecimal;
 import java.math.RoundingMode;
 import java.time.Instant;
@@ -16,7 +18,7 @@ import org.springframework.transaction.annotation.Transactional;
 @Service
 public class AssemblyService {
 
-    private static final String ALGORITHM_VERSION = "1.0";
+    private static final String ALGORITHM_VERSION = "2.0";
 
     private final CostAssemblyRepository assemblyRepository;
     private final CostAssemblyComponentRepository componentRepository;
@@ -91,7 +93,7 @@ public class AssemblyService {
 
     @Transactional
     public AssemblyResponse updateAssembly(UUID id, UpsertAssemblyRequest request) {
-        CostAssemblyEntity entity = requireAssembly(id);
+        CostAssemblyEntity entity = requireLockedAssembly(id);
         if (!entity.getCode().equalsIgnoreCase(request.code().trim())) {
             throw new IllegalArgumentException("Assembly code is immutable after creation.");
         }
@@ -118,10 +120,13 @@ public class AssemblyService {
 
     @Transactional
     public ComponentResponse addComponent(UUID assemblyId, CreateComponentRequest request) {
-        requireAssembly(assemblyId);
+        if(!requireLockedAssembly(assemblyId).isActive()) throw new IllegalStateException("Assembly inactive.");
         MaterialItemEntity material = materialRepository.findById(request.materialItemId())
                 .orElseThrow(() -> new IllegalArgumentException("Material not found."));
 
+        if (!material.isActive()) throw new IllegalArgumentException("Inactive material.");
+        MaterialFoundation.quantity(request.quantity());
+        if(request.wasteFactor()==null || request.wasteFactor().signum()<0 || request.wasteFactor().compareTo(BigDecimal.TEN)>0 || Math.max(0,request.wasteFactor().stripTrailingZeros().scale())>6) throw new IllegalArgumentException("Invalid waste factor.");
         if (!material.getUnitCode().equalsIgnoreCase(request.unitCode().trim())) {
             throw new IllegalArgumentException(
                     "Assembly component unit must match the material base unit in Phase 5.5."
@@ -131,7 +136,7 @@ public class AssemblyService {
         if (request.variantId() != null) {
             MaterialVariantEntity variant = variantRepository.findById(request.variantId())
                     .orElseThrow(() -> new IllegalArgumentException("Material variant not found."));
-            if (!variant.getMaterialItemId().equals(material.getId())) {
+            if (!variant.isActive() || !variant.getMaterialItemId().equals(material.getId())) {
                 throw new IllegalArgumentException("Variant does not belong to selected material.");
             }
         }
@@ -155,7 +160,7 @@ public class AssemblyService {
 
     @Transactional
     public void removeComponent(UUID assemblyId, UUID componentId) {
-        requireAssembly(assemblyId);
+        requireLockedAssembly(assemblyId);
         CostAssemblyComponentEntity component = componentRepository.findById(componentId)
                 .orElseThrow(() -> new IllegalArgumentException("Assembly component not found."));
         if (!component.getAssemblyId().equals(assemblyId)) {
@@ -171,7 +176,8 @@ public class AssemblyService {
     public EstimateResponse calculate(
             UUID assemblyId, CalculateCostRequest request, Authentication authentication
     ) {
-        CostAssemblyEntity assembly = requireAssembly(assemblyId);
+        CostAssemblyEntity assembly = requireLockedAssembly(assemblyId);
+        MaterialFoundation.quantity(request.quantity());
         if (!assembly.isActive()) {
             throw new IllegalStateException("Assembly is inactive.");
         }
@@ -183,9 +189,15 @@ public class AssemblyService {
             throw new IllegalStateException("Assembly has no components.");
         }
 
-        String currency = request.currencyCode().trim().toUpperCase(Locale.ROOT);
+        String currency = MaterialFoundation.currencyCode(request.currencyCode());
         String province = normalizeRegion(request.province());
         String city = normalizeRegion(request.city());
+        if (!city.isBlank() && province.isBlank()) throw new IllegalArgumentException("City requires province.");
+        // Lock in deterministic UUID order within this assembly; a deadlock aborts the whole transaction.
+        components.stream().map(CostAssemblyComponentEntity::getMaterialItemId).distinct().sorted().forEach(id -> {
+            var item=materialRepository.findLockedById(id).orElseThrow(() -> new IllegalStateException("Missing material."));
+            if(!item.isActive()) throw new IllegalStateException("Inactive material.");
+        });
 
         List<PreparedLine> prepared = new ArrayList<>();
         BigDecimal total = BigDecimal.ZERO;
@@ -206,14 +218,15 @@ public class AssemblyService {
             BigDecimal effectiveQuantity = AssemblyCostCalculator.effectiveQuantity(
                     component.getQuantity(), component.getWasteFactor(), request.quantity()
             );
-            BigDecimal lineTotal = AssemblyCostCalculator.lineTotal(effectiveQuantity, unitPrice);
+            MaterialFoundation.quantity(effectiveQuantity);
+            BigDecimal lineTotal = MaterialFoundation.amount(AssemblyCostCalculator.lineTotal(effectiveQuantity, unitPrice));
             total = total.add(lineTotal);
 
             prepared.add(new PreparedLine(component, aggregate, unitPrice, effectiveQuantity, lineTotal));
         }
 
-        BigDecimal finalTotal = total.setScale(2, RoundingMode.HALF_UP);
-        BigDecimal unitCost = finalTotal.divide(request.quantity(), 2, RoundingMode.HALF_UP);
+        BigDecimal finalTotal = MaterialFoundation.amount(total.setScale(2, RoundingMode.HALF_UP));
+        BigDecimal unitCost = MaterialFoundation.amount(finalTotal.divide(request.quantity(), 2, RoundingMode.HALF_UP));
 
         Instant now = Instant.now();
         CostEstimateEntity estimate = new CostEstimateEntity(
@@ -275,21 +288,8 @@ public class AssemblyService {
             String province,
             String city
     ) {
-        return aggregateRepository
-                .findByMaterialItemIdOrderByCalculatedAtDesc(component.getMaterialItemId())
-                .stream()
-                .filter(a -> Objects.equals(a.getVariantId(), component.getVariantId()))
-                .filter(a -> a.getPriceType() == priceType)
-                .filter(a -> a.getCurrencyCode().equalsIgnoreCase(currency))
-                .filter(a -> a.getUnitCode().equalsIgnoreCase(component.getUnitCode()))
-                .filter(a -> Objects.equals(normalizeRegion(a.getProvince()), province))
-                .filter(a -> Objects.equals(normalizeRegion(a.getCity()), city))
-                .findFirst()
-                .orElseThrow(() -> new IllegalStateException(
-                        "No approved price aggregate is available for material "
-                                + component.getMaterialItemId()
-                                + " with the requested variant/price type/currency/unit/region."
-                ));
+        return MaterialPriceResolver.resolve(aggregateRepository.findByMaterialItemIdOrderByCalculatedAtDesc(component.getMaterialItemId()),
+                component.getMaterialItemId(), component.getVariantId(), priceType, currency, component.getUnitCode(), province, city, Instant.now());
     }
 
     private EstimateResponse toEstimateResponse(
@@ -304,6 +304,10 @@ public class AssemblyService {
                 estimate.getStatus(), estimate.getCalculatedBy(), estimate.getCalculatedAt(),
                 lines.stream().map(EstimateLineResponse::from).toList()
         );
+    }
+
+    private CostAssemblyEntity requireLockedAssembly(UUID id) {
+        return assemblyRepository.findLockedById(id).orElseThrow(() -> new IllegalArgumentException("Assembly not found."));
     }
 
     private CostAssemblyEntity requireAssembly(UUID id) {

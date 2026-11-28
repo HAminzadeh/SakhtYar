@@ -75,6 +75,9 @@ public class MaterialController {
         return service.updateVariant(id, variantId, request);
     }
 
+    @GetMapping("/{id}/price-sources")
+    public List<MaterialService.PriceSourceResponse> priceSources(@PathVariable UUID id) { return service.priceSources(id); }
+
     @GetMapping("/{id}/prices")
     public List<PriceObservationResponse> prices(@PathVariable UUID id) {
         return service.observations(id);

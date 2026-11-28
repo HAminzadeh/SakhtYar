@@ -18,7 +18,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 @Service
 public class ScenarioService {
-    private static final String COST_ALGORITHM_VERSION = "1.0";
+    private static final String COST_ALGORITHM_VERSION = "2.0";
     private final QualityPackageRepository packageRepo;
     private final QualityPackageSelectionRepository selectionRepo;
     private final ConstructionScenarioRepository scenarioRepo;
@@ -118,7 +118,7 @@ public class ScenarioService {
 
     @Transactional
     public ScenarioResponse updateScenario(UUID id, UpsertScenarioRequest r) {
-        var e = reqScenario(id);
+        var e = reqLockedScenario(id);
         if (!e.getCode().equalsIgnoreCase(r.code().trim()))
             throw new IllegalArgumentException("Scenario code is immutable.");
         validatePkg(r.qualityPackageId());
@@ -129,7 +129,7 @@ public class ScenarioService {
 
     @Transactional
     public ScenarioResponse changeStatus(UUID id, ChangeStatusRequest r) {
-        var e = reqScenario(id);
+        var e = reqLockedScenario(id);
         if (r.status() == ScenarioStatus.READY) {
             if (!e.isActive()) throw new IllegalStateException("Inactive scenario cannot be READY.");
             if (itemRepo.findByScenarioIdOrderBySortOrderAscIdAsc(id).stream().noneMatch(ConstructionScenarioItemEntity::isEnabled))
@@ -148,7 +148,9 @@ public class ScenarioService {
 
     @Transactional
     public ScenarioItemResponse addItem(UUID id, CreateScenarioItemRequest r) {
-        var sc = reqScenario(id);
+        var sc = reqLockedScenario(id);
+        if(!sc.isActive() || sc.getStatus()==ScenarioStatus.ARCHIVED) throw new IllegalStateException("Inactive or archived scenario.");
+        com.sakhtyar.material.application.MaterialFoundation.quantity(r.quantity());
         if (!assemblyRepo.existsById(r.assemblyId())) throw new IllegalArgumentException("Assembly not found.");
         if (r.slotCode() != null && sc.getQualityPackageId() != null) {
             var sel = selectionRepo.findByPackageIdAndSlotCodeIgnoreCase(sc.getQualityPackageId(), r.slotCode().trim()).orElseThrow(() -> new IllegalArgumentException("Slot is not defined in selected quality package."));
@@ -157,28 +159,31 @@ public class ScenarioService {
         }
         var e = new ConstructionScenarioItemEntity(UUID.randomUUID(), id, r.slotCode() == null ? null : r.slotCode().trim().toUpperCase(Locale.ROOT), r.assemblyId(), r.quantity(), r.source(), r.enabled(), r.sortOrder(), trim(r.note()), Instant.now());
         itemRepo.save(e);
+        sc.touch(Instant.now());
         auditService.record("CONSTRUCTION_SCENARIO", id, "SCENARIO_ITEM_ADDED", Map.of("itemId", e.getId().toString()));
         return ScenarioItemResponse.from(e);
     }
 
     @Transactional
     public void removeItem(UUID id, UUID itemId) {
-        reqScenario(id);
+        var sc=reqLockedScenario(id);
+        if(sc.getStatus()==ScenarioStatus.ARCHIVED) throw new IllegalStateException("Archived scenario.");
         var e = itemRepo.findById(itemId).orElseThrow(() -> new IllegalArgumentException("Scenario item not found."));
         if (!e.getScenarioId().equals(id)) throw new IllegalArgumentException("Item does not belong to scenario.");
         itemRepo.delete(e);
+        sc.touch(Instant.now());
         auditService.record("CONSTRUCTION_SCENARIO", id, "SCENARIO_ITEM_REMOVED", Map.of("itemId", itemId.toString()));
     }
 
     @Transactional
     public SnapshotResponse calculate(UUID id, CalculateScenarioRequest r, Authentication a) {
-        var sc = reqScenario(id);
+        var sc = reqLockedScenario(id);
         if (!sc.isActive()) throw new IllegalStateException("Scenario is inactive.");
         if (sc.getStatus() == ScenarioStatus.ARCHIVED)
             throw new IllegalStateException("Archived scenario cannot be recalculated.");
         var items = itemRepo.findByScenarioIdOrderBySortOrderAscIdAsc(id).stream().filter(ConstructionScenarioItemEntity::isEnabled).toList();
         if (items.isEmpty()) throw new IllegalStateException("Scenario has no enabled items.");
-        String currency = r.currencyCode().trim().toUpperCase(Locale.ROOT);
+        String currency = com.sakhtyar.material.application.MaterialFoundation.currencyCode(r.currencyCode());
         BigDecimal total = BigDecimal.ZERO;
         List<AssemblyResult> results = new ArrayList<>();
         for (var item : items) {
@@ -187,7 +192,7 @@ public class ScenarioService {
             results.add(new AssemblyResult(item, estimate));
         }
         Instant now = Instant.now();
-        var snap = new ScenarioCostSnapshotEntity(UUID.randomUUID(), id, r.priceType(), currency, trim(r.province()), trim(r.city()), total, COST_ALGORITHM_VERSION, actor(a), now);
+        var snap = new ScenarioCostSnapshotEntity(UUID.randomUUID(), id, r.priceType(), currency, com.sakhtyar.material.application.MaterialPricePolicy.regionValue(r.province()), com.sakhtyar.material.application.MaterialPricePolicy.regionValue(r.city()), com.sakhtyar.material.application.MaterialFoundation.amount(total), COST_ALGORITHM_VERSION, actor(a), now);
         snapshotRepo.save(snap);
         List<ScenarioCostSnapshotLineEntity> lines = new ArrayList<>();
         for (var result : results) {
@@ -210,6 +215,10 @@ public class ScenarioService {
 
     private QualityPackageEntity reqPkg(UUID id) {
         return packageRepo.findById(id).orElseThrow(() -> new IllegalArgumentException("Quality package not found."));
+    }
+
+    private ConstructionScenarioEntity reqLockedScenario(UUID id) {
+        return scenarioRepo.findLockedById(id).orElseThrow(() -> new IllegalArgumentException("Scenario not found."));
     }
 
     private ConstructionScenarioEntity reqScenario(UUID id) {

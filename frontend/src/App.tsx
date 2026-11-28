@@ -20,6 +20,7 @@ import { KnowledgeAdminPage } from './pages/KnowledgeAdminPage'
 import { KnowledgeImportPage } from './pages/KnowledgeImportPage'
 
 import { Phase517MarketPage } from './pages/Phase517MarketPage'
+import { MaterialsPage } from './pages/MaterialsPage'
 import { Phase517BuildersPage } from './pages/Phase517BuildersPage'
 import { Phase517EventsPage } from './pages/Phase517EventsPage'
 import { Phase517AgentsPage } from './pages/Phase517AgentsPage'
@@ -38,6 +39,10 @@ export default function App() {
           </Route>
 <Route path="/settings" element={<PreferencesPage />} />
           <Route path="/help" element={<HelpCenterPage />} />
+
+          <Route element={<PermissionRoute permission={["CASE_READ", "USER_MANAGE"]} />}>
+            <Route path="/materials" element={<MaterialsPage />} />
+          </Route>
 
           <Route element={<PermissionRoute permission="CASE_READ" />}>
             <Route path="/cases" element={<CasesPage />} />

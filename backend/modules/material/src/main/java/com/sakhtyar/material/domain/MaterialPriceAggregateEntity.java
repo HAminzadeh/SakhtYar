@@ -81,6 +81,7 @@ public class MaterialPriceAggregateEntity {
             throw new IllegalArgumentException("Invalid aggregate publication evidence.");
         this.evidenceIds=List.copyOf(ids);this.expiresAt=expires;this.publicationKey=key;this.currentReference=true;
     }
+    public boolean isCurrentReference(){return currentReference;}
     public Instant getExpiresAt(){return expiresAt;}
     public String getPublicationKey(){return publicationKey;}
     public List<String> getEvidenceIds(){return List.copyOf(evidenceIds);}

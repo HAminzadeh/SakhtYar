@@ -67,6 +67,9 @@ public class FeasibilityService {
         UrbanEvaluationEntity urban=urbanEvaluationRepo.findById(r.urbanEvaluationId())
                 .orElseThrow(()->new IllegalArgumentException("Urban evaluation not found."));
 
+        // Legacy snapshots remain readable, but new feasibility must use the governed cost engine.
+        if(!"2.0".equals(costSnapshot.getAlgorithmVersion()))
+            throw new org.springframework.web.server.ResponseStatusException(org.springframework.http.HttpStatus.CONFLICT,"Recalculate scenario with governed material prices.");
         if(!costSnapshot.getScenarioId().equals(scenario.getId()))
             throw new IllegalArgumentException("Cost snapshot does not belong to selected scenario.");
 
@@ -104,6 +107,7 @@ public class FeasibilityService {
         inputSnapshot.put("propertyId",property.getId().toString());
         inputSnapshot.put("scenarioId",scenario.getId().toString());
         inputSnapshot.put("scenarioCostSnapshotId",costSnapshot.getId().toString());
+        inputSnapshot.put("materialCostAlgorithmVersion",costSnapshot.getAlgorithmVersion());
         inputSnapshot.put("urbanEvaluationId",urban.getId().toString());
         put(inputSnapshot,"landAreaM2",text(property.getLandAreaM2()));
         put(inputSnapshot,"totalBuiltAreaM2",text(totalBuiltArea));
